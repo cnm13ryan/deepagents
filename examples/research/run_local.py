@@ -32,11 +32,11 @@ overriding already-set variables:
 
 Model selection
 ---------------
-Set one of:
-- DEEPAGENTS_MODEL="ollama:llama3.1:8b"  # explicit provider prefix
-- DEEPAGENTS_MODEL="qwen3:4b-thinking-2507-q4_K_M" and DEEPAGENTS_MODEL_PROVIDER=ollama
-If neither is set, a local default is used (defaults to Ollama). Set FORCE_REPO_DEFAULT=1
-to use the repo default model instead.
+The script automatically detects your .env configuration and uses the appropriate provider:
+- If DEEPAGENTS_MODEL_PROVIDER is set in .env, uses that provider configuration
+- If DEEPAGENTS_MODEL is set, uses explicit model specification
+- Otherwise falls back to a local default (Ollama)
+Set FORCE_REPO_DEFAULT=1 to always use the repo default model.
 """
 
 from __future__ import annotations
@@ -161,8 +161,9 @@ def get_model():
 
     Priority:
     1) Use explicit `DEEPAGENTS_MODEL` (provider inferred or specified).
-    2) If not set, try a local default (provider inferred or DEEPAGENTS_MODEL_PROVIDER).
-    3) Only if `FORCE_REPO_DEFAULT=1`, use the repo's `get_default_model()`.
+    2) Check if .env has provider configuration and use repo's get_default_model().
+    3) Otherwise, use local fallback (provider inferred or DEEPAGENTS_MODEL_PROVIDER).
+    4) If `FORCE_REPO_DEFAULT=1`, always use the repo's `get_default_model()`.
     """
     model_id = os.getenv("DEEPAGENTS_MODEL")
     force_repo_default = os.getenv("FORCE_REPO_DEFAULT") == "1"
@@ -170,15 +171,16 @@ def get_model():
     if model_id:
         return _init_model_from_string(model_id)
 
-    if not force_repo_default:
-        # Prefer a local default to avoid accidental cloud usage.
-        default_local = os.getenv("DEFAULT_LOCAL_MODEL", "ollama:llama3.1:8b")
-        return _init_model_from_string(default_local)
+    # Check if we have .env configuration for a provider
+    provider = os.getenv("DEEPAGENTS_MODEL_PROVIDER")
+    if provider or force_repo_default:
+        # Use the repo's default model which respects .env configuration
+        from deepagents.model import get_default_model
+        return get_default_model()
 
-    # Explicit opt-in: use the repo's default model (may require API keys)
-    from deepagents.model import get_default_model
-
-    return get_default_model()
+    # Fallback to local default to avoid accidental cloud usage
+    default_local = os.getenv("DEFAULT_LOCAL_MODEL", "ollama:llama3.1:8b")
+    return _init_model_from_string(default_local)
 
 
 # ----- Optional Tavily search tool -----

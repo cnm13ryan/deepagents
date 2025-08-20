@@ -45,8 +45,8 @@ After configuration, try these commands:
 
 **CLI Mode:**
 ```bash
-# Use configured provider from .env files
-FORCE_REPO_DEFAULT=1 uv run python examples/research/run_local.py "Write a short overview of LangGraph"
+# Automatically uses configured provider from .env files
+uv run python examples/research/run_local.py "Write a short overview of LangGraph"
 ```
 
 **Studio Mode (Recommended):**
