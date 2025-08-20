@@ -152,7 +152,7 @@ def main():
     print(f"\nNext steps:")
     print(f"1. Install dependencies: uv sync")
     print(f"2. Run the research agent:")
-    print(f"   • CLI: FORCE_REPO_DEFAULT=1 uv run python examples/research/run_local.py \"Your research question\"")
+    print(f"   • CLI: uv run python examples/research/run_local.py \"Your research question\"")
     print(f"   • Studio: cd examples/research && langgraph dev")
     print(f"\nConfiguration files created:")
     print(f"  - {repo_root / '.env'}")
