@@ -2,3 +2,7 @@
 	path = inspect_ai
 	url = https://github.com/UKGovernmentBEIS/inspect_ai.git
 	branch = main
+[submodule "openai-agents-python"]
+	path = openai-agents-python
+	url = https://github.com/openai/openai-agents-python.git
+	branch = main
