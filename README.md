@@ -222,20 +222,13 @@ agent = create_deep_agent(
 
 #### Using LM‑Studio as the backend
 
-LM‑Studio exposes an OpenAI‑compatible REST API. To run `deepagents` against your local LM‑Studio instance (Studio UI → Server tab), install `langchain-openai` and set:
+LM‑Studio exposes an OpenAI‑compatible REST API. See the [Quick Start](#quick-start) section for easy setup, or manually configure as shown above.
 
-```bash
-export DEEPAGENTS_MODEL_PROVIDER=lm-studio
-export LM_STUDIO_BASE_URL="http://localhost:1234/v1"  # adjust port if needed
-export LM_STUDIO_API_KEY="lm-studio"                   # LM‑Studio ignores the key
-export LM_STUDIO_MODEL_NAME="local-model"              # optional model name
-```
-
-Then create your agent normally (no code changes required):
+The agent will automatically use LM-Studio when `DEEPAGENTS_MODEL_PROVIDER=lm-studio` is set:
 
 ```python
 from deepagents import create_deep_agent
-agent = create_deep_agent(tools, instructions)
+agent = create_deep_agent(tools, instructions)  # No code changes needed
 ```
 
 #### Example: Per-subagent model override (optional)
