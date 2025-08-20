@@ -17,40 +17,68 @@ a **planning tool**, **sub agents**, access to a **file system**, and a **detail
 pip install deepagents
 ```
 
-## Quick Start (Research Agent)
+## Quick Start
 
-The fastest way to try the built‑in research agent from this repo:
+Get started with the built-in research agent in under 5 minutes:
 
-1) Create a virtualenv and install from source
-- `python -m venv .venv && source .venv/bin/activate`
-- `pip install -e .`  # installs dependencies and uses local source
+### 🚀 One-Command Setup
 
-2) Choose a local model (Ollama or LM‑Studio)
-- Ollama (recommended to start): create `examples/research/.env` with
-  - `DEEPAGENTS_MODEL=ollama:llama3.1:8b`  (or your local tag, e.g. `ollama:qwen3:...`)
-- LM‑Studio (OpenAI‑compatible):
-  - `DEEPAGENTS_MODEL_PROVIDER=lm-studio`
-  - `LM_STUDIO_BASE_URL=http://localhost:1234/v1`
-  - `LM_STUDIO_API_KEY=lm-studio`
-  - `LM_STUDIO_MODEL_NAME=local-model`
+```bash
+# Clone and setup
+git clone https://github.com/your-username/deepagents.git
+cd deepagents
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
 
-3) (Optional) Enable web search
-- Add `TAVILY_API_KEY=...` to the same `.env` to enable the `internet_search` tool.
-  Without it, the tool remains available but returns a "disabled" message.
+# Interactive configuration
+python configure.py
+```
 
-4) Run via LangGraph Studio (recommended)
-- `cd examples/research && langgraph dev`
-- Open the printed URL, select the `research` graph, and send:
-  `{"messages":[{"role":"user","content":"Write a short overview of LangGraph"}]}`
+The configuration script will:
+- Help you choose between Ollama or LM-Studio
+- Detect available models automatically  
+- Set up web search (optional)
+- Create all necessary `.env` files
 
-Or run once from the CLI:
-- `python examples/research/run_local.py "Write a short overview of LangGraph"`
-- Add `--print-files` to display any files written by the agent.
+### 🎯 Quick Test
 
-Notes
-- The Studio config points to `examples/research/run_local.py:agent`, which imports the
-  local `src/` code and auto‑loads `.env` from `examples/research/.env` (and repo root).
-- You can switch providers at any time by updating the `.env` and restarting Studio.
+After configuration, try these commands:
+
+**CLI Mode:**
+```bash
+# Use configured provider from .env files
+FORCE_REPO_DEFAULT=1 python examples/research/run_local.py "Write a short overview of LangGraph"
+```
+
+**Studio Mode (Recommended):**
+```bash
+cd examples/research && langgraph dev
+```
+Then open the printed URL and send: `{"messages":[{"role":"user","content":"Your research question"}]}`
+
+### 🔧 Manual Configuration
+
+If you prefer manual setup, create `examples/research/.env`:
+
+**For Ollama:**
+```bash
+DEEPAGENTS_MODEL_PROVIDER=ollama
+OLLAMA_MODEL_NAME=qwen3:4b-thinking-2507-q4_K_M
+# OLLAMA_BASE_URL=http://localhost:11434  # optional
+```
+
+**For LM-Studio:**
+```bash
+DEEPAGENTS_MODEL_PROVIDER=lm-studio
+LM_STUDIO_BASE_URL=http://localhost:1234/v1
+LM_STUDIO_MODEL_NAME=qwen/qwen3-4b-thinking-2507
+LM_STUDIO_API_KEY=lm-studio
+```
+
+**Optional Web Search:**
+```bash
+TAVILY_API_KEY=your_tavily_key_here
+```
 
 ## Usage
 
