@@ -14,7 +14,7 @@ a **planning tool**, **sub agents**, access to a **file system**, and a **detail
 ## Installation
 
 ```bash
-pip install deepagents
+uv add deepagents
 ```
 
 ## Quick Start
@@ -24,14 +24,13 @@ Get started with the built-in research agent in under 5 minutes:
 ### 🚀 One-Command Setup
 
 ```bash
-# Clone and setup
+# Clone and setup with uv
 git clone https://github.com/your-username/deepagents.git
 cd deepagents
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+uv sync
 
 # Interactive configuration
-python configure.py
+uv run python configure.py
 ```
 
 The configuration script will:
@@ -47,7 +46,7 @@ After configuration, try these commands:
 **CLI Mode:**
 ```bash
 # Use configured provider from .env files
-FORCE_REPO_DEFAULT=1 python examples/research/run_local.py "Write a short overview of LangGraph"
+FORCE_REPO_DEFAULT=1 uv run python examples/research/run_local.py "Write a short overview of LangGraph"
 ```
 
 **Studio Mode (Recommended):**
@@ -82,7 +81,7 @@ TAVILY_API_KEY=your_tavily_key_here
 
 ## Usage
 
-(To run the example below, will need to `pip install tavily-python`)
+(To run the example below, will need to `uv add tavily-python`)
 
 ```python
 import os
@@ -202,7 +201,7 @@ You can also pass any [LangChain model object](https://python.langchain.com/docs
 
 Here's how to use a custom model (like OpenAI's `gpt-oss` model via Ollama):
 
-(Requires `pip install langchain` and then `pip install langchain-ollama` for Ollama models)
+(Requires `uv add langchain` and then `uv add langchain-ollama` for Ollama models)
 
 ```python
 from deepagents import create_deep_agent
@@ -311,7 +310,7 @@ as well as custom instructions.
 
 The `deepagents` library can be ran with MCP tools. This can be achieved by using the [Langchain MCP Adapter library](https://github.com/langchain-ai/langchain-mcp-adapters).
 
-(To run the example below, will need to `pip install langchain-mcp-adapters`)
+(To run the example below, will need to `uv add langchain-mcp-adapters`)
 
 ```python
 import asyncio
