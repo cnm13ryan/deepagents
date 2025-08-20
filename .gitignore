@@ -208,3 +208,7 @@ __marimo__/
 
 # LangGraph
 .langgraph_api
+
+# Backup files created by editors
+*~
+.*.un~
