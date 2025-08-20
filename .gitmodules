@@ -6,3 +6,7 @@
 	path = openai-agents-python
 	url = https://github.com/openai/openai-agents-python.git
 	branch = main
+[submodule "adk-python"]
+	path = adk-python
+	url = https://github.com/google/adk-python.git
+	branch = main
