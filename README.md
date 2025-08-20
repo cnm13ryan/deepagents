@@ -17,6 +17,41 @@ a **planning tool**, **sub agents**, access to a **file system**, and a **detail
 pip install deepagents
 ```
 
+## Quick Start (Research Agent)
+
+The fastest way to try the built‑in research agent from this repo:
+
+1) Create a virtualenv and install from source
+- `python -m venv .venv && source .venv/bin/activate`
+- `pip install -e .`  # installs dependencies and uses local source
+
+2) Choose a local model (Ollama or LM‑Studio)
+- Ollama (recommended to start): create `examples/research/.env` with
+  - `DEEPAGENTS_MODEL=ollama:llama3.1:8b`  (or your local tag, e.g. `ollama:qwen3:...`)
+- LM‑Studio (OpenAI‑compatible):
+  - `DEEPAGENTS_MODEL_PROVIDER=lm-studio`
+  - `LM_STUDIO_BASE_URL=http://localhost:1234/v1`
+  - `LM_STUDIO_API_KEY=lm-studio`
+  - `LM_STUDIO_MODEL_NAME=local-model`
+
+3) (Optional) Enable web search
+- Add `TAVILY_API_KEY=...` to the same `.env` to enable the `internet_search` tool.
+  Without it, the tool remains available but returns a "disabled" message.
+
+4) Run via LangGraph Studio (recommended)
+- `cd examples/research && langgraph dev`
+- Open the printed URL, select the `research` graph, and send:
+  `{"messages":[{"role":"user","content":"Write a short overview of LangGraph"}]}`
+
+Or run once from the CLI:
+- `python examples/research/run_local.py "Write a short overview of LangGraph"`
+- Add `--print-files` to display any files written by the agent.
+
+Notes
+- The Studio config points to `examples/research/run_local.py:agent`, which imports the
+  local `src/` code and auto‑loads `.env` from `examples/research/.env` (and repo root).
+- You can switch providers at any time by updating the `.env` and restarting Studio.
+
 ## Usage
 
 (To run the example below, will need to `pip install tavily-python`)
