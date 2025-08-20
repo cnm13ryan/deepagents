@@ -128,7 +128,12 @@ agent = create_deep_agent(
 
 ### `model` (Optional)
 
-By default, `deepagents` uses `"claude-sonnet-4-20250514"`. You can customize this by passing any [LangChain model object](https://python.langchain.com/docs/integrations/chat/).
+By default, `deepagents` selects a provider via the `DEEPAGENTS_MODEL_PROVIDER` environment variable:
+
+- `ollama` (default): runs locally via [langchain-ollama]
+- `lm-studio`: runs against LM‑Studio’s OpenAI‑compatible API via [langchain-openai]
+
+You can also pass any [LangChain model object](https://python.langchain.com/docs/integrations/chat/) explicitly.
 
 #### Example: Using a Custom Model
 
@@ -152,6 +157,24 @@ agent = create_deep_agent(
 )
 ```
 
+#### Using LM‑Studio as the backend
+
+LM‑Studio exposes an OpenAI‑compatible REST API. To run `deepagents` against your local LM‑Studio instance (Studio UI → Server tab), install `langchain-openai` and set:
+
+```bash
+export DEEPAGENTS_MODEL_PROVIDER=lm-studio
+export LM_STUDIO_BASE_URL="http://localhost:1234/v1"  # adjust port if needed
+export LM_STUDIO_API_KEY="lm-studio"                   # LM‑Studio ignores the key
+export LM_STUDIO_MODEL_NAME="local-model"              # optional model name
+```
+
+Then create your agent normally (no code changes required):
+
+```python
+from deepagents import create_deep_agent
+agent = create_deep_agent(tools, instructions)
+```
+
 #### Example: Per-subagent model override (optional)
 
 Use a fast, deterministic model for a critique sub-agent, while keeping a different default model for the main agent and others:
@@ -173,7 +196,6 @@ critique_sub_agent = {
 agent = create_deep_agent(
     tools=[internet_search],
     instructions="You are an expert researcher...",
-    model="claude-sonnet-4-20250514",  # default for main agent and other sub-agents
     subagents=[critique_sub_agent],
 )
 ```
