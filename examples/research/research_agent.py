@@ -1,13 +1,25 @@
 import os
 from typing import Literal
 
-from tavily import TavilyClient
+# Make Tavily optional so the example can run without an API key
+try:
+    from tavily import TavilyClient  # type: ignore
+except Exception:  # pragma: no cover - optional dep may be missing
+    TavilyClient = None  # type: ignore
 
 
 from deepagents import create_deep_agent, SubAgent
+from langchain.chat_models import init_chat_model
  
 # It's best practice to initialize the client once and reuse it.
-tavily_client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+# However, only initialize when the dependency and API key are available.
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+tavily_client = None
+if TavilyClient and TAVILY_API_KEY:
+    try:
+        tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+    except Exception:
+        tavily_client = None
 
 # Search tool to use to do research
 def internet_search(
@@ -17,13 +29,18 @@ def internet_search(
     include_raw_content: bool = False,
 ):
     """Run a web search"""
-    search_docs = tavily_client.search(
+    if tavily_client is None:
+        # Graceful fallback when Tavily is not configured; keeps the tool available
+        return {
+            "error": "Tavily search disabled: set TAVILY_API_KEY and install tavily-python to enable.",
+            "query": query,
+        }
+    return tavily_client.search(
         query,
         max_results=max_results,
         include_raw_content=include_raw_content,
         topic=topic,
     )
-    return search_docs
 
 
 sub_research_prompt = """You are a dedicated researcher. Your job is to conduct research based on the users questions.
@@ -159,8 +176,13 @@ Use this to run an internet search for a given query. You can specify the number
 """
 
 # Create the agent
+# Optional: allow selecting a model via environment, e.g. DEEPAGENTS_MODEL="ollama:llama3.1:8b"
+MODEL_ID = os.getenv("DEEPAGENTS_MODEL")
+_model = init_chat_model(model=MODEL_ID) if MODEL_ID else None
+
 agent = create_deep_agent(
     [internet_search],
     research_instructions,
+    model=_model,  # if None, defaults to Anthropic; set DEEPAGENTS_MODEL to override
     subagents=[critique_sub_agent, research_sub_agent],
 ).with_config({"recursion_limit": 1000})
