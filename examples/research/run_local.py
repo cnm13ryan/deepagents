@@ -9,7 +9,7 @@ use the local source tree.
 Usage examples
 --------------
 1) Use a local Ollama model (no cloud keys):
-   - pip install langchain-ollama
+   - uv add langchain-ollama
    - export DEEPAGENTS_MODEL=ollama:llama3.1:8b
    - python examples/research/run_local.py "Write a short overview of LangGraph"
 
@@ -18,7 +18,7 @@ Usage examples
    - python examples/research/run_local.py "what is langgraph?"
 
 Optional: Tavily search
-   - pip install tavily-python
+   - uv add tavily-python
    - export TAVILY_API_KEY=...
     If not configured, the `internet_search` tool returns a disabled message instead
     of failing, so the agent can still run fully locally.
@@ -125,7 +125,7 @@ KNOWN_PROVIDERS = {
 def _init_model_from_string(model_str: str):
     if init_chat_model is None:
         raise RuntimeError(
-            "`init_chat_model` is unavailable. Install the appropriate integration (e.g., `pip install langchain-ollama`)."
+            "`init_chat_model` is unavailable. Install the appropriate integration (e.g., `uv add langchain-ollama`)."
         )
 
     # If the string already has a known provider prefix, use as-is
