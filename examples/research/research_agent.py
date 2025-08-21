@@ -1,25 +1,122 @@
-import os
-from typing import Literal
+"""
+Example research agent for DeepAgents with optional web search providers.
 
-# Make Tavily optional so the example can run without an API key
+This module defines a simple research agent powered by the DeepAgents framework.
+It exposes an ``internet_search`` tool that can search the web using either
+Tavily or the Google Programmable Search (Custom Search JSON API). At runtime
+the agent will automatically prefer Google search when the required
+environment variables and dependencies are available. Otherwise it will
+fall back to Tavily when a ``TAVILY_API_KEY`` is configured, and finally
+return a helpful error message if no search provider is configured.
+
+The remainder of the file mirrors the original ``research_agent.py`` from the
+``deepagents`` repository. It includes prompts for both a researcher and a
+critique sub‑agent, as well as instructions for composing a final report. The
+agent is constructed via :func:`deepagents.create_deep_agent` with both
+sub‑agents and the ``internet_search`` tool.
+"""
+
+import os
+from typing import Literal, Any, Optional, Dict, List
+
+# Attempt to import Tavily client. This dependency is optional so that the
+# example can still run without the tavily‑python package being installed.
 try:
-    from tavily import TavilyClient  # type: ignore
-except Exception:  # pragma: no cover - optional dep may be missing
-    TavilyClient = None  # type: ignore
+    from tavily import TavilyClient # type: ignore
+except Exception:
+    TavilyClient = None # type: ignore
+
+# Attempt to import requests for Google search. If requests is not
+# installed then Google search will be disabled.
+try:
+    import requests # type: ignore
+except Exception:
+    requests = None # type: ignore
 
 
 from deepagents import create_deep_agent, SubAgent
 from langchain.chat_models import init_chat_model
  
-# It's best practice to initialize the client once and reuse it.
-# However, only initialize when the dependency and API key are available.
+# Tavily API configuration. If both the dependency and API key are provided
+# a Tavily client will be instantiated and reused. Otherwise ``tavily_client``
+# remains ``None`` and Tavily search will be skipped.
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-tavily_client = None
+tavily_client: Optional[Any] = None
 if TavilyClient and TAVILY_API_KEY:
     try:
-        tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+        tavily_client = TavilyClient(api_key=TAVILY_API_KEY) # type: ignore
     except Exception:
         tavily_client = None
+
+# Google Custom Search configuration. Two environment variables are used to
+# configure Google search: ``GOOGLE_API_KEY`` and ``GOOGLE_CSE_ID``. The
+# ``requests`` library must also be available. If any of these are missing
+# Google search will be skipped.
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+
+def _google_custom_search(
+    query: str,
+    max_results: int = 5,
+    include_raw_content: bool = False,
+    topic: Literal["general", "news", "finance"] = "general",
+) -> Optional[Dict[str, Any]]:
+    """Execute a Google Custom Search API query.
+    This helper returns results in a structure similar to Tavily's search API.
+    Each result item contains a ``url``, ``title`` and ``content`` (snippet).
+
+    Parameters
+    ----------
+    query : str
+        The search query.
+    max_results : int, optional
+        Maximum number of results to return, by default 5. Google limits this
+        to 10 per request.
+    include_raw_content : bool, optional
+        Unused for Google search; included for signature compatibility.
+    topic : Literal["general", "news", "finance"], optional
+        Unused for Google search; included for signature compatibility.
+
+    Returns
+    -------
+    Optional[dict]
+        A dictionary with a ``results`` key on success or ``None`` if Google
+        search cannot be executed (e.g. misconfiguration or missing dependency).
+    """
+
+    # Ensure configuration and requests are available
+    if not (GOOGLE_API_KEY and GOOGLE_CSE_ID and requests):
+        return None
+    try:
+        url = "https://www.googleapis.com/customsearch/v1"
+         # Google API accepts up to 10 results per request
+         num = max_results if max_results <= 10 else 10
+         params = {
+             "key": GOOGLE_API_KEY,
+             "cx": GOOGLE_CSE_ID,
+             "q": query,
+             "num": num,
+         }
+         resp = requests.get(url, params=params, timeout=10) # type: ignore
+         resp.raise_for_status() # type: ignore
+         data: Dict[str, Any] = resp.json() # type: ignore
+         items: List[Dict[str, Any]] = []
+         for item in data.get("items", []):
+             items.append(
+                 {
+                    "url": item.get("link"),
+                    "title": item.get("title"),
+                    # Use the snippet as content; Google does not provide full
+                    # article text via the public API.
+                    "content": item.get("snippet"),
+                 }
+             )
+         return {"results": items}
+    except Exception as exc: # pragma: no cover - network/remote failures
+        # Return an error structure so that the agent can surface issues
+        return {"error": str(exc), "query": query}
+
+
 
 # Search tool to use to do research
 def internet_search(
@@ -27,21 +124,60 @@ def internet_search(
     max_results: int = 5,
     topic: Literal["general", "news", "finance"] = "general",
     include_raw_content: bool = False,
-):
-    """Run a web search"""
-    if tavily_client is None:
-        # Graceful fallback when Tavily is not configured; keeps the tool available
-        return {
-            "error": "Tavily search disabled: set TAVILY_API_KEY and install tavily-python to enable.",
-            "query": query,
-        }
-    return tavily_client.search(
-        query,
-        max_results=max_results,
-        include_raw_content=include_raw_content,
-        topic=topic,
-    )
+) -> Dict[str, Any]:
+    """Run a web search using the best available provider.
 
+    The function first attempts to use Google Programmable Search if the
+    ``GOOGLE_API_KEY`` and ``GOOGLE_CSE_ID`` environment variables are set and
+    the ``requests`` library is installed. If Google search is not available
+    it falls back to Tavily search (if configured). Otherwise a descriptive
+    error message is returned.
+
+    Parameters
+    ----------
+    query : str
+        The search query.
+    max_results : int, optional
+        Maximum number of results to return, by default 5.
+    topic : Literal["general", "news", "finance"], optional
+        Topic category for Tavily search; ignored for Google search.
+    include_raw_content : bool, optional
+        Whether to include raw page contents in Tavily search results; ignored
+        for Google search.
+
+    Returns
+    -------
+    dict
+        Either a search result structure or an error message.
+    """
+    # Prefer Google search if configured and available
+    google_result = _google_custom_search(
+       query,
+       max_results=max_results,
+       include_raw_content=include_raw_content,
+       topic=topic,
+    )
+    if google_result is not None:
+        return google_result
+    # Fall back to Tavily search if a client is available
+    if tavily_client is not None:
+        try:
+            return tavily_client.search(
+                query,
+                max_results=max_results,
+                include_raw_content=include_raw_content,
+                topic=topic,
+            )
+        except Exception as exc: # pragma: no cover - network/remote failures
+            return {"error": str(exc), "query": query}
+    # No search provider configured
+    return {
+        "error": "Web search disabled: set GOOGLE_API_KEY and GOOGLE_CSE_ID or TAVILY_API_KEY to enable search.",
+        "query": query,
+    }
+
+
+# Agent prompts and sub‑agents
 
 sub_research_prompt = """You are a dedicated researcher. Your job is to conduct research based on the users questions.
 
