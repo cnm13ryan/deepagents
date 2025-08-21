@@ -145,6 +145,34 @@ def configure_tavily():
     
     return "\n# Tavily Web Search (disabled)\n# TAVILY_API_KEY=your_key_here\n"
 
+def configure_google():
+    """Interactively configure Google Programmable Search (optional).
+
+    Prompts for the Custom Search Engine ID first, then the API key.
+    """
+    print("\n🔧 Configuring Google Custom Search (Optional)...")
+    print(
+        "Google Custom Search provides web search capabilities to the research agent.\n"
+        "You must supply both a Custom Search Engine ID (CSE ID) and an API key."
+    )
+
+    use_google = input("Enable Google web search? (y/N): ").strip().lower()
+    if use_google in {"y", "yes"}:
+        cse_id = input("Enter your Google Custom Search Engine ID: ").strip()
+        api_key = input("Enter your Google API key: ").strip()
+        if api_key and cse_id:
+            return (
+                "\n# Google Web Search\n"
+                f"GOOGLE_CSE_ID={cse_id}\n"
+                f"GOOGLE_API_KEY={api_key}\n"
+            )
+
+    return (
+        "\n# Google Web Search (disabled)\n"
+        "# GOOGLE_CSE_ID=your_cse_id_here\n"
+        "# GOOGLE_API_KEY=your_key_here\n"
+    )
+
 def main():
     """Main configuration process."""
     print("🧠🤖 DeepAgents Configuration Helper")
@@ -170,8 +198,9 @@ def main():
         print("❌ Invalid choice. Exiting.")
         sys.exit(1)
     
-    # Add Tavily configuration
+    # Append optional search provider configuration
     env_content += configure_tavily()
+    env_content += configure_google()
     
     # Create .env files
     repo_root = get_repo_root()
