@@ -63,38 +63,73 @@ def configure_ollama():
     return env_content
 
 def configure_lm_studio():
-    """Configure for LM-Studio provider."""
+    """Configure for LM-Studio provider.
+
+    Prompts for the base URL first, then queries that URL for available
+    models and allows the user to select one, or enter a custom name.
+    """
     print("\n📋 Configuring LM-Studio...")
-    
-    # Check if LM-Studio is running
-    try:
-        import requests
-        response = requests.get("http://localhost:1234/v1/models", timeout=2)
-        if response.status_code == 200:
-            models_data = response.json()
-            if models_data.get('data'):
-                print("\nAvailable LM-Studio models:")
-                for model in models_data['data']:
-                    print(f"  - {model['id']}")
-                print()
-    except:
-        print("\n⚠️  LM-Studio doesn't appear to be running on localhost:1234")
-        print("   Please start LM-Studio and load a model before continuing.")
-    
-    base_url = input("Enter LM-Studio base URL (default: http://localhost:1234/v1): ").strip()
+
+    # Prompt for base URL first
+    base_url = input(
+        "Enter LM-Studio base URL (default: http://localhost:1234/v1): "
+    ).strip()
     if not base_url:
         base_url = "http://localhost:1234/v1"
-    
-    model_name = input("Enter model name (default: qwen/qwen3-4b-thinking-2507): ").strip()
-    if not model_name:
-        model_name = "qwen/qwen3-4b-thinking-2507"
-    
+
+    # Try to fetch available models from the provided base URL
+    available_models = []
+    try:
+        import requests  # local import; optional dependency
+        models_endpoint = f"{base_url.rstrip('/')}" + "/models"
+        response = requests.get(models_endpoint, timeout=3)
+        if response.status_code == 200:
+            models_data = response.json()
+            for model in models_data.get("data", []) or []:
+                mid = model.get("id")
+                if mid:
+                    available_models.append(mid)
+    except Exception:
+        # Non-fatal; proceed without model listing
+        pass
+
+    # Ask user to choose a model
+    default_model = "qwen/qwen3-4b-thinking-2507"
+    chosen_model = ""
+    if available_models:
+        print("\nAvailable LM-Studio models:")
+        for idx, mid in enumerate(available_models, start=1):
+            print(f"  {idx}. {mid}")
+        print()
+        selection = input(
+            "Select a model by number or type a name "
+            f"(default: {available_models[0]}): "
+        ).strip()
+        if not selection:
+            chosen_model = available_models[0]
+        else:
+            if selection.isdigit():
+                sel_idx = int(selection)
+                if 1 <= sel_idx <= len(available_models):
+                    chosen_model = available_models[sel_idx - 1]
+            if not chosen_model:
+                # Treat input as a direct model name
+                chosen_model = selection
+    else:
+        print(
+            "\n⚠️  Could not retrieve models from the provided URL. "
+            "You may still enter a model name manually."
+        )
+        chosen_model = input(
+            f"Enter model name (default: {default_model}): "
+        ).strip() or default_model
+
     env_content = f"# LM-Studio Configuration\n"
     env_content += f"DEEPAGENTS_MODEL_PROVIDER=lm-studio\n"
     env_content += f"LM_STUDIO_BASE_URL={base_url}\n"
     env_content += f"LM_STUDIO_API_KEY=lm-studio\n"
-    env_content += f"LM_STUDIO_MODEL_NAME={model_name}\n"
-    
+    env_content += f"LM_STUDIO_MODEL_NAME={chosen_model or default_model}\n"
+
     return env_content
 
 def configure_tavily():
