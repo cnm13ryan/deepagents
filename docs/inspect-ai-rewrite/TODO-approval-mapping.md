@@ -26,3 +26,10 @@ Scope — Don’t
 Success Criteria
 - [ ] Policies apply to named tools and globs; tests pass
 - [ ] Approval policies are activated by calling `init_tool_approval(...)` before `agent.run(...)`
+
+Recommended Defaults
+- Policy presets:
+  - `ci`: auto-approve by default; escalate/deny network and host FS tools.
+  - `dev`: auto-approve common tools; prompt for destructive or networked actions.
+  - `prod`: human approve for sensitive tools; allow auto-approve for harmless operations.
+- Consider a future, approver-only `respond()` tool if “reply without execution” becomes a common need.

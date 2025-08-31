@@ -13,7 +13,7 @@ Scope — Do
   - [ ] `write_file` → `text_editor('create', path, file_text=...)`
   - [ ] `edit_file` → `text_editor('str_replace', path, old_str=..., new_str=...)`
   - [ ] `ls` → shell or tracked index (keep simple; optional)
-- [ ] Tests `tests/inspect_agents/test_fs_sandbox.py` using a stub/mocked editor; no disk writes
+- [ ] Tests `tests/inspect_agents/test_fs_sandbox.py` using a stub/mocked editor; no disk writes. When sandbox is unavailable, verify graceful fallback to Store-backed mode with a clear warning.
 
 Scope — Don’t
 - Do not default to host FS; default remains Store-backed
@@ -21,4 +21,3 @@ Scope — Don’t
 Success Criteria
 - [ ] Commands assembled correctly; tests pass without external sandbox
 - [ ] Security notes documented in tool docstrings
-

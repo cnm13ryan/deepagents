@@ -19,3 +19,6 @@ Scope — Don’t
 Success Criteria
 - [ ] Agents configured with resolver run without errors
 - [ ] Unit tests cover env overrides and defaults
+
+Recommended Defaults
+- Prefer local (Ollama) models when available; otherwise require explicit env configuration (e.g., `OPENAI_API_KEY` + `OPENAI_MODEL`) and fail fast with a clear error and guidance.
