@@ -6,6 +6,7 @@ Context & Motivation
 Implementation Guidance
 - Pass roles to `react(model=...)` as strings or use provider-specific names
 - Maintain a mapping `role -> provider/model` using env vars (e.g., `INSPECT_ROLE_RESEARCHER_MODEL`)
+ - Coordinate with the Model Resolver so both paths stay consistent (roles → concrete model name)
 
 Scope — Do
 - [ ] Define default role set and mapping resolution order (env > repo defaults)

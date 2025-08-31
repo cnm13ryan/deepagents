@@ -22,3 +22,4 @@ Success Criteria
 
 Recommended Defaults
 - Prefer local (Ollama) models when available; otherwise require explicit env configuration (e.g., `OPENAI_API_KEY` + `OPENAI_MODEL`) and fail fast with a clear error and guidance.
+ - Prefer passing role strings to `react(model=...)` for sub-agents; the resolver remains a thin mapping from roles/env → provider-specific names.
