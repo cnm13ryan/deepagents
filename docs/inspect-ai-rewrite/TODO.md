@@ -16,6 +16,19 @@ Features
 - [ ] Examples Parity — see `TODO-examples-parity.md`
 - [ ] CI & Submodule Bootstrap — see `TODO-ci-submodule-bootstrap.md`
 
+Additional Cross-Cutting TODOs
+- [ ] Logging & Recorders — see `TODO-logging-recorders.md`
+- [ ] Limits & Truncation — see `TODO-limits-and-truncation.md`
+- [ ] Retries & Cache — see `TODO-retries-and-cache.md`
+- [ ] Tool Parallelism Policy — see `TODO-parallel-tools.md`
+- [ ] Tool Argument Schema & Errors — see `TODO-tool-schema-and-errors.md`
+- [ ] Tool Output Truncation — see `TODO-tool-output-truncation.md`
+- [ ] Approval UX & Chains — see `TODO-approval-ux-chains.md`
+- [ ] Sandbox Readiness Check — see `TODO-sandbox-health.md`
+- [ ] Config Loader (YAML) — see `TODO-config-loader.md`
+- [ ] Model Roles Map — see `TODO-model-roles.md`
+- [ ] Dev CLI — see `TODO-dev-cli.md`
+
 Decisions & Defaults (Recommendations)
 - State Isolation: Files isolated by default per agent via `StoreModel.instance`; Todos shared by default. Allow explicit sharing when needed.
 - File Tools Mode: Default to Store-backed virtual FS. Host FS via `text_editor` is opt-in behind a feature flag and sandbox check.
