@@ -6,21 +6,23 @@ Context & Motivation
 Implementation Guidance
 - Read: `src/deepagents/interrupt.py`  
   Grep: `ToolInterruptConfig`, `allow_accept`, `allow_edit`, `allow_respond`
-- Read: `external/inspect_ai/src/inspect_ai/approval/_policy.py`  
-  Grep: `policy_approver`, `ApprovalPolicy`, `tools:` patterns
+- Read: `external/inspect_ai/src/inspect_ai/approval/_policy.py` and `_apply.py`  
+  Grep: `policy_approver`, `ApprovalPolicy`, `init_tool_approval`, `apply_tool_approval`
+  Note: Inspect approvals support decisions {approve, modify, reject, terminate}. There is no built‑in “respond” pathway.
 
 Scope — Do
 - [ ] Add `src/inspect_agents/approval.py`:
-  - [ ] `def approval_from_interrupt_config(cfg: dict[str, HumanInterruptConfig|bool]) -> Approver`
-  - [ ] Map to policy approver(s); implement approve/edit/response behaviors
+  - [ ] `def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[ApprovalPolicy]` producing policy entries
+  - [ ] Provide a helper to call `init_tool_approval(policies)` before running the agent
 - [ ] Tests `tests/inspect_agents/test_approval.py`:
-  - [ ] Approve → executes original args
-  - [ ] Edit → modifies args before execution
-  - [ ] Respond → returns synthetic message without executing tool
+  - [ ] Approve → original args execute
+  - [ ] Modify → tool call arguments changed before execution
+  - [ ] Reject → raises `ToolApprovalError` and prevents execution
+  - [ ] Terminate → aborts sample (limit: expect `TerminateSampleError`)
 
 Scope — Don’t
-- Avoid coupling to LangGraph interrupt types; define a local schema
+- Do not attempt to simulate “respond” within approvals; if needed, design a separate lightweight `respond()` tool in a future feature.
 
 Success Criteria
 - [ ] Policies apply to named tools and globs; tests pass
-
+- [ ] Approval policies are activated by calling `init_tool_approval(...)` before `agent.run(...)`

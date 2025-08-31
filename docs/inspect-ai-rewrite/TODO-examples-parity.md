@@ -7,10 +7,10 @@ Implementation Guidance
 - Read: `examples/` directory for current flows  
   Grep: `create_deep_agent`
 
-Scope — Do
+- Scope — Do
 - [ ] Add `examples/inspect/` with:
-  - [ ] Example 1: todo + file edit workflow using Store tools + supervisor
-  - [ ] Example 2: sub-agent delegation + approval policy demo
+  - [ ] Example 1: todo + file edit workflow using Store tools + supervisor (assert StoreEvent present in logs)
+  - [ ] Example 2: sub-agent delegation + approval policy demo (show `transfer_to_*` boundary and approval outcomes)
 - [ ] Update `README.md` with run instructions and submodule note
 
 Scope — Don’t
@@ -18,4 +18,3 @@ Scope — Don’t
 
 Success Criteria
 - [ ] Examples run locally with minimal setup; instructions accurate
-
