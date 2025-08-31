@@ -31,6 +31,9 @@ Additional Cross-Cutting TODOs
 - [ ] Model Roles Map — see `TODO-model-roles.md`
 - [ ] Dev CLI — see `TODO-dev-cli.md`
 
+Open Deviations / Decisions
+- See `DECISIONS-PENDING.md` — lists known differences vs deepagents and choices (parity vs Inspect‑native) awaiting a decision. Implement a temporary `parity_mode` flag to toggle key behaviors until finalized.
+
 Decisions & Defaults (Recommendations)
 - State Isolation: Files isolated by default per agent via `StoreModel.instance`; Todos shared by default. Allow explicit sharing when needed.
 - File Tools Mode: Default to Store-backed virtual FS. Host FS via `text_editor` is opt-in behind a feature flag and sandbox check.
