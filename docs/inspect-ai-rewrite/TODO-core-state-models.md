@@ -1,0 +1,29 @@
+# TODO — Core State Models (Store-backed)
+
+Context & Motivation
+- Replace custom LangGraph state (todos/files) with Inspect-AI `Store` and typed `StoreModel` to enable durable, transcripted per-sample state.
+- Users get reliable persistence, easier composition, and observability of state changes.
+
+Implementation Guidance
+- Read: `src/deepagents/state.py` (fields `todos`, `files`) and reducer  
+  Grep: `DeepAgentState`, `Todo`, `files:`  
+- Read: `external/inspect_ai/src/inspect_ai/util/_store.py` and `_store_model.py`  
+  Grep: `class Store`, `def store()`, `class StoreModel`
+
+Scope — Do
+- [ ] Create `src/inspect_agents/state.py` with:
+  - [ ] `class Todo(BaseModel): content: str; status: Literal['pending','in_progress','completed']`
+  - [ ] `class Todos(StoreModel): key='todos'; todos: list[Todo]=[]`
+  - [ ] `class Files(StoreModel): key='files'; files: dict[str,str]={}`
+  - [ ] Accessors: `get_todos()/set_todos()`, `get_file()/put_file()/list_files()`
+- [ ] Ensure all values are JSON-serializable (Pydantic models OK)
+- [ ] Unit tests in `tests/inspect_agents/test_state.py`
+
+Scope — Don’t
+- Do not modify `external/inspect_ai/*` (submodule) or existing `src/deepagents/*`.
+
+Success Criteria
+- [ ] Tests pass for get/set/delete semantics and default initialization
+- [ ] Store changes appear in transcripts (by virtue of Store usage)
+- [ ] No LangChain/LangGraph dependencies
+
