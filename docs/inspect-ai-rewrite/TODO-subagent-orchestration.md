@@ -22,6 +22,10 @@ Scope — Do
   - [ ] Verify assistant messages from sub‑agent are prefixed with the agent name
   - [ ] Verify shared store visibility (or use `store_as(..., instance=...)` if isolating)
 
+Filters (Optional, Recommended)
+- [ ] Demonstrate `input_filter` (e.g., remove tool chatter) and `output_filter` (e.g., content_only) for sub-agents
+- [ ] Tests verify that filtered conversations do not include tool calls or system messages when configured
+
 Scope — Don’t
 - Do not couple to LangGraph
 

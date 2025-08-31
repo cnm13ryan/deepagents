@@ -17,6 +17,8 @@ Features
 - [ ] CI & Submodule Bootstrap — see `TODO-ci-submodule-bootstrap.md`
 
 Additional Cross-Cutting TODOs
+- [ ] Scoring & Tasks — see `TODO-scoring-and-tasks.md`
+- [ ] Tool Timeouts & Cancellation — see `TODO-tool-timeouts-cancellation.md`
 - [ ] Logging & Recorders — see `TODO-logging-recorders.md`
 - [ ] Limits & Truncation — see `TODO-limits-and-truncation.md`
 - [ ] Retries & Cache — see `TODO-retries-and-cache.md`

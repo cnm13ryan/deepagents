@@ -15,6 +15,7 @@ Scope — Do
 - [ ] Tests:
   - [ ] Force overflow to exercise truncation path and verify recovery or graceful stop
   - [ ] Verify message_limit termination includes transcript note
+  - [ ] Track `token_usage` and assert budget thresholds at sample end; log token usage in the recorder bundle
 
 Scope — Don’t
 - Don’t silently drop messages without informing the model (use truncation filters)
@@ -22,3 +23,4 @@ Scope — Don’t
 Success Criteria
 - [ ] Overflow results in a controlled outcome (trim or terminate) with clear logs
 - [ ] Limits configurable per agent; defaults documented
+ - [ ] Token usage is measured and budget overruns are reported

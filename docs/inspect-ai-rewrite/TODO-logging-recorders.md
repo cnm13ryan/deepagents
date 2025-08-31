@@ -14,6 +14,7 @@ Scope — Do
 - [ ] Initialize recorder at run start; ensure it is active for agent.run
 - [ ] Add docs: where logs live; how to open transcripts/bundles
 - [ ] Tests assert presence of `StoreEvent` after state changes and `ToolEvent` after tool calls
+ - [ ] Define a redaction policy for sensitive fields (API keys, tokens, file paths) and apply it consistently to viewer content and logs
 
 Scope — Don’t
 - Don’t reimplement Inspect logging; configure and document usage
@@ -21,3 +22,4 @@ Scope — Don’t
 Success Criteria
 - [ ] Running examples generate transcript + file bundle
 - [ ] Tests parse recent bundle and find StoreEvent + ToolEvent entries
+ - [ ] Sensitive fields are redacted in viewer output and transcript bundle
