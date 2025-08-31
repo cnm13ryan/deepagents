@@ -21,6 +21,7 @@ Scope — Do
   - [ ] `read_file` offset/limit + cat -n formatting + 2k char truncation
   - [ ] `write_file` persists content
   - [ ] `edit_file` uniqueness vs `replace_all=True`
+  - [ ] Optional: instance‑scoped Files model (e.g., `Files(instance='agentA')`) to prove isolation when desired
 
 Scope — Don’t
 - No disk IO; Store only (host FS mode is a separate feature)
@@ -28,4 +29,3 @@ Scope — Don’t
 Success Criteria
 - [ ] All tests pass and behavior matches existing examples
 - [ ] No LangChain/LangGraph imports
-

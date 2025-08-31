@@ -6,13 +6,13 @@ Context & Motivation
 Implementation Guidance
 - Read: `src/deepagents/graph.py`  
   Grep: `base_prompt`, `create_deep_agent`, `built_in_tools`  
-- Read: `external/inspect_ai/src/inspect_ai/solver/_basic_agent.py` for default ReAct loop
+- Prefer Inspect `agent.react(...)` (adds a `submit` tool by default); avoid manually adding a second submit tool.
+- Optionally use `AgentPrompt` to include a `handoff_prompt` if the supervisor will delegate frequently.
 
-Scope — Do
 - [ ] Add `src/inspect_agents/agents.py` with:
-  - [ ] `def build_supervisor(prompt: str, tools: list[Tool], submit_name: str='submit', attempts: int=1, limits: ...) -> Solver|Agent`
+  - [ ] `def build_supervisor(prompt: str, tools: list[Tool], attempts: int=1, limits: ...) -> Agent` that calls `react(prompt=..., tools=..., attempts=..., submit=True, ...)`
   - [ ] Compose base prompt similar to deepagents’ `base_prompt`
-  - [ ] Include submit tool and limits
+  - [ ] Configure limits/attempts; no manual submit wiring required
 - [ ] Tests in `tests/inspect_agents/test_supervisor.py` verifying loop runs and terminates on submit
 
 Scope — Don’t
@@ -21,4 +21,3 @@ Scope — Don’t
 Success Criteria
 - [ ] Supervisor executes tool loop and sets completion upon submit
 - [ ] Configurable attempts/message/token limits work
-
