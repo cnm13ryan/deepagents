@@ -15,7 +15,7 @@ Scope — Do
   - [ ] `@tool() def read_file(path: str, offset: int = 0, limit: int = 2000) -> str`
   - [ ] `@tool() def write_file(path: str, content: str) -> str`
   - [ ] `@tool() def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str`
-- [ ] Mirror error strings where practical (missing file, offset > len, uniqueness advisory)
+- [ ] Mirror error semantics and include stable error codes/phrases (missing file, offset > len, uniqueness advisory) without overfitting to exact strings
 - [ ] Tests `tests/inspect_agents/test_fs_tools.py` covering:
   - [ ] `ls` lists keys
   - [ ] `read_file` offset/limit + cat -n formatting + 2k char truncation

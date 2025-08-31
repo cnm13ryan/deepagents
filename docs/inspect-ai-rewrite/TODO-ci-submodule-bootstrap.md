@@ -12,6 +12,7 @@ Scope — Do
 - [ ] Python 3.11 matrix; install with `pip` or `uv`; cache wheels
 - [ ] Run tests for this repo (not Inspect submodule)
 - [ ] Document `git clone --recurse-submodules` in README
+ - [ ] Pin `external/inspect_ai` to a tagged release/commit; schedule monthly update PRs (or as-needed) to bump the pin
 
 Scope — Don’t
 - Don’t run Inspect’s own test suite
@@ -19,4 +20,4 @@ Scope — Don’t
 Success Criteria
 - [ ] CI green on PRs for `inspect-ai-rewrite`
 - [ ] Fresh clone with `--recurse-submodules` works per README
-
+ - [ ] Submodule pin appears in `.gitmodules`/gitlink; update cadence documented

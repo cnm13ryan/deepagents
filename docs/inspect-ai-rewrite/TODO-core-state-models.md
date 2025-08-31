@@ -16,7 +16,7 @@ Scope — Do
   - [ ] `class Todo(BaseModel): content: str; status: Literal['pending','in_progress','completed']`
   - [ ] `class Todos(StoreModel): todos: list[Todo] = []` (namespaced as `Todos:todos`)
   - [ ] `class Files(StoreModel): files: dict[str, str] = {}` (namespaced as `Files:files`)
-  - [ ] Optional isolation: use `Todos(instance='supervisor')` or per sub‑agent `instance` to avoid cross‑talk.
+  - [ ] Isolation defaults: use `Files(instance=<agent_name>)` by default in agent builders; keep `Todos` shared; document how to opt into shared Files if desired.
   - [ ] Accessors: `get_todos()/set_todos()`, `get_file()/put_file()/list_files()`
 - [ ] Ensure all values are JSON-serializable (Pydantic models OK)
 - [ ] Unit tests in `tests/inspect_agents/test_state.py`

@@ -12,10 +12,10 @@ Scope — Do
   - [ ] `def create_deep_agent(tools, instructions, model=None, subagents=None, state_schema=None, builtin_tools=None, interrupt_config=None, ...) -> Callable|Solver` mapping to Inspect
   - [ ] Internally: resolve built-ins (Store tools), build subagents (handoff), build supervisor (ReAct), build approval (policy)
 - [ ] Tests `tests/inspect_agents/test_migration.py` verifying a minimal flow (todos + file write) works via shim
+ - [ ] Draft `docs/inspect/README.md` with a delta map (deepagents → Inspect) and a quickstart using the shim (create this early and evolve alongside code)
 
 Scope — Don’t
 - Do not change existing `src/deepagents/*`
 
 Success Criteria
 - [ ] Existing-style examples run via shim with equivalent outcomes
-

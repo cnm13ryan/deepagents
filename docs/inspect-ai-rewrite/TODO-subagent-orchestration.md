@@ -27,3 +27,4 @@ Scope — Don’t
 
 Success Criteria
 - [ ] Delegation works with named sub-agents and preserves conversation context
+- [ ] Default delegation uses `handoff()`; provide `as_tool()` mode for single-shot utilities via config (e.g., `mode: tool`)
