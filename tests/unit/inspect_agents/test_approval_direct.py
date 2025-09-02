@@ -52,82 +52,63 @@ sys.modules['inspect_ai._util.registry'] = registry_mod
 exec(open('src/inspect_agents/approval.py').read())
 
 def test_patterns():
-    """Test that our updated regex patterns work correctly."""
-    print("=== Testing Regex Patterns ===")
-    
+    """Sensitive regex matches expected tool names."""
     # Re-create the sensitive pattern from approval.py
     sensitive = re.compile(r"^(write_file|text_editor|bash|python|web_browser_)")
-    
-    test_cases = [
-        ("write_file", True),
-        ("text_editor", True), 
-        ("bash", True),
-        ("python", True),
-        ("web_browser_go", True),
-        ("web_browser_click", True),
-        ("web_browser", False),  # Should not match without underscore
-        ("safe_tool", False),
-        ("read_file", False),
-    ]
-    
-    for tool_name, should_match in test_cases:
-        is_match = bool(sensitive.match(tool_name))
-        status = "✓" if is_match == should_match else "✗"
-        print(f"{status} {tool_name}: {'matches' if is_match else 'no match'} (expected: {'matches' if should_match else 'no match'})")
+
+    cases = {
+        "write_file": True,
+        "text_editor": True,
+        "bash": True,
+        "python": True,
+        "web_browser_go": True,
+        "web_browser_click": True,
+        "web_browser": False,  # Should not match without underscore suffix
+        "safe_tool": False,
+        "read_file": False,
+    }
+
+    for tool_name, expect in cases.items():
+        assert bool(sensitive.match(tool_name)) == expect, f"regex mismatch for {tool_name}"
 
 def test_dev_preset_behavior():
-    """Test dev preset behavior."""
-    print("\n=== Testing Dev Preset Behavior ===")
-    
+    """Dev preset escalates sensitive tools, approves non-sensitive."""
     policies = approval_preset("dev")
     dev_gate = policies[0].approver
-    
-    # Test python tool (should escalate)
+
+    # python → escalate
     call = ToolCall(id="1", function="python", arguments={"code": "print('hello')"})
     result = asyncio.run(dev_gate("", call, None, []))
-    status = "✓" if result.decision == "escalate" else "✗"
-    print(f"{status} python: {result.decision} (expected: escalate)")
-    
-    # Test web_browser_go (should escalate)
+    assert result.decision == "escalate"
+
+    # web_browser_go → escalate
     call = ToolCall(id="1", function="web_browser_go", arguments={"url": "https://example.com"})
     result = asyncio.run(dev_gate("", call, None, []))
-    status = "✓" if result.decision == "escalate" else "✗"
-    print(f"{status} web_browser_go: {result.decision} (expected: escalate)")
-    
-    # Test read_file (should approve)
+    assert result.decision == "escalate"
+
+    # read_file → approve
     call = ToolCall(id="1", function="read_file", arguments={"path": "/tmp/test.txt"})
     result = asyncio.run(dev_gate("", call, None, []))
-    status = "✓" if result.decision == "approve" else "✗"
-    print(f"{status} read_file: {result.decision} (expected: approve)")
+    assert result.decision == "approve"
 
 def test_prod_preset_behavior():
-    """Test prod preset behavior with redaction."""
-    print("\n=== Testing Prod Preset Behavior ===")
-    
+    """Prod preset terminates sensitive tools and redacts secrets."""
     policies = approval_preset("prod")
     prod_gate = policies[0].approver
-    
-    # Test python with sensitive args (should terminate and redact)
+
+    # python → terminate and redact
     args = {"code": "import os", "api_key": "SECRET_KEY", "authorization": "Bearer TOKEN"}
     call = ToolCall(id="1", function="python", arguments=args)
     result = asyncio.run(prod_gate("", call, None, []))
-    
-    status1 = "✓" if result.decision == "terminate" else "✗"
-    print(f"{status1} python termination: {result.decision} (expected: terminate)")
-    
+    assert result.decision == "terminate"
     explanation = result.explanation or ""
-    has_redacted = "[REDACTED]" in explanation
-    has_secrets = "SECRET_KEY" in explanation or "TOKEN" in explanation
-    status2 = "✓" if has_redacted and not has_secrets else "✗"
-    print(f"{status2} redaction: has [REDACTED]={has_redacted}, has secrets={has_secrets}")
-    
-    # Test web_browser_go with auth (should terminate and redact)
+    assert "[REDACTED]" in explanation and "SECRET_KEY" not in explanation and "TOKEN" not in explanation
+
+    # web_browser_go → terminate
     args = {"url": "https://example.com", "authorization": "Bearer SECRET"}
     call = ToolCall(id="1", function="web_browser_go", arguments=args)
     result = asyncio.run(prod_gate("", call, None, []))
-    
-    status3 = "✓" if result.decision == "terminate" else "✗"
-    print(f"{status3} web_browser_go termination: {result.decision} (expected: terminate)")
+    assert result.decision == "terminate"
 
 if __name__ == "__main__":
     test_patterns()
