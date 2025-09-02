@@ -8,11 +8,11 @@ Implementation Guidance
   Grep: `def text_editor(`, commands `view/create/str_replace/insert`
 
 Scope — Do
-- [ ] Extend `src/inspect_agents/tools.py` with a feature flag (env or parameter) to route:
-  - [ ] `read_file` → `text_editor('view', path, view_range=...)`
-  - [ ] `write_file` → `text_editor('create', path, file_text=...)`
-  - [ ] `edit_file` → `text_editor('str_replace', path, old_str=..., new_str=...)`
-  - [ ] `ls` → shell or tracked index (keep simple; optional)
+- [x] Extend file tools with a feature flag to route via Inspect `text_editor` when `INSPECT_AGENTS_FS_MODE=sandbox` (implemented in `src/inspect_agents/tools_files.py` and used by wrappers in `tools.py`):
+  - [x] `read_file` → `text_editor('view', path, view_range=...)`
+  - [x] `write_file` → `text_editor('create', path, file_text=...)`
+  - [x] `edit_file` → `text_editor('str_replace', path, old_str=..., new_str=...)`
+  - [ ] `ls` → (optional) shell or tracked index
 - [ ] Tests `tests/inspect_agents/test_fs_sandbox.py` using a stub/mocked editor; no disk writes. When sandbox is unavailable, verify graceful fallback to Store-backed mode with a clear warning.
 
 Scope — Don’t
