@@ -87,11 +87,29 @@ async def _main() -> int:
         default=os.getenv("INSPECT_EVAL_MODEL"),
         help="Explicit model name (optional; provider prefix allowed)",
     )
+    # Optional standard tool toggles (map to env for simplicity)
+    parser.add_argument("--enable-think", action="store_true", help="Enable think() tool")
+    parser.add_argument("--enable-web-search", action="store_true", help="Enable web_search() tool (requires Tavily or Google CSE keys)")
+    parser.add_argument("--enable-exec", action="store_true", help="Enable bash() and python() tools (requires sandbox)")
+    parser.add_argument("--enable-web-browser", action="store_true", help="Enable web_browser() tools (requires sandbox + Playwright)")
+    parser.add_argument("--enable-text-editor-tool", action="store_true", help="Expose text_editor() directly (optional; FS tools already route to it in sandbox mode)")
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv(
         "PROMPT", "Write a short overview of LangGraph"
     )
+
+    # Reflect flags into env before building agent
+    if args.enable_think:
+        os.environ["INSPECT_ENABLE_THINK"] = "1"
+    if args.enable_web_search:
+        os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
+    if args.enable_exec:
+        os.environ["INSPECT_ENABLE_EXEC"] = "1"
+    if args.enable_web_browser:
+        os.environ["INSPECT_ENABLE_WEB_BROWSER"] = "1"
+    if args.enable_text_editor_tool:
+        os.environ["INSPECT_ENABLE_TEXT_EDITOR_TOOL"] = "1"
 
     model_id = resolve_model(provider=args.provider, model=args.model)
     agent = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=model_id)
@@ -111,4 +129,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
