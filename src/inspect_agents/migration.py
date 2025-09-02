@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 
 def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
