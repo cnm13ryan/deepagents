@@ -12,7 +12,7 @@ def test_model_selection():
     os.environ["DEEPAGENTS_MODEL_PROVIDER"] = "lm-studio"
     os.environ["LM_STUDIO_MODEL_NAME"] = "qwen/qwen3-4b-thinking-2507"
     
-    from src.deepagents.model import get_default_model
+    from deepagents.model import get_default_model
     
     model = get_default_model()
     print(f"✓ Model created successfully: {type(model).__name__}")
@@ -73,3 +73,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+# fix(tests): import package path instead of src path
