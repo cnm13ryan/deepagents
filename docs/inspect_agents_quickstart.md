@@ -109,3 +109,17 @@ Run a focused test to confirm the path works locally:
 pytest -q tests/inspect_agents/test_run.py::test_run_with_str_input_returns_state
 ```
 
+## Standard Tools
+
+You can expose Inspect’s standard tools in addition to the built‑ins (todos + virtual FS). Enable them via environment flags:
+
+- `INSPECT_ENABLE_THINK=1` (default: on) — enable `think()` for structured intermediate reasoning.
+- `INSPECT_ENABLE_WEB_SEARCH=1` — enable `web_search()`; requires a provider:
+  - External providers (works with any model): set either `TAVILY_API_KEY`, or `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY`.
+  - Internal providers (only on matching models): set `INSPECT_WEB_SEARCH_INTERNAL=openai|anthropic|gemini|grok|perplexity`.
+- `INSPECT_ENABLE_EXEC=1` — enable `bash()` and `python()` (requires a sandbox; see Inspect docs).
+- `INSPECT_ENABLE_WEB_BROWSER=1` — enable `web_browser()` (requires sandbox + Playwright deps).
+- `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` — expose `text_editor()` directly (optional; FS tools already route to it in sandbox mode).
+
+Reference: Standard tools overview and setup details are documented at Inspect’s official site.
+
