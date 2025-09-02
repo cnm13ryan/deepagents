@@ -23,6 +23,9 @@ BASE_PROMPT_TODOS = (
     "Mark todos complete as soon as a task is finished (don’t batch).\n"
 )
 
+# Backcompat constant for migration shim
+BASE_PROMPT = BASE_PROMPT_HEADER + BASE_PROMPT_TODOS
+
 def _format_standard_tools_section(all_tools: list[object]) -> str:
     """Return a short section enumerating available Inspect standard tools.
 
