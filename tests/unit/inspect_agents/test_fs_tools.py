@@ -1,8 +1,9 @@
 import asyncio
+import pytest
 
 from inspect_ai.util._store import Store, init_subtask_store
 
-from inspect_agents.tools import ls, read_file, write_file, edit_file
+from inspect_agents.tools import ls, read_file, write_file, edit_file, ToolException
 from inspect_agents.state import Files
 
 
@@ -34,7 +35,10 @@ def test_read_file_behaviors():
     async def _not_found():
         return await read_tool(file_path="missing.txt")
 
-    assert asyncio.run(_not_found()) == "Error: File 'missing.txt' not found"
+    with pytest.raises(ToolException) as exc_info:
+        asyncio.run(_not_found())
+    assert "missing.txt" in str(exc_info.value.message)
+    assert "not found" in str(exc_info.value.message)
 
     # empty file
     async def _write_empty():
@@ -61,10 +65,10 @@ def test_read_file_behaviors():
     async def _bad_offset():
         return await read_tool(file_path="note.txt", offset=1000)
 
-    assert (
+    with pytest.raises(ToolException) as exc_info:
         asyncio.run(_bad_offset())
-        == "Error: Line offset 1000 exceeds file length (3 lines)"
-    )
+    assert "offset 1000 exceeds file length" in str(exc_info.value.message)
+    assert "3 lines" in str(exc_info.value.message)
 
     # truncation to 2000 chars per line
     long_line = "x" * 2500
@@ -109,20 +113,27 @@ def test_edit_file_uniqueness_and_replace_all():
     assert out2.endswith("FOO FOO bar FOO")
 
     # not found errors
-    async def _errors():
-        nf = await edit_tool(
+    async def _file_not_found_error():
+        await edit_tool(
             file_path="does_not_exist.txt",
             old_string="x",
             new_string="y",
         )
-        miss = await edit_tool(
+
+    async def _string_not_found_error():
+        await edit_tool(
             file_path="e.txt", old_string="zzz", new_string="y", replace_all=True
         )
-        return nf, miss
 
-    nf_msg, miss_msg = asyncio.run(_errors())
-    assert nf_msg == "Error: File 'does_not_exist.txt' not found"
-    assert miss_msg == "Error: String not found in file: 'zzz'"
+    with pytest.raises(ToolException) as exc_info:
+        asyncio.run(_file_not_found_error())
+    assert "does_not_exist.txt" in str(exc_info.value.message)
+    assert "not found" in str(exc_info.value.message)
+
+    with pytest.raises(ToolException) as exc_info:
+        asyncio.run(_string_not_found_error())
+    assert "zzz" in str(exc_info.value.message)
+    assert "not found" in str(exc_info.value.message)
 
 
 def test_instance_isolation():
@@ -141,6 +152,8 @@ def test_instance_isolation():
     async def _access():
         return await read_tool(file_path="a.txt", instance="agentB")
 
-    not_found = asyncio.run(_access())
-    assert not_found == "Error: File 'a.txt' not found"
+    with pytest.raises(ToolException) as exc_info:
+        asyncio.run(_access())
+    assert "a.txt" in str(exc_info.value.message)
+    assert "not found" in str(exc_info.value.message)
 
