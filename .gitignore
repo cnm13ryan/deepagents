@@ -212,3 +212,9 @@ __marimo__/
 # Backup files created by editors
 *~
 .*.un~
+
+# Local dev artifacts
+.inspect/
+.venv-inspect/
+logs/
+.benchmarks/
