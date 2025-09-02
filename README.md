@@ -103,6 +103,66 @@ async def main():
 asyncio.run(main())
 ```
 
+## Sub‑agents: Handoff vs Tool
+
+In the original deepagents framework, `task` delegated control to a sub‑agent until it finished. In Inspect, this maps to two wrapper modes created by `build_subagents`:
+
+- `mode: "handoff"` — control‑flow delegation. Enters the sub‑agent and runs iteratively until it terminates (typically via `submit`). Produces a tool named `transfer_to_<name>`. Supports input/output filters for quarantine and optional `limits`.
+- `mode: "tool"` — single‑shot function call. Wraps the sub‑agent with `as_tool(...)` so it is invoked once and returns output to the caller. Good for deterministic, stateless helpers.
+
+Rule of thumb:
+- Use `handoff` for broader, uncertain tasks that may plan, call tools, or spawn nested handoffs.
+- Use `tool` for narrow, predictable operations (summarizers, formatters, lookup utilities).
+
+Quarantine filters (handoff only):
+- Defaults come from `inspect_agents.filters.default_input_filter(name)` and `default_output_filter()`.
+- Env overrides: `INSPECT_QUARANTINE_MODE` = `strict` | `scoped` | `off`; per‑agent: `INSPECT_QUARANTINE_MODE__<normalized_name>`.
+- Cascading can inherit the parent’s filter when `INSPECT_QUARANTINE_INHERIT` is true (default).
+- For scoped summaries, size controls: `INSPECT_SCOPED_MAX_BYTES`, `INSPECT_SCOPED_MAX_TODOS`, `INSPECT_SCOPED_MAX_FILES`.
+
+### YAML Configuration Example
+
+You can declare sub‑agents in YAML and build them via `inspect_agents.config.load_and_build`.
+
+```yaml
+supervisor:
+  prompt: |
+    You are a helpful supervisor. Use sub‑agents when appropriate.
+
+subagents:
+  # Control‑flow handoff: mirrors original `task` semantics
+  - name: researcher
+    description: Focused web researcher that plans and cites sources
+    prompt: |
+      Research the user’s query. Plan, browse, then draft findings.
+    mode: handoff
+    tools: [web_search, write_todos, read_file, write_file]
+    # Optional quarantine helpers mapped to input filters
+    context_scope: scoped          # or "strict"; prefer scoped for summaries
+    include_state_summary: true    # include todos/files JSON snapshot
+
+  # Single‑shot helper acting like a function call
+  - name: summarizer
+    description: Five concise bullets from provided text
+    prompt: |
+      Summarize the given content in exactly five bullets.
+    mode: tool
+    tools: []
+```
+
+Programmatic build:
+```python
+from inspect_agents.config import load_and_build
+
+agent, tools, approvals = load_and_build("config.yaml")
+# `tools` will include `transfer_to_researcher` (handoff) and `summarizer` (tool)
+```
+
+Notes:
+- Handoff wrappers are named `transfer_to_<name>` and preserve iterative reasoning with filters/limits.
+- Tool wrappers behave like functions; filters generally don’t apply because calls are single‑shot.
+- If you used `task` previously, start with `mode: handoff` for fidelity, then convert narrow helpers to `mode: tool` to reduce overhead.
+
 ## Logs & Traces
 
 Have the CLI write a rich trace and logs:
@@ -133,4 +193,3 @@ This maps the previous surface onto Inspect’s ReAct agent, sub-agents, and app
 ## License
 
 MIT
-
