@@ -68,11 +68,16 @@ utilities = [
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-extend-exclude = [".venv"]
+# Note: ".venv" and "venv" are excluded by default; no need to extend-exclude.
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP"] # Error, Pyflakes, Import, Naming, pyupgrade
-ignore = ["I001"] # Let ruff handle import sorting
+# Keep core errors, Pyflakes, import sorting, naming, and pyupgrade:
+# Use the E subset Ruff recommends alongside a formatter to avoid stylistic overlap.
+select = ["E4", "E7", "E9", "F", "I", "N", "UP"]
+
+# Silence the deprecating pyupgrade rule that triggers your warning.
+# Remove this line once Ruff fully removes UP038 in a future release.
+ignore = ["UP038"]
 
 [tool.ruff.format]
 quote-style = "double"
