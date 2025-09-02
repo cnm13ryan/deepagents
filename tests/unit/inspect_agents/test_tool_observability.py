@@ -20,9 +20,10 @@ async def test_files_write_logs_redacted(caplog):
     # Extract tool_event records and parse JSON payloads
     events = []
     for rec in caplog.records:
-        if isinstance(rec.msg, str) and rec.msg.startswith("tool_event "):
+        msg = rec.getMessage()
+        if isinstance(msg, str) and msg.startswith("tool_event "):
             try:
-                payload = json.loads(rec.msg[len("tool_event "):])
+                payload = json.loads(msg[len("tool_event "):])
                 events.append(payload)
             except Exception:
                 pass
