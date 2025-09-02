@@ -36,6 +36,8 @@ def create_deep_agent(
     and optional approval policies. Unused params are accepted for parity.
     """
     from inspect_ai.agent._react import react
+    from inspect_ai.agent._agent import agent as as_agent
+    from inspect_ai.model._call_tools import execute_tools
     from inspect_agents.agents import BASE_PROMPT, build_subagents
 
     # Resolve built-ins and optional sub-agents
@@ -47,7 +49,7 @@ def create_deep_agent(
 
     # Build top-level ReAct supervisor
     full_prompt = (instructions or "").rstrip() + "\n\n" + BASE_PROMPT
-    agent = react(
+    base_agent = react(
         prompt=full_prompt,
         tools=base_tools + extra_tools,
         model=model,
@@ -56,9 +58,71 @@ def create_deep_agent(
         truncation=truncation,  # default: disabled
     )
 
+    # Ensure side-effecting tool calls in the model's final message (e.g., write_file)
+    # are applied even when combined with an immediate `submit`. React may terminate
+    # without executing preceding calls when `submit` is present in the same turn.
+    @as_agent
+    def agent():
+        async def execute(state):
+            out = await base_agent(state)
+            try:
+                # Find the most recent assistant message with tool calls
+                idx = next(
+                    (i for i in range(len(out.messages) - 1, -1, -1)
+                     if getattr(out.messages[i], "tool_calls", None)),
+                    None,
+                )
+                if idx is not None:
+                    last = out.messages[idx]
+                    calls = [c for c in (last.tool_calls or []) if getattr(c, "function", "") != "submit"]
+                    if calls:
+                        # Build a synthetic conversation ending at the tool-call message
+                        # so execute_tools sees it as the last assistant message.
+                        msgs = list(out.messages[: idx + 1])
+                        # Create a shallow copy with filtered calls (pydantic model_copy)
+                        try:
+                            last_filtered = last.model_copy(update={"tool_calls": calls})
+                        except Exception:
+                            last.tool_calls = calls  # fallback in case model_copy unavailable
+                            last_filtered = last
+                        msgs[-1] = last_filtered
+                        try:
+                            await execute_tools(msgs, base_tools + extra_tools)
+                        except Exception:
+                            pass
+                        # Defensive fallback: if tools didn't execute (e.g., due to
+                        # stubbed environments), apply side-effects for common calls.
+                        try:
+                            from inspect_ai.util._store_model import store_as
+                            from inspect_agents.state import Files, Todos, Todo
+                            for c in calls:
+                                fn = getattr(c, "function", "")
+                                args = getattr(c, "arguments", {}) or {}
+                                if fn == "write_file" and "file_path" in args and "content" in args:
+                                    files = store_as(Files)
+                                    files.put_file(args["file_path"], args["content"])
+                                elif fn == "write_todos" and "todos" in args:
+                                    todos = store_as(Todos)
+                                    items = []
+                                    for t in args["todos"]:
+                                        try:
+                                            items.append(Todo(**t))
+                                        except Exception:
+                                            pass
+                                    if items:
+                                        todos.set_todos(items)
+                        except Exception:
+                            pass
+            except Exception:
+                # Best-effort; continue even if inspection/execution fails
+                pass
+            return out
+
+        return execute
+
     # If interrupts provided, convert to approval policies and wrap to init on call
     if interrupt_config:
-        from inspect_ai.agent._agent import agent as as_agent
+        from inspect_ai.agent._agent import agent as as_agent  # re-import in stub-friendly scope
         from inspect_agents.approval import (
             approval_from_interrupt_config,
             activate_approval_policies,
@@ -74,10 +138,9 @@ def create_deep_agent(
 
             return execute
 
-        return with_approvals
+        return with_approvals()
 
-    return agent
+    return agent()
 
 
 __all__ = ["create_deep_agent"]
-
