@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402, E501
 """Manual test for approval patterns.
 
 Run with:
@@ -8,7 +9,6 @@ Run with:
 import sys
 import types
 import asyncio
-import json
 
 # Mock inspect_ai modules
 approval_mod = types.ModuleType('inspect_ai.approval._approval')
