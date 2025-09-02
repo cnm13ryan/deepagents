@@ -1,19 +1,14 @@
 [project]
 name = "deepagents"
 version = "0.0.4"
-description = "General purpose 'deep agent' with sub-agent spawning, todo list capabilities, and mock file system. Built on LangGraph."
+description = "Inspect-AI–based agents and tools (legacy deepagents pathway removed)."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "langgraph>=0.2.6",
-    "langchain-ollama==0.3.6",
-    "langchain>=0.2.14",
-    "tavily-python>=0.7.11",
-    "langgraph-cli[inmem]>=0.3.7",
-    "langchain-openai>=0.3.30",
-    "requests>=2.32.5",
     "inspect-ai>=0.3.127",
+    "requests>=2.32.5",
+    "tavily-python>=0.7.11",
 ]
 
 
@@ -22,9 +17,8 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["deepagents", "inspect_agents"]
+packages = ["inspect_agents"]
 [tool.setuptools.package-dir]
-"deepagents" = "src/deepagents"
 "inspect_agents" = "src/inspect_agents"
 
 [tool.setuptools.package-data]
