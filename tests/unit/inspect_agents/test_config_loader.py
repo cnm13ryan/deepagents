@@ -12,10 +12,11 @@ from inspect_agents.run import run_agent
 @agent
 def toy_submit_model():
     async def execute(state: AgentState, tools):
+        # Use dict form for tool_calls to avoid type-import ordering issues
         state.messages.append(
             ChatMessageAssistant(
                 content="",
-                tool_calls=[ToolCall(id="1", function="submit", arguments={"answer": "DONE"})],
+                tool_calls=[{"id": "1", "function": "submit", "arguments": {"answer": "DONE"}}],
             )
         )
         return state
