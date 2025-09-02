@@ -24,6 +24,9 @@ class SubAgentCfg(BaseModel):
     tools: list[str] | None = None
     model: Any | None = None
     mode: Literal["handoff", "tool"] | None = None
+    # Experimental quarantine controls (prefer explicit input_filter when set)
+    context_scope: Literal["strict", "scoped"] | None = None
+    include_state_summary: bool | None = None
 
 
 class RootConfig(BaseModel):
@@ -64,6 +67,28 @@ def build_from_config(cfg: RootConfig, *, model: Any | None = None) -> tuple[obj
 
         # Convert pydantic models to dicts expected by build_subagents
         sub_cfgs = [sa.model_dump(exclude_none=True) for sa in cfg.subagents]
+
+        # Map experimental context_scope/include_state_summary to input_filter when provided
+        # (explicit input_filter in config would still override)
+        try:
+            from inspect_agents.filters import (
+                strict_quarantine_filter,
+                scoped_quarantine_filter,
+            )
+        except Exception:
+            strict_quarantine_filter = scoped_quarantine_filter = None  # type: ignore
+
+        for sc in sub_cfgs:
+            if "input_filter" in sc:
+                continue  # explicit wins
+            scope = sc.pop("context_scope", None)
+            include_summary = sc.pop("include_state_summary", None)
+            if scope == "strict" and callable(strict_quarantine_filter):
+                sc["input_filter"] = strict_quarantine_filter()
+            elif scope == "scoped" and callable(scoped_quarantine_filter):
+                sc["input_filter"] = scoped_quarantine_filter(
+                    include_state_summary=True if include_summary is None else bool(include_summary)
+                )
 
         # Ensure each sub-agent has a model (fallback to a tiny echo agent)
         from inspect_ai.agent._agent import agent as as_agent
