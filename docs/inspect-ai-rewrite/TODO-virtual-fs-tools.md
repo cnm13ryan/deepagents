@@ -10,12 +10,12 @@ Implementation Guidance
   Note cat -n output and line truncation
 
 Scope — Do
-- [ ] Implement in `src/inspect_agents/tools.py`:
-  - [ ] `@tool() def ls() -> list[str]`
-  - [ ] `@tool() def read_file(path: str, offset: int = 0, limit: int = 2000) -> str`
-  - [ ] `@tool() def write_file(path: str, content: str) -> str`
-  - [ ] `@tool() def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str`
-- [ ] Mirror error semantics and include stable error codes/phrases (missing file, offset > len, uniqueness advisory) without overfitting to exact strings
+- [x] Implement in `src/inspect_agents/tools.py`:
+  - [x] `@tool() def ls() -> list[str]`
+  - [x] `@tool() def read_file(path: str, offset: int = 0, limit: int = 2000) -> str`
+  - [x] `@tool() def write_file(path: str, content: str) -> str`
+  - [x] `@tool() def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str`
+- [x] Mirror error semantics and include stable error codes/phrases (missing file, offset > len, uniqueness advisory) without overfitting to exact strings
 - [ ] Tests `tests/inspect_agents/test_fs_tools.py` covering:
   - [ ] `ls` lists keys
   - [ ] `read_file` offset/limit + cat -n formatting + 2k char truncation
@@ -28,4 +28,4 @@ Scope — Don’t
 
 Success Criteria
 - [ ] All tests pass and behavior matches existing examples
-- [ ] No LangChain/LangGraph imports
+- [x] No LangChain/LangGraph imports
