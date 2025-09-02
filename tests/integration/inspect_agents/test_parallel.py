@@ -9,7 +9,6 @@ from inspect_ai.tool._tool_def import ToolDef, tool_defs
 from inspect_ai.tool._tool_params import ToolParams
 from inspect_ai.model._call_tools import execute_tools
 from inspect_ai.tool._tool import Tool
-from inspect_ai.util._json import json_schema
 
 from inspect_agents.agents import build_subagents
 

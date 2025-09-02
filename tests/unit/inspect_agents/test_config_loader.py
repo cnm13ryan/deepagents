@@ -1,15 +1,13 @@
 import asyncio
-from pathlib import Path
 
 import pytest
 
 from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageUser, ChatMessageAssistant
+from inspect_ai.model._chat_message import ChatMessageAssistant
 from inspect_ai.tool._tool_call import ToolCall
 
 from inspect_agents.config import load_and_build, load_yaml
 from inspect_agents.run import run_agent
-from inspect_ai.model._call_tools import execute_tools
 
 
 @agent
@@ -37,21 +35,28 @@ def test_minimal_yaml_builds_and_runs():
     """
 
     # Ensure approval stubs exist for mapping
-    import sys, types
+    import sys
+    import types
     if 'inspect_ai.approval' not in sys.modules:
-        pkg = types.ModuleType('inspect_ai.approval'); sys.modules['inspect_ai.approval']=pkg
+        pkg = types.ModuleType('inspect_ai.approval')
+        sys.modules['inspect_ai.approval'] = pkg
     if 'inspect_ai.approval._approval' not in sys.modules:
         mod = types.ModuleType('inspect_ai.approval._approval')
         class Approval:  # minimal stub
             def __init__(self, decision, modified=None, explanation=None):
-                self.decision=decision; self.modified=modified; self.explanation=explanation
-        sys.modules['inspect_ai.approval._approval']=mod; setattr(mod,'Approval',Approval)
+                self.decision = decision
+                self.modified = modified
+                self.explanation = explanation
+        sys.modules['inspect_ai.approval._approval'] = mod
+        setattr(mod, 'Approval', Approval)
     if 'inspect_ai.approval._policy' not in sys.modules:
         pol = types.ModuleType('inspect_ai.approval._policy')
         class ApprovalPolicy:  # minimal stub container
-            def __init__(self, approver, tools): self.approver=approver; self.tools=tools
-        setattr(pol,'ApprovalPolicy',ApprovalPolicy)
-        sys.modules['inspect_ai.approval._policy']=pol
+            def __init__(self, approver, tools):
+                self.approver = approver
+                self.tools = tools
+        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
+        sys.modules['inspect_ai.approval._policy'] = pol
 
     agent_obj, tools, approvals = load_and_build(yaml_txt, model=toy_submit_model())
     result = asyncio.run(run_agent(agent_obj, "start", approval=approvals))
@@ -68,19 +73,24 @@ def test_subagent_declared_and_handoff_tool_present():
         prompt: "Say hi"
     """
     # ensure approval stubs so loader can import
-    import sys, types
+    import sys
+    import types
     if 'inspect_ai.approval' not in sys.modules:
         sys.modules['inspect_ai.approval']=types.ModuleType('inspect_ai.approval')
     if 'inspect_ai.approval._approval' not in sys.modules:
         mod = types.ModuleType('inspect_ai.approval._approval')
-        class Approval: pass
-        sys.modules['inspect_ai.approval._approval']=mod; setattr(mod,'Approval',Approval)
+        class Approval:
+            pass
+        sys.modules['inspect_ai.approval._approval'] = mod
+        setattr(mod, 'Approval', Approval)
     if 'inspect_ai.approval._policy' not in sys.modules:
         pol = types.ModuleType('inspect_ai.approval._policy')
         class ApprovalPolicy:  # minimal stub container
-            def __init__(self, approver, tools): self.approver=approver; self.tools=tools
-        setattr(pol,'ApprovalPolicy',ApprovalPolicy)
-        sys.modules['inspect_ai.approval._policy']=pol
+            def __init__(self, approver, tools):
+                self.approver = approver
+                self.tools = tools
+        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
+        sys.modules['inspect_ai.approval._policy'] = pol
 
     agent_obj, tools, approvals = load_and_build(yaml_txt, model=toy_submit_model())
 

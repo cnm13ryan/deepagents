@@ -4,9 +4,7 @@ import sys
 import types
 
 import anyio
-import pytest
 
-from inspect_ai.agent._agent import AgentState
 from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
 from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.model._call_tools import execute_tools
@@ -82,7 +80,7 @@ def _install_slow_text_editor():
 
     mod = types.ModuleType(mod_name)
 
-    from inspect_ai.tool._tool import tool, Tool
+    from inspect_ai.tool._tool import Tool
 
     @tool()
     def text_editor() -> Tool:  # type: ignore[return-type]
@@ -133,7 +131,6 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
 
 def test_sandbox_text_editor_timeout_integration():
     """Integration test to verify timeout behavior works correctly."""
-    import os
     
     # Set short timeout
     original_timeout = os.environ.get("INSPECT_AGENTS_TOOL_TIMEOUT")

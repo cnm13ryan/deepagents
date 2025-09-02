@@ -48,7 +48,8 @@ def model_calls_todos_and_write():
 
 def test_create_deep_agent_minimal_flow():
     # Isolate store
-    s = Store(); init_subtask_store(s)
+    s = Store()
+    init_subtask_store(s)
 
     agent_obj = create_deep_agent(
         tools=[], instructions="You are helpful.", model=model_calls_todos_and_write()
@@ -65,4 +66,3 @@ def test_create_deep_agent_minimal_flow():
     # Verify todos updated in Store
     todos = store_as(Todos).get_todos()
     assert any(t.content == "do x" for t in todos)
-

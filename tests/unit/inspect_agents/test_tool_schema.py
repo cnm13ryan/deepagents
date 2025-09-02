@@ -60,7 +60,10 @@ def test_wrong_type_yields_parsing_error_phrase():
 
 def test_extra_field_yields_additional_properties_phrase():
     # Simulated JSON Schema message — validated via classifier
-    msg = "Found 1 validation errors parsing tool input arguments:\n- Additional properties are not allowed ('c' was unexpected)"
+    msg = (
+        "Found 1 validation errors parsing tool input arguments:\n"
+        "- Additional properties are not allowed ('c' was unexpected)"
+    )
     assert classify_tool_arg_error(msg) == "EXTRA_FIELD"
 
 

@@ -1,4 +1,3 @@
-import os
 import pytest
 
 from inspect_agents.model import resolve_model

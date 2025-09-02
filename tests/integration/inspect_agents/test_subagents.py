@@ -2,7 +2,6 @@ import asyncio
 
 from inspect_ai.model._chat_message import (
     ChatMessageAssistant,
-    ChatMessageSystem,
     ChatMessageTool,
     ChatMessageUser,
 )
@@ -42,7 +41,9 @@ def _conv_with_handoff(function: str):
 
 def test_handoff_boundary_and_prefix_and_ids():
     # Shared store visible to sub-agents
-    s = Store(); init_subtask_store(s); s.set("shared", "XYZ")
+    s = Store()
+    init_subtask_store(s)
+    s.set("shared", "XYZ")
 
     tools = build_subagents(
         configs=[

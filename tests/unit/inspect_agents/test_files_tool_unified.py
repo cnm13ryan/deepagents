@@ -3,7 +3,6 @@
 import asyncio
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-import os
 
 from inspect_agents.tools_files import (
     files_tool,
@@ -295,7 +294,14 @@ class TestFilesToolUnified:
         params3 = FilesParams(root={"command": "write", "file_path": "test.txt", "content": "data"})
         assert isinstance(params3.root, WriteParams)
         
-        params4 = FilesParams(root={"command": "edit", "file_path": "test.txt", "old_string": "old", "new_string": "new"})
+        params4 = FilesParams(
+            root={
+                "command": "edit",
+                "file_path": "test.txt",
+                "old_string": "old",
+                "new_string": "new",
+            }
+        )
         assert isinstance(params4.root, EditParams)
 
     def test_invalid_command_discriminator(self):

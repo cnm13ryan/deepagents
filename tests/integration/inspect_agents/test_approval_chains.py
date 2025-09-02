@@ -18,7 +18,7 @@ if 'inspect_ai.approval._policy' not in sys.modules:
     pol = types.ModuleType('inspect_ai.approval._policy')
     sys.modules['inspect_ai.approval._policy'] = pol
 
-from inspect_agents.approval import approval_preset
+from inspect_agents.approval import approval_preset  # noqa: E402
 
 
 def _install_apply_shim_with_policy():
@@ -40,8 +40,12 @@ def _install_apply_shim_with_policy():
                         if getattr(ap, 'decision', None) != 'escalate':
                             return ap
                 # default reject
-                class _A: pass
-                a=_A(); a.decision='reject'; a.explanation='No approver'; a.modified=None
+                class _A:
+                    pass
+                a = _A()
+                a.decision = 'reject'
+                a.explanation = 'No approver'
+                a.modified = None
                 return a
             return approve
 
@@ -53,7 +57,10 @@ def _install_apply_shim_with_policy():
 
     async def apply_tool_approval(message, call, viewer, history):
         if _approver_ref["fn"] is None:
-            class _Approval: decision = "approve"; modified=None; explanation=None
+            class _Approval:
+                decision = "approve"
+                modified = None
+                explanation = None
             return True, _Approval()
         view = viewer(call) if viewer else None
         approval = await _approver_ref["fn"](message, call, view, history)
@@ -67,14 +74,19 @@ def _install_apply_shim_with_policy():
         appr = types.ModuleType('inspect_ai.approval._approval')
         class Approval:
             def __init__(self, decision, modified=None, explanation=None):
-                self.decision=decision; self.modified=modified; self.explanation=explanation
-        sys.modules['inspect_ai.approval._approval']=appr; setattr(appr,'Approval',Approval)
+                self.decision = decision
+                self.modified = modified
+                self.explanation = explanation
+        sys.modules['inspect_ai.approval._approval'] = appr
+        setattr(appr, 'Approval', Approval)
     # minimal approval._policy for ApprovalPolicy dataclass used by presets
     if 'inspect_ai.approval._policy' not in sys.modules:
         pol = types.ModuleType('inspect_ai.approval._policy')
         class ApprovalPolicy:  # minimal constructor compatibility
-            def __init__(self, approver, tools): self.approver=approver; self.tools=tools
-        setattr(pol,'ApprovalPolicy',ApprovalPolicy)
+            def __init__(self, approver, tools):
+                self.approver = approver
+                self.tools = tools
+        setattr(pol, 'ApprovalPolicy', ApprovalPolicy)
         sys.modules['inspect_ai.approval._policy'] = pol
 
 
@@ -83,7 +95,14 @@ def test_ci_preset_auto_approves():
     policies = approval_preset("ci")
     from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
     init_tool_approval(policies)
-    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="write_file", arguments={}), None, []))
+    ok, approval = asyncio.run(
+        apply_tool_approval(
+            "",
+            ToolCall(id="1", function="write_file", arguments={}),
+            None,
+            [],
+        )
+    )
     assert ok is True
 
 
@@ -92,7 +111,14 @@ def test_dev_preset_escalates_then_rejects():
     policies = approval_preset("dev")
     from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
     init_tool_approval(policies)
-    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="write_file", arguments={}), None, []))
+    ok, approval = asyncio.run(
+        apply_tool_approval(
+            "",
+            ToolCall(id="1", function="write_file", arguments={}),
+            None,
+            [],
+        )
+    )
     assert ok is False
     assert getattr(approval, "decision", None) == "reject"
 
@@ -103,7 +129,14 @@ def test_prod_preset_terminates_sensitive_and_redacts():
     from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
     init_tool_approval(policies)
     args = {"file_path": "/etc/passwd", "api_key": "SECRET", "file_text": "X"}
-    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="write_file", arguments=args), None, []))
+    ok, approval = asyncio.run(
+        apply_tool_approval(
+            "",
+            ToolCall(id="1", function="write_file", arguments=args),
+            None,
+            [],
+        )
+    )
     assert ok is False
     assert getattr(approval, "decision", None) == "terminate"
     # Explanation should carry redacted args
@@ -126,7 +159,14 @@ def test_dev_preset_escalates_web_browser_go_then_rejects():
     policies = approval_preset("dev")
     from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
     init_tool_approval(policies)
-    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="web_browser_go", arguments={}), None, []))
+    ok, approval = asyncio.run(
+        apply_tool_approval(
+            "",
+            ToolCall(id="1", function="web_browser_go", arguments={}),
+            None,
+            [],
+        )
+    )
     assert ok is False
     assert getattr(approval, "decision", None) == "reject"
 
@@ -150,7 +190,14 @@ def test_prod_preset_terminates_web_browser_go_with_redacted_args():
     from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
     init_tool_approval(policies)
     args = {"url": "https://malicious.example.com", "authorization": "Bearer SECRET_TOKEN"}
-    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="web_browser_go", arguments=args), None, []))
+    ok, approval = asyncio.run(
+        apply_tool_approval(
+            "",
+            ToolCall(id="1", function="web_browser_go", arguments=args),
+            None,
+            [],
+        )
+    )
     assert ok is False
     assert getattr(approval, "decision", None) == "terminate"
     text = getattr(approval, "explanation", "")

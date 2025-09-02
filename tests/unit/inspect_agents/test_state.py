@@ -1,5 +1,4 @@
 import asyncio
-import pytest
 
 from inspect_ai.util._store import Store, init_subtask_store
 from inspect_ai.util._span import span

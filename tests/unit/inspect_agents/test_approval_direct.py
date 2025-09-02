@@ -4,7 +4,6 @@
 import sys
 import types
 import asyncio
-import json
 import re
 
 # Mock inspect_ai modules
@@ -73,7 +72,7 @@ def test_patterns():
 
 def test_dev_preset_behavior():
     """Dev preset escalates sensitive tools, approves non-sensitive."""
-    policies = approval_preset("dev")
+    policies = approval_preset("dev")  # noqa: F821
     dev_gate = policies[0].approver
 
     # python → escalate
@@ -93,7 +92,7 @@ def test_dev_preset_behavior():
 
 def test_prod_preset_behavior():
     """Prod preset terminates sensitive tools and redacts secrets."""
-    policies = approval_preset("prod")
+    policies = approval_preset("prod")  # noqa: F821
     prod_gate = policies[0].approver
 
     # python → terminate and redact
