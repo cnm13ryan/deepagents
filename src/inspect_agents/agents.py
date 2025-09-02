@@ -161,6 +161,12 @@ def build_subagents(
     from inspect_ai.agent._react import react
     from inspect_ai.agent._handoff import handoff
     from inspect_ai.agent._as_tool import as_tool
+    # Default quarantine filters and env toggles
+    from inspect_agents.filters import (
+        default_input_filter,
+        default_output_filter,
+        should_inherit_filters,
+    )
 
     # Map base tools by name for per-agent selection
     tool_by_name: dict[str, object] = {}
@@ -203,12 +209,17 @@ def build_subagents(
         if mode == "tool":
             out.append(as_tool(agent, description=desc))
         else:
+            # Resolve filters: per-config wins; otherwise env-driven defaults
+            inherit = should_inherit_filters()
+            input_filter = cfg.get("input_filter") if "input_filter" in cfg else (default_input_filter() if inherit else None)
+            output_filter = cfg.get("output_filter") if "output_filter" in cfg else default_output_filter()
+
             out.append(
                 handoff(
                     agent,
                     description=desc,
-                    input_filter=cfg.get("input_filter"),
-                    output_filter=cfg.get("output_filter"),
+                    input_filter=input_filter,
+                    output_filter=output_filter,
                     tool_name=f"transfer_to_{name}",
                     limits=cfg.get("limits", []),
                 )
