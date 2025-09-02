@@ -18,6 +18,7 @@ import logging
 from typing import Literal
 
 from inspect_ai.util._store_model import StoreModel
+from inspect_ai.log._transcript import track_store_changes
 from pydantic import BaseModel, Field
 
 
@@ -41,7 +42,9 @@ class Todos(StoreModel):
         return self.todos
 
     def set_todos(self, todos: list[Todo]) -> None:
-        self.todos = todos
+        # Emit a StoreEvent for this mutation
+        with track_store_changes():
+            self.todos = todos
 
     def update_status(
         self,
@@ -105,7 +108,9 @@ class Todos(StoreModel):
 
         new_list = list(self.todos)
         new_list[index] = updated
-        self.todos = new_list
+        # Emit a StoreEvent for this mutation
+        with track_store_changes():
+            self.todos = new_list
 
         return warning
 
@@ -128,7 +133,9 @@ class Files(StoreModel):
         # Replace with a copied mapping to ensure store update semantics
         new_files = dict(self.files)
         new_files[path] = content
-        self.files = new_files
+        # Emit a StoreEvent for this mutation
+        with track_store_changes():
+            self.files = new_files
 
     def delete_file(self, path: str) -> None:
         """Delete a file entry if it exists.
@@ -139,4 +146,6 @@ class Files(StoreModel):
         if path in self.files:
             new_files = dict(self.files)
             new_files.pop(path, None)
-            self.files = new_files
+            # Emit a StoreEvent for this mutation
+            with track_store_changes():
+                self.files = new_files
