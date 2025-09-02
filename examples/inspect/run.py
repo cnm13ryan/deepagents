@@ -100,10 +100,35 @@ async def _main() -> int:
     )
     # Optional standard tool toggles (map to env for simplicity)
     parser.add_argument("--enable-think", action="store_true", help="Enable think() tool")
-    parser.add_argument("--enable-web-search", action="store_true", help="Enable web_search() tool (requires Tavily or Google CSE keys)")
-    parser.add_argument("--enable-exec", action="store_true", help="Enable bash() and python() tools (requires sandbox)")
-    parser.add_argument("--enable-web-browser", action="store_true", help="Enable web_browser() tools (requires sandbox + Playwright)")
-    parser.add_argument("--enable-text-editor-tool", action="store_true", help="Expose text_editor() directly (optional; FS tools already route to it in sandbox mode)")
+    parser.add_argument(
+        "--enable-web-search",
+        action="store_true",
+        help=(
+            "Enable web_search() tool (requires Tavily or Google CSE keys)"
+        ),
+    )
+    parser.add_argument(
+        "--enable-exec",
+        action="store_true",
+        help=(
+            "Enable bash() and python() tools (requires sandbox)"
+        ),
+    )
+    parser.add_argument(
+        "--enable-web-browser",
+        action="store_true",
+        help=(
+            "Enable web_browser() tools (requires sandbox + Playwright)"
+        ),
+    )
+    parser.add_argument(
+        "--enable-text-editor-tool",
+        action="store_true",
+        help=(
+            "Expose text_editor() directly (optional; FS tools already "
+            "route to it in sandbox mode)"
+        ),
+    )
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv(
