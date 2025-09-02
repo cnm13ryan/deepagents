@@ -209,9 +209,14 @@ def build_subagents(
         if mode == "tool":
             out.append(as_tool(agent, description=desc))
         else:
-            # Resolve filters: per-config wins; otherwise env-driven defaults
-            inherit = should_inherit_filters()
-            input_filter = cfg.get("input_filter") if "input_filter" in cfg else (default_input_filter() if inherit else None)
+            # Resolve filters: per-config wins; otherwise use context-aware defaults
+            # Input filter cascades the parent filter by default, unless per-agent
+            # env override is present. Pass the sub-agent name to support scoped envs.
+            input_filter = (
+                cfg.get("input_filter")
+                if "input_filter" in cfg
+                else default_input_filter(name)
+            )
             output_filter = cfg.get("output_filter") if "output_filter" in cfg else default_output_filter()
 
             out.append(

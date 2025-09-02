@@ -14,6 +14,11 @@ import logging
 Message = Any  # defer to inspect_ai.model._chat_message.ChatMessage at runtime
 MessageFilter = Callable[[List[Message]], Awaitable[List[Message]]]
 
+# Key used in Inspect Store to record the currently active input filter.
+# This lives in the per-(sub)task store so nested handoffs inherit it without
+# leaking to siblings when control returns to the parent task.
+ACTIVE_INPUT_FILTER_KEY = "inspect_agents:active_input_filter_mode"
+
 
 def _truthy(val: Optional[str]) -> bool:
     if val is None:
@@ -143,18 +148,100 @@ def scoped_quarantine_filter(include_state_summary: bool = True) -> MessageFilte
         summary = _identity_filter()
     return _compose_filters(strict, summary)
 
-
-def default_input_filter() -> MessageFilter:
-    """Return the repo-wide default input filter based on env.
-
-    INSPECT_QUARANTINE_MODE: strict (default) | scoped | off
-    """
-    mode = (os.getenv("INSPECT_QUARANTINE_MODE") or "strict").strip().lower()
+def _filter_for_mode(mode: str) -> MessageFilter:
+    mode = (mode or "strict").strip().lower()
     if mode == "off":
         return _identity_filter()
     if mode == "scoped":
         return scoped_quarantine_filter(include_state_summary=True)
+    # default strict
     return strict_quarantine_filter()
+
+
+def _normalize_agent_env_suffix(name: str) -> str:
+    """Normalise agent suffix for per-agent env overrides.
+
+    - lower-case letters
+    - replace any non-alphanumeric char with underscore
+    - collapse multiple underscores and strip leading/trailing underscores
+    Example: "Research Assistant v2" -> "research_assistant_v2"
+    """
+    import re
+    lower = (name or "").lower()
+    replaced = re.sub(r"[^a-z0-9]+", "_", lower)
+    collapsed = re.sub(r"_+", "_", replaced).strip("_")
+    return collapsed
+
+
+def _per_agent_env_mode(agent_name: Optional[str]) -> Optional[str]:
+    if not agent_name:
+        return None
+    suffix = _normalize_agent_env_suffix(agent_name)
+    key = f"INSPECT_QUARANTINE_MODE__{suffix}"
+    val = os.getenv(key)
+    return val
+
+
+def default_input_filter(agent_name: Optional[str] = None) -> MessageFilter:
+    """Return a context-aware input filter that supports cascading.
+
+    Precedence when no explicit filter is set on the sub-agent:
+    1) Per-agent env override: INSPECT_QUARANTINE_MODE__<AGENT_NAME>
+    2) If should_inherit_filters() and a parent active filter is present in the
+       Store (ACTIVE_INPUT_FILTER_KEY), cascade that filter
+    3) Fallback to global env INSPECT_QUARANTINE_MODE (default: strict)
+
+    The chosen filter is recorded into the Store before being applied so that
+    nested handoffs inherit it within the subtask context.
+    """
+
+    async def run(messages: List[Message]) -> List[Message]:
+        # Late imports to avoid hard dependency at module import
+        try:
+            from inspect_ai.util._store import store
+        except Exception:
+            # If Store is unavailable, just use env/global default
+            per_agent = _per_agent_env_mode(agent_name)
+            mode = per_agent if per_agent is not None else os.getenv("INSPECT_QUARANTINE_MODE", "strict")
+            chosen = _filter_for_mode(mode)
+            return await chosen(messages)
+
+        # 1) Per-agent env override (treat as explicit)
+        per_agent = _per_agent_env_mode(agent_name)
+        if per_agent is not None:
+            chosen = _filter_for_mode(per_agent)
+            try:
+                store().set(ACTIVE_INPUT_FILTER_KEY, per_agent)
+            except Exception:
+                pass
+            return await chosen(messages)
+
+        # 2) Cascade parent active filter if enabled and present
+        chosen: MessageFilter
+        if should_inherit_filters():
+            try:
+                active_mode = store().get(ACTIVE_INPUT_FILTER_KEY, None)
+            except Exception:
+                active_mode = None
+            if isinstance(active_mode, str) and active_mode:
+                chosen = _filter_for_mode(active_mode)
+            else:
+                chosen = _filter_for_mode(os.getenv("INSPECT_QUARANTINE_MODE", "strict"))
+        else:
+            # Inherit disabled: use global default only
+            chosen = _filter_for_mode(os.getenv("INSPECT_QUARANTINE_MODE", "strict"))
+
+        # Record chosen so nested sub-handoffs inherit within this subtask
+        try:
+            # Persist mode string if resolvable; otherwise assume strict
+            mode_str = per_agent or (active_mode if isinstance(locals().get("active_mode"), str) else os.getenv("INSPECT_QUARANTINE_MODE", "strict"))
+            store().set(ACTIVE_INPUT_FILTER_KEY, mode_str)
+        except Exception:
+            pass
+
+        return await chosen(messages)
+
+    return run
 
 
 def default_output_filter() -> Optional[MessageFilter]:
@@ -183,4 +270,5 @@ __all__ = [
     "default_input_filter",
     "default_output_filter",
     "should_inherit_filters",
+    "ACTIVE_INPUT_FILTER_KEY",
 ]
