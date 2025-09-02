@@ -19,25 +19,25 @@ def model_calls_todos_and_write():
             ChatMessageAssistant(
                 content="",
                 tool_calls=[
-                    ToolCall(
-                        id="1",
-                        function="write_todos",
-                        arguments={
+                    {
+                        "id": "1",
+                        "function": "write_todos",
+                        "arguments": {
                             "todos": [
                                 {"content": "do x", "status": "pending"}
                             ]
                         },
-                    ),
-                    ToolCall(
-                        id="2",
-                        function="write_file",
-                        arguments={"file_path": "a.txt", "content": "hello"},
-                    ),
-                    ToolCall(
-                        id="3",
-                        function="submit",
-                        arguments={"answer": "OK"},
-                    ),
+                    },
+                    {
+                        "id": "2",
+                        "function": "write_file",
+                        "arguments": {"file_path": "a.txt", "content": "hello"},
+                    },
+                    {
+                        "id": "3",
+                        "function": "submit",
+                        "arguments": {"answer": "OK"},
+                    },
                 ],
             )
         )
