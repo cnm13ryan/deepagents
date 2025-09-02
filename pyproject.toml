@@ -13,6 +13,7 @@ dependencies = [
     "langgraph-cli[inmem]>=0.3.7",
     "langchain-openai>=0.3.30",
     "requests>=2.32.5",
+    "inspect-ai>=0.3.127",
 ]
 
 
@@ -21,9 +22,10 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["deepagents"]
+packages = ["deepagents", "inspect_agents"]
 [tool.setuptools.package-dir]
 "deepagents" = "src/deepagents"
+"inspect_agents" = "src/inspect_agents"
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
