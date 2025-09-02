@@ -137,6 +137,15 @@ subagents:
       Research the user’s query. Plan, browse, then draft findings.
     mode: handoff
     tools: [web_search, write_todos, read_file, write_file]
+    # Execution limits (spec form). Bind via Python limit objects.
+    # See docs/subagents.md for programmatic examples.
+    limits:
+      - type: time
+        seconds: 60
+      - type: messages
+        max: 8
+      - type: tokens
+        max: 6000
     # Optional quarantine helpers mapped to input filters
     context_scope: scoped          # or "strict"; prefer scoped for summaries
     include_state_summary: true    # include todos/files JSON snapshot
