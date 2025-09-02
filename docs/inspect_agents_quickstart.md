@@ -1,0 +1,111 @@
+# Inspect Agents (Inspect‑AI) Quickstart
+
+This repository includes an Inspect‑AI–native path (`inspect_agents`) alongside the LangGraph/LangChain path. Use it when you want:
+
+- Transcripted runs with structured events and JSONL logs
+- Explicit tool approvals/policies
+- Simple, typed state via `StoreModel` (Todos, Files)
+
+## Install
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e external/inspect_ai -e .
+```
+
+## Minimal Run (toy model)
+
+```python
+import asyncio
+from inspect_ai.agent._agent import agent
+from inspect_ai.model._chat_message import ChatMessageAssistant
+from inspect_ai.tool._tool_call import ToolCall
+from inspect_agents.agents import build_supervisor
+from inspect_agents.run import run_agent
+from inspect_agents.logging import write_transcript
+
+@agent
+def toy_submit_model():
+    async def execute(state, tools):
+        state.messages.append(
+            ChatMessageAssistant(
+                content="",
+                tool_calls=[ToolCall(id="1", function="submit", arguments={"answer": "DONE"})],
+            )
+        )
+        return state
+    return execute
+
+async def main():
+    sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
+    result = await run_agent(sup, "hello")
+    print("Completion:", result.output.completion)
+    print("Transcript log:", write_transcript())
+
+asyncio.run(main())
+```
+
+## Real Model
+
+```python
+from inspect_agents.model import resolve_model
+model = resolve_model(provider="lm-studio")  # or "ollama", "openai", etc.
+sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=model)
+```
+
+Environment variables (shared with `deepagents`):
+
+- `DEEPAGENTS_MODEL_PROVIDER`: `ollama` (default) | `lm-studio` | `openai` | others
+- Ollama: `OLLAMA_MODEL_NAME`, optional `OLLAMA_BASE_URL`/`OLLAMA_HOST`
+- LM‑Studio: `LM_STUDIO_BASE_URL` (e.g., http://127.0.0.1:1234/v1), `LM_STUDIO_MODEL_NAME`, `LM_STUDIO_API_KEY`
+- OpenAI‑compatible providers: `<PROVIDER>_API_KEY` and optional `<PROVIDER>_MODEL`
+
+Inspect‑specific:
+
+- `INSPECT_AGENTS_FS_MODE`: `store` (default) or `sandbox` (uses host text editor tool)
+- `INSPECT_LOG_DIR`: transcript output directory (default `.inspect/logs`)
+
+## YAML Config (agents + approvals)
+
+```yaml
+supervisor:
+  prompt: "You are helpful."
+  attempts: 1
+approvals:
+  submit:
+    decision: approve
+```
+
+```python
+import asyncio, yaml
+from inspect_agents.config import load_and_build
+from inspect_agents.run import run_agent
+from inspect_agents.logging import write_transcript
+
+cfg = yaml.safe_load(open("inspect.yaml"))
+agent_obj, tools, approvals = load_and_build(cfg)
+result = asyncio.run(run_agent(agent_obj, "hello", approval=approvals))
+print("Completion:", result.output.completion)
+print("Transcript log:", write_transcript())
+```
+
+## Filesystem Tools
+
+Built‑ins exposed to agents:
+
+- `write_todos`: update shared todo list (`Todos`)
+- `ls`, `read_file`, `write_file`, `edit_file`: operate on a virtual in‑memory FS (`Files`) by default
+  - Set `INSPECT_AGENTS_FS_MODE=sandbox` to use the host FS via Inspect’s text editor tool (ensure a safe sandbox)
+
+## Logging
+
+Call `inspect_agents.logging.write_transcript()` to persist JSONL events. Default directory is `.inspect/logs` or override with `INSPECT_LOG_DIR`.
+
+## Smoke Test
+
+Run a focused test to confirm the path works locally:
+
+```bash
+pytest -q tests/inspect_agents/test_run.py::test_run_with_str_input_returns_state
+```
+
