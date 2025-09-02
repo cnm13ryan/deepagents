@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# ruff: noqa: E402, E501
 """
 Local runner for the Deep Research agent using constituent components from this repo.
 
@@ -69,7 +70,7 @@ def _load_env_files():
         if not os.path.exists(path):
             return
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 for raw in f:
                     line = raw.strip()
                     if not line or line.startswith("#"):
@@ -149,8 +150,8 @@ def _init_model_from_string(model_str: str):
 
     if not provider:
         raise RuntimeError(
-            "Unable to infer model provider for model='{}'. Either prefix it (e.g., 'ollama:<tag>') "
-            "or set DEEPAGENTS_MODEL_PROVIDER=ollama.".format(model_str)
+            f"Unable to infer model provider for model='{model_str}'. Either prefix it (e.g., 'ollama:<tag>') "
+            "or set DEEPAGENTS_MODEL_PROVIDER=ollama."
         )
 
     return init_chat_model(model=model_str, model_provider=provider)
