@@ -105,6 +105,27 @@ print("Completion:", result.output.completion)
 print("Transcript log:", write_transcript())
 ```
 
+### Sub-agent config (experimental)
+
+You can declare sub‑agent quarantine behavior in YAML via `context_scope` (strict|scoped) and `include_state_summary` (for scoped):
+
+```yaml
+supervisor:
+  prompt: "You are the orchestrator."
+subagents:
+  - name: researcher
+    description: Investigate a topic
+    prompt: "Research and summarise findings."
+    mode: handoff
+    context_scope: scoped          # experimental; maps to input_filter
+    include_state_summary: true    # optional; defaults to true for scoped
+    tools: [web_search, ls, read_file]
+```
+
+Notes:
+- Explicit `input_filter`/`output_filter` in code or config override `context_scope`.
+- Env flags (`INSPECT_QUARANTINE_MODE`, `INSPECT_QUARANTINE_INHERIT`) still apply if `context_scope` is not set.
+
 ## Filesystem Tools
 
 Built‑ins exposed to agents:
@@ -138,6 +159,44 @@ You can expose Inspect’s standard tools in addition to the built‑ins (todos 
 - `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` — expose `text_editor()` directly (optional; FS tools already route to it in sandbox mode).
 
 Reference: Standard tools overview and setup details are documented at Inspect’s official site.
+
+## Quarantine Modes (env)
+
+Control default input filtering for sub‑agents (handoffs) without changing code:
+
+- `INSPECT_QUARANTINE_MODE`: `strict` (default) | `scoped` | `off`
+  - `strict`: remove tools/system and show only the boundary message (no prior history).
+  - `scoped`: same as strict plus an appended JSON summary of `Todos`/`Files` (bounded; no contents).
+  - `off`: no filtering (debug only).
+- `INSPECT_QUARANTINE_INHERIT`: `1` (default) | `0` — whether nested handoffs inherit the active filter by default.
+
+Per‑sub‑agent configs that set `input_filter`/`output_filter` take precedence over env settings.
+
+Example (scoped + inherit):
+
+```bash
+INSPECT_QUARANTINE_MODE=scoped \
+INSPECT_QUARANTINE_INHERIT=1 \
+uv run python examples/inspect/run.py "delegate: summarize repo status"
+```
+
+Advanced (scoped summary caps):
+
+- `INSPECT_SCOPED_MAX_BYTES` (default 2048)
+- `INSPECT_SCOPED_MAX_TODOS` (default 10)
+- `INSPECT_SCOPED_MAX_FILES` (default 20)
+
+These control the size and breadth of the JSON summary appended in `scoped` mode.
+
+## Stateless vs Stateful Tools (guidance)
+
+- Stateless tools: run in‑process; calls are independent. Prefer for simple, idempotent transforms (e.g., format/summarize) and expose as `as_tool` when suitable.
+- Stateful tools: run via a long‑lived JSON‑RPC server with per‑session state (e.g., web_browser). Prefer `handoff` with strict quarantine + approvals; enable only in a sandboxed environment.
+
+Recommended defaults:
+- `web_browser`: handoff + strict quarantine; require sandbox; keep disabled unless needed.
+- `text_editor`: already used by our file tools; exposing it as a standalone tool is optional and generally not required.
+- `bash`/`python`: enable only with strong approvals/sandbox; default is off.
 
 ## Inspect CLI (no Python wrapper)
 
