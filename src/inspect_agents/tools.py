@@ -6,7 +6,7 @@ Currently includes:
 - write_todos: update the shared Todos list in the Store
 """
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Any, Dict
 import os
 import anyio
 from pydantic import BaseModel
@@ -27,6 +27,79 @@ from .tools_files import (
 )
 import json
 import logging
+import time
+
+# Structured observability configuration
+_OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
+
+
+def _redact_and_truncate(payload: Dict[str, Any] | None, max_len: int | None = None) -> Dict[str, Any]:
+    """Redact sensitive keys and truncate large string fields.
+
+    - Redaction uses approval.redact_arguments to apply the shared REDACT_KEYS policy.
+    - Truncation applies to string values > max_len chars (default from env).
+    """
+    if not payload:
+        return {}
+    try:
+        from .approval import redact_arguments
+    except Exception:
+        # Fallback: shallow copy without redaction
+        redacted = dict(payload)
+    else:
+        redacted = redact_arguments(dict(payload))  # type: ignore[arg-type]
+
+    limit = max_len if (max_len is not None and max_len > 0) else _OBS_TRUNCATE
+
+    def _truncate(v: Any) -> Any:
+        try:
+            if isinstance(v, str) and limit and len(v) > limit:
+                return v[:limit] + f"...[+{len(v) - limit} chars]"
+            return v
+        except Exception:
+            return "[UNSERIALIZABLE]"
+
+    return {k: _truncate(v) for k, v in redacted.items()}
+
+
+def _log_tool_event(
+    name: str,
+    phase: str,
+    args: Dict[str, Any] | None = None,
+    extra: Dict[str, Any] | None = None,
+    t0: float | None = None,
+) -> float:
+    """Emit a minimal structured log line for tool lifecycle.
+
+    Returns a perf counter when phase == "start" so callers can pass it back
+    on "end"/"error" to compute a duration.
+    """
+    logger = logging.getLogger(__name__)
+    now = time.perf_counter()
+    data: Dict[str, Any] = {
+        "tool": name,
+        "phase": phase,
+    }
+    if args:
+        data["args"] = _redact_and_truncate(args)
+    if t0 is not None and phase in ("end", "error"):
+        try:
+            data["duration_ms"] = round((now - t0) * 1000, 2)
+        except Exception:
+            pass
+    if extra:
+        # Shallow merge; do not overwrite core fields
+        for k, v in extra.items():
+            if k not in data:
+                data[k] = v
+
+    try:
+        logger.info("tool_event %s", json.dumps(data, ensure_ascii=False))
+    except Exception:
+        # Last-resort: emit best-effort repr
+        logger.info("tool_event %s", {k: ("[obj]" if k == "args" else v) for k, v in data.items()})
+
+    return now if phase == "start" else (t0 or now)
 
 # Import ToolException for structured error handling
 try:
@@ -193,13 +266,23 @@ def write_todos():  # -> Tool
     @tool
     def _factory() -> Tool:
         async def execute(todos: list[Todo]) -> str | TodoWriteResult:
+            _t0 = _log_tool_event(
+                name="write_todos",
+                phase="start",
+                args={"todos": [getattr(t, "title", None) or getattr(t, "text", None) or "todo" for t in todos], "count": len(todos)},
+            )
             model = store_as(Todos)
             model.set_todos(todos)
             rendered = [
                 t.model_dump() if hasattr(t, "model_dump") else t for t in model.todos
             ]
-            
             summary = f"Updated todo list to {rendered}"
+            _log_tool_event(
+                name="write_todos",
+                phase="end",
+                extra={"ok": True, "count": len(todos)},
+                t0=_t0,
+            )
             if _use_typed_results():
                 return TodoWriteResult(count=len(todos), summary=summary)
             return summary
@@ -240,6 +323,15 @@ def update_todo_status():  # -> Tool
             status: str,
             allow_direct_complete: bool = False,
         ) -> str | TodoStatusResult:
+            _t0 = _log_tool_event(
+                name="update_todo_status",
+                phase="start",
+                args={
+                    "todo_index": todo_index,
+                    "status": status,
+                    "allow_direct_complete": allow_direct_complete,
+                },
+            )
             model = store_as(Todos)
             try:
                 warning = model.update_status(
@@ -249,6 +341,12 @@ def update_todo_status():  # -> Tool
                 )
                 
                 message = f"Updated todo[{todo_index}] status to {status}"
+                _log_tool_event(
+                    name="update_todo_status",
+                    phase="end",
+                    extra={"ok": True, "warning": bool(warning)},
+                    t0=_t0,
+                )
                 
                 if _use_typed_results():
                     return TodoStatusResult(
@@ -271,8 +369,20 @@ def update_todo_status():  # -> Tool
                         pass
                 return json.dumps(payload, ensure_ascii=False)
             except (IndexError, ValueError) as e:
+                _log_tool_event(
+                    name="update_todo_status",
+                    phase="error",
+                    extra={"ok": False, "error": type(e).__name__},
+                    t0=_t0,
+                )
                 raise ToolException(f"Invalid todo operation: {str(e)}. Please check the todo index and status values.")
             except Exception as e:
+                _log_tool_event(
+                    name="update_todo_status",
+                    phase="error",
+                    extra={"ok": False, "error": type(e).__name__},
+                    t0=_t0,
+                )
                 raise ToolException(f"Todo update failed: {str(e)}")
 
         params = ToolParams()
