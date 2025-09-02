@@ -2,7 +2,15 @@ import asyncio
 import sys
 import types
 
-from inspect_ai.tool._tool_call import ToolCall
+# Create minimal ToolCall class for testing
+class ToolCall:
+    def __init__(self, id, function, arguments, parse_error=None, view=None, type=None):
+        self.id = id
+        self.function = function
+        self.arguments = arguments
+        self.parse_error = parse_error
+        self.view = view
+        self.type = type
 
 # Provide minimal policy module if not present
 if 'inspect_ai.approval._policy' not in sys.modules:
@@ -101,3 +109,49 @@ def test_prod_preset_terminates_sensitive_and_redacts():
     # Explanation should carry redacted args
     text = getattr(approval, "explanation", "")
     assert "[REDACTED]" in text and "SECRET" not in text
+
+
+def test_dev_preset_escalates_python_then_rejects():
+    _install_apply_shim_with_policy()
+    policies = approval_preset("dev")
+    from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
+    init_tool_approval(policies)
+    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="python", arguments={}), None, []))
+    assert ok is False
+    assert getattr(approval, "decision", None) == "reject"
+
+
+def test_dev_preset_escalates_web_browser_go_then_rejects():
+    _install_apply_shim_with_policy()
+    policies = approval_preset("dev")
+    from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
+    init_tool_approval(policies)
+    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="web_browser_go", arguments={}), None, []))
+    assert ok is False
+    assert getattr(approval, "decision", None) == "reject"
+
+
+def test_prod_preset_terminates_python_with_redacted_args():
+    _install_apply_shim_with_policy()
+    policies = approval_preset("prod")
+    from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
+    init_tool_approval(policies)
+    args = {"code": "import os; os.system('rm -rf /')", "api_key": "SECRET"}
+    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="python", arguments=args), None, []))
+    assert ok is False
+    assert getattr(approval, "decision", None) == "terminate"
+    text = getattr(approval, "explanation", "")
+    assert "[REDACTED]" in text and "SECRET" not in text
+
+
+def test_prod_preset_terminates_web_browser_go_with_redacted_args():
+    _install_apply_shim_with_policy()
+    policies = approval_preset("prod")
+    from inspect_ai.approval._apply import apply_tool_approval, init_tool_approval
+    init_tool_approval(policies)
+    args = {"url": "https://malicious.example.com", "authorization": "Bearer SECRET_TOKEN"}
+    ok, approval = asyncio.run(apply_tool_approval("", ToolCall(id="1", function="web_browser_go", arguments=args), None, []))
+    assert ok is False
+    assert getattr(approval, "decision", None) == "terminate"
+    text = getattr(approval, "explanation", "")
+    assert "[REDACTED]" in text and "SECRET_TOKEN" not in text
