@@ -1,6 +1,6 @@
 # DeepAgents Implementation Prompts
 
-## 5.1 Context Quarantine Implementation (via Filters + StoreModel)
+## done 5.1 Context Quarantine Implementation (via Filters + StoreModel)
 
 ### Context & Motivation
 
@@ -253,7 +253,7 @@ pytest --cov=inspect_agents --cov-report=term-missing
 git checkout -b chore/remove-unified-state-docs && rg -n "state_schema|DeepAgentState|unified state" -S
 ```
 
-## 5.3 Todo Status Transitions
+## done 5.3 Todo Status Transitions
 
 ### Context & Motivation
 
