@@ -556,7 +556,7 @@ Inspect‑specific knobs:
 - `INSPECT_AGENTS_FS_MODE`: `store` (default in‑memory virtual FS) or `sandbox` (uses Inspect’s host text editor tool).
 - `INSPECT_LOG_DIR`: transcript output directory (default `.inspect/logs`).
 
-See docs/inspect_agents_quickstart.md for more details.
+See docs/inspect_agents_quickstart.md for more details. For console usage tips and flags, see docs/inspect_console_cheatsheet.md.
 
 ### Inspect CLI (no Python wrapper)
 
