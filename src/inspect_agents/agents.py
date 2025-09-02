@@ -11,18 +11,65 @@ from typing import Sequence, TypedDict, NotRequired, Any
 
 
 # Base prompt modeled after deepagents.base_prompt
-BASE_PROMPT = (
-    "You have access to a number of standard tools\n\n"
-    "## `write_todos`\n\n"
-    "You have access to the `write_todos` tools to help you manage and plan tasks."
-    " Use these tools VERY frequently to ensure that you are tracking your tasks and"
-    " giving the user visibility into your progress.\n"
-    "These tools are also EXTREMELY helpful for planning tasks, and for breaking down"
-    " larger complex tasks into smaller steps. If you do not use this tool when"
-    " planning, you may forget to do important tasks - and that is unacceptable.\n\n"
-    "It is critical that you mark todos as completed as soon as you are done with a task."
-    " Do not batch up multiple tasks before marking them as completed.\n"
+BASE_PROMPT_HEADER = (
+    "You have access to a number of tools.\n\n"
 )
+
+BASE_PROMPT_TODOS = (
+    "## Todo & Filesystem Tools\n\n"
+    "- `write_todos`: Update and track your plan frequently.\n"
+    "- `ls`, `read_file`, `write_file`, `edit_file`: Operate on a virtual in‑memory FS by default.\n"
+    "  In sandbox mode, these map to a safe host text editor.\n\n"
+    "Mark todos complete as soon as a task is finished (don’t batch).\n"
+)
+
+def _format_standard_tools_section(all_tools: list[object]) -> str:
+    """Return a short section enumerating available Inspect standard tools.
+
+    Groups standard tools separately so the model understands additional
+    capabilities beyond the Todo/FS utilities.
+    """
+    try:
+        from inspect_ai.tool._tool_def import ToolDef
+    except Exception:
+        # If ToolDef is unavailable (e.g., in stubs), skip annotation
+        return ""
+
+    names = set()
+    for t in all_tools:
+        try:
+            tdef = ToolDef(t) if not isinstance(t, ToolDef) else t
+            names.add(tdef.name)
+        except Exception:
+            pass
+
+    std_names: list[str] = []
+    # Detect presence of representative tools
+    if "think" in names:
+        std_names.append("think")
+    if "web_search" in names:
+        std_names.append("web_search")
+    if "bash" in names:
+        std_names.append("bash")
+    if "python" in names:
+        std_names.append("python")
+    # Web browser exposes multiple tool names; detect by go
+    browser_present = any(n.startswith("web_browser_") for n in names)
+    if browser_present:
+        std_names.append("web_browser")
+    if "text_editor" in names:
+        std_names.append("text_editor")
+
+    if not std_names:
+        return ""
+
+    std_list = ", ".join(std_names)
+    return (
+        "\n## Standard Tools\n\n"
+        f"Additional standard tools are enabled: {std_list}.\n"
+        "Use `web_search` to retrieve up‑to‑date information from the web when needed."
+        " Prefer citing sources in your answer.\n"
+    )
 
 
 def _built_in_tools():
@@ -63,10 +110,18 @@ def build_supervisor(
     """
     from inspect_ai.agent._react import react
 
-    full_prompt = (prompt or "").rstrip() + "\n\n" + BASE_PROMPT
-
+    # Compose prompt with clear tool sections (Todo/FS + Standard)
     tools = list(tools or [])
-    tools = _built_in_tools() + tools
+    builtins = _built_in_tools()
+    tools = builtins + tools
+
+    full_prompt = (
+        (prompt or "").rstrip()
+        + "\n\n"
+        + BASE_PROMPT_HEADER
+        + BASE_PROMPT_TODOS
+        + _format_standard_tools_section(builtins)
+    )
 
     return react(
         prompt=full_prompt,
