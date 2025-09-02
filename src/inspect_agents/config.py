@@ -55,9 +55,6 @@ def build_from_config(cfg: RootConfig, *, model: Any | None = None) -> tuple[obj
 
     Returns (agent, tools, approvals)
     """
-    # Base built-ins + subagent tools
-    base_tools: list[object] = []  # built into build_supervisor
-
     sub_tools: list[object] = []
     if cfg.subagents:
         # Build sub-agent tools using base tools (write_todos/fs) as universe
@@ -131,7 +128,11 @@ def build_from_config(cfg: RootConfig, *, model: Any | None = None) -> tuple[obj
     return agent, active_tools, approvals
 
 
-def load_and_build(source: str | Path | dict[str, Any], *, model: Any | None = None) -> tuple[object, list[object], list[Any]]:
+def load_and_build(
+    source: str | Path | dict[str, Any],
+    *,
+    model: Any | None = None,
+) -> tuple[object, list[object], list[Any]]:
     return build_from_config(load_yaml(source), model=model)
 
 

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """Inspect‑native tools for the deepagents rewrite.
 
 Currently includes:
 - write_todos: update the shared Todos list in the Store
 """
 
-from typing import TYPE_CHECKING, List, Any, Dict
+from typing import TYPE_CHECKING, Any
 import os
-import anyio
 from pydantic import BaseModel
 
 # Avoid importing inspect_ai.tool at module import time; tests stub package
@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
 
 from .state import Todo, Todos
 from .tools_files import (
-    files_tool, FilesParams, LsParams, ReadParams, WriteParams, EditParams,
+    LsParams, ReadParams, WriteParams, EditParams,
     execute_ls, execute_read, execute_write, execute_edit,
     FileListResult, FileReadResult, FileWriteResult, FileEditResult
 )
@@ -33,7 +33,7 @@ import time
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
 
 
-def _redact_and_truncate(payload: Dict[str, Any] | None, max_len: int | None = None) -> Dict[str, Any]:
+def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
     """Redact sensitive keys and truncate large string fields.
 
     - Redaction uses approval.redact_arguments to apply the shared REDACT_KEYS policy.
@@ -65,8 +65,8 @@ def _redact_and_truncate(payload: Dict[str, Any] | None, max_len: int | None = N
 def _log_tool_event(
     name: str,
     phase: str,
-    args: Dict[str, Any] | None = None,
-    extra: Dict[str, Any] | None = None,
+    args: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
     t0: float | None = None,
 ) -> float:
     """Emit a minimal structured log line for tool lifecycle.
@@ -76,7 +76,7 @@ def _log_tool_event(
     """
     logger = logging.getLogger(__name__)
     now = time.perf_counter()
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "tool": name,
         "phase": phase,
     }
@@ -106,7 +106,7 @@ try:
     from inspect_tool_support._util.common_types import ToolException
 except ImportError:
     # Fallback for test environments where inspect_tool_support might not be available
-    class ToolException(Exception):
+    class ToolException(Exception):  # noqa: N818
         def __init__(self, message: str):
             self.message = message
             super().__init__(message)
@@ -200,11 +200,10 @@ def standard_tools() -> list[object]:
 
     # web_search(...)
     enable_web_search_env = os.getenv("INSPECT_ENABLE_WEB_SEARCH")
-    enable_web_search = (
-        _truthy(enable_web_search_env)
-        if enable_web_search_env is not None
-        else (os.getenv("TAVILY_API_KEY") or (os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY"))) is not None
-    )
+    enable_web_search = _truthy(enable_web_search_env) if enable_web_search_env is not None else (
+        os.getenv("TAVILY_API_KEY")
+        or (os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY"))
+    ) is not None
     if enable_web_search:
         try:
             providers_cfg: list[object] = []
@@ -257,7 +256,7 @@ def write_todos():  # -> Tool
     """
 
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
@@ -269,7 +268,15 @@ def write_todos():  # -> Tool
             _t0 = _log_tool_event(
                 name="write_todos",
                 phase="start",
-                args={"todos": [getattr(t, "title", None) or getattr(t, "text", None) or "todo" for t in todos], "count": len(todos)},
+                args={
+                    "todos": [
+                        getattr(t, "title", None)
+                        or getattr(t, "text", None)
+                        or "todo"
+                        for t in todos
+                    ],
+                    "count": len(todos),
+                },
             )
             model = store_as(Todos)
             model.set_todos(todos)
@@ -310,7 +317,7 @@ def update_todo_status():  # -> Tool
     Returns a JSON payload with optional 'warning' field when direct completion occurs.
     """
 
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
@@ -413,7 +420,7 @@ def ls():  # -> Tool
 
     Optionally scope to a Files(instance=...) for per-agent isolation.
     """
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
@@ -448,7 +455,7 @@ def read_file():  # -> Tool
     Mirrors deepagents semantics: offset/limit by lines, per-line 2000-char truncation,
     and friendly error messages.
     """
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
@@ -507,7 +514,7 @@ def write_file():  # -> Tool
     DEPRECATED: Use files_tool() with command='write' instead.
     This is a backward-compatible wrapper.
     """
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
@@ -553,7 +560,7 @@ def edit_file():  # -> Tool
     DEPRECATED: Use files_tool() with command='edit' instead.
     This is a backward-compatible wrapper.
     """
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema

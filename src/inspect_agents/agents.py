@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """Supervisor agent (Inspect ReAct) for deepagents rewrite.
 
 Provides `build_supervisor()` which returns an Inspect `react` agent configured
@@ -7,7 +8,8 @@ with a base prompt and built-in tools (todos + virtual FS). The agent terminates
 via the default `submit()` tool provided by Inspect.
 """
 
-from typing import Sequence, TypedDict, NotRequired, Any
+from typing import TypedDict, NotRequired, Any
+from collections.abc import Sequence
 
 
 # Base prompt modeled after deepagents.base_prompt
@@ -166,14 +168,12 @@ def build_subagents(
     from inspect_agents.filters import (
         default_input_filter,
         default_output_filter,
-        should_inherit_filters,
     )
 
     # Map base tools by name for per-agent selection
     tool_by_name: dict[str, object] = {}
     try:
         from inspect_ai.tool._tool_def import ToolDef
-        from inspect_ai.tool._tool import Tool
         for t in base_tools:
             tdef = ToolDef(t) if not isinstance(t, ToolDef) else t
             tool_by_name[tdef.name] = t

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """Model resolver for Inspect-native agents.
 
 Resolves a concrete Inspect model identifier or a role indirection string that
@@ -16,7 +17,6 @@ two common local paths (Ollama, LM Studio) while returning Inspect-style model
 strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 """
 
-from typing import Optional
 import os
 
 
@@ -136,4 +136,3 @@ def resolve_model(
 
     # Final fallback: prefer Ollama
     return f"ollama/{LOCAL_DEFAULT_OLLAMA_MODEL}"
-
