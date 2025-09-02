@@ -1,5 +1,7 @@
 # Stateless vs Stateful Tools (Inspect Tool Support)
 
+See also: [Stateless vs Stateful Tools — Harmonized](./stateless-vs-stateful-tools-harmonized.md) for the canonical, consolidated definitions, templates, and checklists that integrate Inspect AI usage patterns.
+
 This guide explains how tools in Inspect Tool Support are categorized as stateless or stateful, and provides concrete design and documentation practices for each. It aligns with the package’s JSON‑RPC + Pydantic patterns, `ToolException` error handling, and `SessionController` for session isolation.
 
 ## Definitions
@@ -196,4 +198,3 @@ async def my_do(params: DoParams) -> Result:
   - Self‑contained inputs; idempotent where possible; deterministic outputs; safe concurrency; discriminated union API; clear validation and truncation; comprehensive docs for commands, limits, and errors.
 - Stateful
   - Full session lifecycle; per‑session isolation; robust resource management, timeouts and backpressure; session‑tagged observability; security hardening; docs covering lifecycle, limits, and operational playbooks.
-
