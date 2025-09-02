@@ -564,7 +564,7 @@ Prefer the Inspect CLI for one‑off prompts without the Python runner.
 
 ```bash
 # Run a single prompt via an Inspect @task
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="Write a concise overview of LangGraph"
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph"
 ```
 
 Enable standard tools at runtime:
@@ -572,15 +572,15 @@ Enable standard tools at runtime:
 ```bash
 # Structured thinking
 INSPECT_ENABLE_THINK=1 \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 
 # Web search (Tavily)
 INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 
 # Web search (Google CSE)
 INSPECT_ENABLE_WEB_SEARCH=1 GOOGLE_CSE_API_KEY=... GOOGLE_CSE_ID=... \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 ```
 
 Environment loading:
