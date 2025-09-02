@@ -131,7 +131,7 @@ def approval_preset(preset: str) -> List[Any]:
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
 
-    sensitive = re.compile(r"^(write_file|text_editor|bash|web_browser)")
+    sensitive = re.compile(r"^(write_file|text_editor|bash|python|web_browser_)")
 
     async def approve_all(message, call: ToolCall, view, history):  # type: ignore
         return Approval(decision="approve")
