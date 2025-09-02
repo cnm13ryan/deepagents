@@ -10,7 +10,7 @@ This repository includes an Inspect‑AI–native path (`inspect_agents`) alongs
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e external/inspect_ai -e .
+pip install -e .
 ```
 
 ## Centralized Env (env_templates)
@@ -171,6 +171,13 @@ Control default input filtering for sub‑agents (handoffs) without changing cod
 - `INSPECT_QUARANTINE_INHERIT`: `1` (default) | `0` — whether nested handoffs inherit the active filter by default.
 
 Per‑sub‑agent configs that set `input_filter`/`output_filter` take precedence over env settings.
+
+Per‑agent overrides: You can override the quarantine mode for a specific sub‑agent using a scoped env var of the form `INSPECT_QUARANTINE_MODE__<agent>`. The `<agent>` suffix is normalised (lower‑case; non‑alphanumeric → `_`; collapse repeats). Only the lower‑case normalised form is recognised (no alternate casings). Examples:
+
+```bash
+# Applies only to sub-agent named "Research Assistant v2"
+export INSPECT_QUARANTINE_MODE__research_assistant_v2=scoped
+```
 
 Example (scoped + inherit):
 
