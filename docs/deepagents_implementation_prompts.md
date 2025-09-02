@@ -47,7 +47,7 @@ print(state)  # shows both supervisor and sub-agent messages intertwined
 
 - Strict quarantine (default): Each sub‑agent starts with no prior message history. Compose filters `remove_tools` → `content_only` → `last_message` so the sub‑agent only sees the immediate boundary message (and never system/tool context). This mirrors the original “context quarantine,” minimizes prompt‑injection risk, and makes behaviour easier to reason about.
 - Scoped quarantine (optional): Retain only the last user task plus an optional summary of shared `Todos`/`Files` to improve local context. This carries slightly higher leakage risk; keep it opt‑in and clearly marked in config.
-- Inheritance: Nested handoffs inherit the parent’s quarantine by default so every level enjoys the same isolation guarantees. Allow per‑sub‑agent overrides to relax or change the filter when debugging or when a specific sub‑agent needs more context.
+- Inheritance (cascade-first): Nested handoffs inherit the parent’s active input filter by default, preserving the parent’s safety assumptions and avoiding accidental context leakage. A sub‑agent’s own setting (explicit `input_filter` or `context_scope`) overrides the parent. Treat environment overrides as explicit only when scoped to that sub‑agent; a global env alone must not override a cascaded parent filter.
 
 #### Scoped Summary Payload (opt‑in)
 
@@ -98,8 +98,15 @@ Provide repo‑wide environment flags with per‑agent override precedence:
   - `scoped`: strict + append JSON summary (above).
   - `off`: identity filter (use only for debugging).
 - `INSPECT_QUARANTINE_INHERIT`: `1` (default) | `0`
-  - `1`: apply the active input filter to nested handoffs by default.
-  - `0`: do not inherit; nested handoffs must opt‑in or specify their own filter.
+  - `1`: cascade the parent’s active input filter to nested handoffs by default.
+  - `0`: do not inherit; nested handoffs use their own explicit config or (if none) the repo default.
+
+Scoping note: Prefer per‑sub‑agent configuration over global envs. If environment control is needed per agent, use a scoped convention (e.g., `INSPECT_QUARANTINE_MODE__<agent>=scoped`). Global envs do not override a cascaded parent filter.
+
+Env override normalisation: The `<agent>` suffix is normalised to lower‑case, non‑alphanumeric characters replaced with underscores, consecutive underscores collapsed, and leading/trailing underscores stripped. Only the lower‑case normalised form is recognised. Examples:
+
+- `INSPECT_QUARANTINE_MODE__researcher=scoped`
+- `INSPECT_QUARANTINE_MODE__research_assistant_v2=strict` (from name "Research Assistant v2")
 
 Precedence: explicit `input_filter`/`output_filter` in a sub‑agent config ALWAYS wins over env flags.
 
@@ -180,7 +187,7 @@ pytest --cov=inspect_agents --cov-report=term-missing
 git checkout -b feature/quarantine-filters && rg -n "build_subagents\(|handoff\(" src/inspect_agents external/inspect_ai/src
 ```
 
-## 5.2 StoreModel + Filters (No Unified State)
+## [DONE] 5.2 StoreModel + Filters (No Unified State)
 
 ### Context & Motivation
 
@@ -283,13 +290,15 @@ grep -R "status" src/inspect_agents/tools.py
 ```
 
 - **Reference Implementation:** The original deepagents uses reducer functions to update todo statuses and ensures statuses reflect progress.
+- **Policy (safety + flexibility):** Enforce a strict progression `pending → in_progress → completed` by default. Permit a direct `pending → completed` transition only when explicitly requested; emit a warning/log entry so operators can audit unusual workflows.
 - **Integration Points:** Implement a helper tool `update_todo_status` or extend `write_todos` to allow updating statuses. Alternatively, provide a reducer function that examines tool calls and updates statuses when a `task` starts or completes.
 
 ### Implementation Scope
 
 **In Scope:**
-- [ ] Add an Inspect tool `update_todo_status(todo_index: int, status: str)` or modify `write_todos` to support updating existing items by index.
-- [ ] Update `Todos` model with a method `update_status(index, status)` that validates transitions.
+- [ ] Add an Inspect tool `update_todo_status(todo_index: int, status: str, allow_direct_complete: bool = false)` or modify `write_todos` to support updating existing items by index.
+- [ ] Update `Todos` model with a method `update_status(index, status, allow_direct_complete=False)` that validates transitions and logs a warning when `pending → completed` occurs with `allow_direct_complete=True`.
+- [ ] Warning sink: log via Python `logging` and include a structured payload in tools: `{ "ok": true|false, "message"|"error", "meta": { "warning": "..." } }` when a direct completion occurs (hybrid approach), documented for consistency across tools.
 - [ ] Write unit tests for valid and invalid transitions (e.g., cannot move directly from pending to completed without in_progress).
 
 **Out of Scope:**
@@ -319,6 +328,7 @@ pytest --cov=inspect_agents --cov-report=term-missing
 - [ ] Invalid index; should raise an error.
 - [ ] Invalid status value; should be rejected.
 - [ ] Concurrent updates from multiple sub-agents.
+- [ ] Direct `pending → completed` only allowed when `allow_direct_complete=True`; ensure a warning is logged.
 
 ### Success Criteria
 
