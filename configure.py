@@ -6,7 +6,6 @@ This script provides an interactive way to configure DeepAgents for different pr
 It creates the necessary .env files with the right settings.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -44,7 +43,7 @@ def configure_ollama():
                     model_name = line.split()[0]
                     print(f"  - {model_name}")
             print()
-    except:
+    except Exception:
         pass
     
     default_model = "qwen3:4b-thinking-2507-q4_K_M"
@@ -54,8 +53,8 @@ def configure_ollama():
     
     base_url = input("Enter Ollama base URL (default: http://localhost:11434, press Enter to skip): ").strip()
     
-    env_content = f"# Ollama Configuration\n"
-    env_content += f"DEEPAGENTS_MODEL_PROVIDER=ollama\n"
+    env_content = "# Ollama Configuration\n"
+    env_content += "DEEPAGENTS_MODEL_PROVIDER=ollama\n"
     env_content += f"OLLAMA_MODEL_NAME={model}\n"
     if base_url:
         env_content += f"OLLAMA_BASE_URL={base_url}\n"
@@ -124,10 +123,10 @@ def configure_lm_studio():
             f"Enter model name (default: {default_model}): "
         ).strip() or default_model
 
-    env_content = f"# LM-Studio Configuration\n"
-    env_content += f"DEEPAGENTS_MODEL_PROVIDER=lm-studio\n"
+    env_content = "# LM-Studio Configuration\n"
+    env_content += "DEEPAGENTS_MODEL_PROVIDER=lm-studio\n"
     env_content += f"LM_STUDIO_BASE_URL={base_url}\n"
-    env_content += f"LM_STUDIO_API_KEY=lm-studio\n"
+    env_content += "LM_STUDIO_API_KEY=lm-studio\n"
     env_content += f"LM_STUDIO_MODEL_NAME={chosen_model or default_model}\n"
 
     return env_content
@@ -206,19 +205,19 @@ def main():
     repo_root = get_repo_root()
     research_dir = repo_root / "examples" / "research"
     
-    print(f"\n📁 Creating configuration files...")
+    print("\n📁 Creating configuration files...")
     
     # Create both root and research .env files
     create_env_file(repo_root / ".env", env_content)
     create_env_file(research_dir / ".env", env_content)
     
-    print(f"\n✅ Configuration complete!")
-    print(f"\nNext steps:")
-    print(f"1. Install dependencies: uv sync")
-    print(f"2. Run the research agent:")
-    print(f"   • CLI: uv run python examples/research/run_local.py \"Your research question\"")
-    print(f"   • Studio: cd examples/research && langgraph dev")
-    print(f"\nConfiguration files created:")
+    print("\n✅ Configuration complete!")
+    print("\nNext steps:")
+    print("1. Install dependencies: uv sync")
+    print("2. Run the research agent:")
+    print("   • CLI: uv run python examples/research/run_local.py \"Your research question\"")
+    print("   • Studio: cd examples/research && langgraph dev")
+    print("\nConfiguration files created:")
     print(f"  - {repo_root / '.env'}")
     print(f"  - {research_dir / '.env'}")
 
