@@ -110,7 +110,7 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
     # Install slow text_editor stub that raises TimeoutError
     _install_slow_text_editor()
     
-    from inspect_agents.tools import read_file
+    from inspect_agents.tools import read_file, ToolException
     
     tool = read_file()
     
