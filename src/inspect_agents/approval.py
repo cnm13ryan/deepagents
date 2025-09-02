@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List
+from typing import Any
 import json
 import re
 
 
-def approval_from_interrupt_config(cfg: dict[str, Any]) -> List[Any]:
+def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
     """Convert deepagents interrupt config to Inspect ApprovalPolicy list.
 
     Mapping rules:
@@ -113,7 +113,7 @@ def redact_arguments(args: dict[str, Any]) -> dict[str, Any]:
     return {k: _redact_value(k, v) for k, v in (args or {}).items()}
 
 
-def approval_preset(preset: str) -> List[Any]:
+def approval_preset(preset: str) -> list[Any]:
     """Return preset approval policies for ci/dev/prod.
 
     - ci: approve all tools (no-op gate)
