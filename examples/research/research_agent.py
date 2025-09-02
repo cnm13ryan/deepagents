@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """
 Example research agent for DeepAgents with optional web search providers.
 
@@ -17,7 +18,7 @@ sub‑agents and the ``internet_search`` tool.
 """
 
 import os
-from typing import Literal, Any, Optional, Dict, List
+from typing import Literal, Any
 
 # Attempt to import Tavily client. This dependency is optional so that the
 # example can still run without the tavily‑python package being installed.
@@ -34,14 +35,14 @@ except Exception:
     requests = None # type: ignore
 
 
-from deepagents import create_deep_agent, SubAgent
+from deepagents import create_deep_agent
 from langchain.chat_models import init_chat_model
  
 # Tavily API configuration. If both the dependency and API key are provided
 # a Tavily client will be instantiated and reused. Otherwise ``tavily_client``
 # remains ``None`` and Tavily search will be skipped.
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-tavily_client: Optional[Any] = None
+tavily_client: Any | None = None
 if TavilyClient and TAVILY_API_KEY:
     try:
         tavily_client = TavilyClient(api_key=TAVILY_API_KEY) # type: ignore
@@ -60,7 +61,7 @@ def _google_custom_search(
     max_results: int = 5,
     include_raw_content: bool = False,
     topic: Literal["general", "news", "finance"] = "general",
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Execute a Google Custom Search API query.
     This helper returns results in a structure similar to Tavily's search API.
     Each result item contains a ``url``, ``title`` and ``content`` (snippet).
@@ -89,29 +90,29 @@ def _google_custom_search(
         return None
     try:
         url = "https://www.googleapis.com/customsearch/v1"
-         # Google API accepts up to 10 results per request
-         num = max_results if max_results <= 10 else 10
-         params = {
-             "key": GOOGLE_API_KEY,
-             "cx": GOOGLE_CSE_ID,
-             "q": query,
-             "num": num,
-         }
-         resp = requests.get(url, params=params, timeout=10) # type: ignore
-         resp.raise_for_status() # type: ignore
-         data: Dict[str, Any] = resp.json() # type: ignore
-         items: List[Dict[str, Any]] = []
-         for item in data.get("items", []):
-             items.append(
-                 {
+        # Google API accepts up to 10 results per request
+        num = max_results if max_results <= 10 else 10
+        params = {
+            "key": GOOGLE_API_KEY,
+            "cx": GOOGLE_CSE_ID,
+            "q": query,
+            "num": num,
+        }
+        resp = requests.get(url, params=params, timeout=10)  # type: ignore
+        resp.raise_for_status()  # type: ignore
+        data: dict[str, Any] = resp.json()  # type: ignore
+        items: list[dict[str, Any]] = []
+        for item in data.get("items", []):
+            items.append(
+                {
                     "url": item.get("link"),
                     "title": item.get("title"),
                     # Use the snippet as content; Google does not provide full
                     # article text via the public API.
                     "content": item.get("snippet"),
-                 }
-             )
-         return {"results": items}
+                }
+            )
+        return {"results": items}
     except Exception as exc: # pragma: no cover - network/remote failures
         # Return an error structure so that the agent can surface issues
         return {"error": str(exc), "query": query}
@@ -124,7 +125,7 @@ def internet_search(
     max_results: int = 5,
     topic: Literal["general", "news", "finance"] = "general",
     include_raw_content: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run a web search using the best available provider.
 
     The function first attempts to use Google Programmable Search if the
@@ -183,11 +184,17 @@ sub_research_prompt = """You are a dedicated researcher. Your job is to conduct 
 
 Conduct thorough research and then reply to the user with a detailed answer to their question
 
-only your FINAL answer will be passed on to the user. They will have NO knowledge of anything except your final message, so your final report should be your final message!"""
+Only your FINAL answer will be passed on to the user. They will have NO knowledge of anything except your final message,
+so your final report should be your final message!"""
 
 research_sub_agent = {
     "name": "research-agent",
-    "description": "Used to research more in depth questions. Only give this researcher one topic at a time. Do not pass multiple sub questions to this researcher. Instead, you should break down a large topic into the necessary components, and then call multiple research agents in parallel, one for each sub question.",
+    "description": (
+        "Used to research more in depth questions. Only give this researcher one topic at a time. "
+        "Do not pass multiple sub questions to this researcher. Instead, you should break down a large topic "
+        "into the necessary components, and then call multiple research agents in parallel, one for each "
+        "sub question."
+    ),
     "prompt": sub_research_prompt,
     "tools": ["internet_search"],
 }
