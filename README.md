@@ -466,6 +466,148 @@ async def main():
 asyncio.run(main())
 ```
 
+## Inspect Agents Path (Inspect‑AI) — Quick Start
+
+Use the Inspect‑AI–native path in this repo (module: `inspect_agents`) when you want transcripted runs, approvals, and typed Store state without LangChain/LangGraph.
+
+1) Install (local editable):
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e external/inspect_ai -e .
+```
+
+2) Minimal run (toy model that immediately submits):
+
+```bash
+python - <<'PY'
+import asyncio
+from inspect_ai.agent._agent import agent
+from inspect_ai.model._chat_message import ChatMessageAssistant
+from inspect_ai.tool._tool_call import ToolCall
+from inspect_agents.agents import build_supervisor
+from inspect_agents.run import run_agent
+from inspect_agents.logging import write_transcript
+
+@agent
+def toy_submit_model():
+    async def execute(state, tools):
+        state.messages.append(
+            ChatMessageAssistant(
+                content="",
+                tool_calls=[ToolCall(id="1", function="submit", arguments={"answer": "DONE"})],
+            )
+        )
+        return state
+    return execute
+
+async def main():
+    sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=toy_submit_model())
+    result = await run_agent(sup, "hello")
+    print("Completion:", result.output.completion)
+    print("Transcript log:", write_transcript())
+
+asyncio.run(main())
+PY
+```
+
+3) Real model (LM‑Studio/OpenAI/Ollama):
+
+```python
+from inspect_agents.model import resolve_model
+model = resolve_model(provider="lm-studio")  # or "ollama", "openai", etc.
+sup = build_supervisor(prompt="You are helpful.", tools=[], attempts=1, model=model)
+```
+
+4) YAML config (agents + approvals):
+
+```yaml
+# save as inspect.yaml
+supervisor:
+  prompt: "You are helpful."
+  attempts: 1
+approvals:
+  submit:
+    decision: approve
+```
+
+```bash
+python - <<'PY'
+import asyncio, yaml
+from inspect_agents.config import load_and_build
+from inspect_agents.run import run_agent
+from inspect_agents.logging import write_transcript
+
+cfg = yaml.safe_load(open("inspect.yaml"))
+agent_obj, tools, approvals = load_and_build(cfg)
+result = asyncio.run(run_agent(agent_obj, "hello", approval=approvals))
+print("Completion:", result.output.completion)
+print("Transcript log:", write_transcript())
+PY
+```
+
+Environment variables (shared with deepagents):
+- `DEEPAGENTS_MODEL_PROVIDER`: `ollama` (default) | `lm-studio` | `openai` | others.
+- Ollama: `OLLAMA_MODEL_NAME` plus optional `OLLAMA_BASE_URL`/`OLLAMA_HOST`.
+- LM‑Studio: `LM_STUDIO_BASE_URL` (e.g., http://127.0.0.1:1234/v1), `LM_STUDIO_MODEL_NAME`, `LM_STUDIO_API_KEY`.
+- OpenAI-compatible providers: set the corresponding `<PROVIDER>_API_KEY` and optional `<PROVIDER>_MODEL`.
+
+Inspect‑specific knobs:
+- `INSPECT_AGENTS_FS_MODE`: `store` (default in‑memory virtual FS) or `sandbox` (uses Inspect’s host text editor tool).
+- `INSPECT_LOG_DIR`: transcript output directory (default `.inspect/logs`).
+
+See docs/inspect_agents_quickstart.md for more details.
+
+### Inspect Example Runner (`examples/inspect/run.py`)
+
+Run a minimal Inspect‑AI supervisor wired to your chosen provider. It prints the final completion and writes a transcript JSONL.
+
+Basic (uv):
+
+```bash
+uv run python examples/inspect/run.py "Write a short overview of LangGraph"
+```
+
+Specify provider/model explicitly (overrides `.env`):
+
+```bash
+# LM‑Studio (OpenAI‑compatible local server)
+uv run python examples/inspect/run.py \
+  --provider lm-studio \
+  --model "${LM_STUDIO_MODEL_NAME:-local-model}" \
+  "Write a short overview of LangGraph"
+
+# Ollama (local)
+export OLLAMA_MODEL_NAME=llama3.1:8b   # example
+uv run python examples/inspect/run.py --provider ollama --model "$OLLAMA_MODEL_NAME" "…"
+
+# OpenAI (remote)
+export OPENAI_API_KEY=…
+uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "…"
+```
+
+LM‑Studio preflight (optional):
+
+```bash
+curl -sS "${LM_STUDIO_BASE_URL:-http://127.0.0.1:1234/v1}/models" | jq .
+```
+
+Venv alternative (if you don’t want `uv` or if it’s sandboxed):
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e external/inspect_ai -e .
+python examples/inspect/run.py "Write a short overview of LangGraph"
+```
+
+The script writes a transcript to `.inspect/logs/events.jsonl` by default; override with `INSPECT_LOG_DIR`.
+
+Troubleshooting:
+
+- uv cache/permissions: If you see errors like “failed to open file ~/.cache/uv … Operation not permitted” or first‑run stalls, run `uv sync` once or use the venv path shown above.
+- LM‑Studio connection: ECONNREFUSED/401 usually means the server isn’t running or env vars are missing; verify with the preflight curl.
+- Provider selection: `.env` can set `DEEPAGENTS_MODEL_PROVIDER` (`ollama` default). Use `--provider/--model` flags to override at runtime.
+
 ## Roadmap
 - [ ] Allow users to customize full system prompt
 - [ ] Code cleanliness (type hinting, docstrings, formating)
