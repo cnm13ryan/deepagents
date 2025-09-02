@@ -7,7 +7,7 @@ This page explains how to run and navigate the Inspect‑AI console when using t
 Run the one‑off prompt task provided in this repo:
 
 ```bash
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="Write a concise overview of LangGraph" --display rich --log-dir logs
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph" --display rich --log-dir logs
 ```
 
 - `--display rich` keeps the console readable (default is `full`).
@@ -17,7 +17,7 @@ Tip: keep Inspect TRACE logs inside the repo for easier debugging:
 
 ```bash
 INSPECT_TRACE_FILE=logs/inspect_ai/trace.log \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="Write a concise overview of LangGraph" --display rich --log-dir logs
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="Write a concise overview of LangGraph" --display rich --log-dir logs
 ```
 
 ## Enable Standard Tools at Runtime
@@ -27,15 +27,15 @@ The task loads deepagents Todo/FS tools by default and appends Inspect’s stand
 ```bash
 # Structured thinking
 INSPECT_ENABLE_THINK=1 \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 
 # Web search via Tavily
 INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 
 # Web search via Google CSE
 INSPECT_ENABLE_WEB_SEARCH=1 GOOGLE_CSE_API_KEY=... GOOGLE_CSE_ID=... \
-uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+uv run inspect eval examples/inspect/prompt_task.py -T prompt="..."
 ```
 
 To list tasks in the file:
