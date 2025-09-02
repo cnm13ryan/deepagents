@@ -558,6 +558,36 @@ Inspect‑specific knobs:
 
 See docs/inspect_agents_quickstart.md for more details.
 
+### Inspect CLI (no Python wrapper)
+
+Prefer the Inspect CLI for one‑off prompts without the Python runner.
+
+```bash
+# Run a single prompt via an Inspect @task
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="Write a concise overview of LangGraph"
+```
+
+Enable standard tools at runtime:
+
+```bash
+# Structured thinking
+INSPECT_ENABLE_THINK=1 \
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+
+# Web search (Tavily)
+INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+
+# Web search (Google CSE)
+INSPECT_ENABLE_WEB_SEARCH=1 GOOGLE_CSE_API_KEY=... GOOGLE_CSE_ID=... \
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+```
+
+Environment loading:
+
+- The Inspect CLI automatically loads `.env` from the current directory (and parents). Run from the repo root to pick up `.env`.
+- Or point to the centralized template: `--env-file env_templates/inspect.env` when using the Python runner, or `source env_templates/inspect.env` before running the CLI.
+
 ### Inspect Example Runner (`examples/inspect/run.py`)
 
 Run a minimal Inspect‑AI supervisor wired to your chosen provider. It prints the final completion and writes a transcript JSONL.
