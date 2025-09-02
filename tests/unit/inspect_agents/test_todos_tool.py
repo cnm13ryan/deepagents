@@ -34,7 +34,7 @@ def test_write_todos_updates_store_and_returns_message():
 
 
 def test_update_todo_status_error_handling():
-    s = _fresh_store()
+    _fresh_store()
     write_tool = write_todos()
     update_tool = update_todo_status()
 
@@ -70,4 +70,3 @@ def test_update_todo_status_error_handling():
         asyncio.run(_invalid_status())
     assert "Invalid todo operation" in str(exc_info.value.message)
     assert "Invalid status" in str(exc_info.value.message)
-

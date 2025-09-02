@@ -33,7 +33,6 @@ def test_truncation_envelope_and_limits():
     assert "<START_TOOL_OUTPUT>" in text and "<END_TOOL_OUTPUT>" in text
 
     # Assert truncated bytes are recorded in transcript ToolEvent
-    from inspect_ai.log._transcript import transcript, ToolEvent
 
     # Additionally assert that the bytes within the envelope equal the limit
     start = text.index("<START_TOOL_OUTPUT>") + len("<START_TOOL_OUTPUT>")

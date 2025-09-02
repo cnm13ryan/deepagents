@@ -4,7 +4,6 @@ import pytest
 from inspect_ai.util._store import Store, init_subtask_store
 
 from inspect_agents.tools import ls, read_file, write_file, edit_file, ToolException
-from inspect_agents.state import Files
 
 
 def _fresh_store() -> Store:
@@ -14,7 +13,7 @@ def _fresh_store() -> Store:
 
 
 def test_ls_and_write_persistence():
-    s = _fresh_store()
+    _fresh_store()
     ls_tool = ls()
     write_tool = write_file()
 
@@ -27,7 +26,7 @@ def test_ls_and_write_persistence():
 
 
 def test_read_file_behaviors():
-    s = _fresh_store()
+    _fresh_store()
     read_tool = read_file()
     write_tool = write_file()
 
@@ -59,7 +58,7 @@ def test_read_file_behaviors():
 
     out = asyncio.run(_write_content())
     lines = out.splitlines()
-    assert lines == ["%6d\t%s" % (2, "line2")]
+    assert lines == [f"{2:6d}\t{'line2'}"]
 
     # offset beyond length
     async def _bad_offset():
@@ -82,7 +81,7 @@ def test_read_file_behaviors():
 
 
 def test_edit_file_uniqueness_and_replace_all():
-    s = _fresh_store()
+    _fresh_store()
     write_tool = write_file()
     read_tool = read_file()
     edit_tool = edit_file()
@@ -137,7 +136,7 @@ def test_edit_file_uniqueness_and_replace_all():
 
 
 def test_instance_isolation():
-    s = _fresh_store()
+    _fresh_store()
     ls_tool = ls()
     write_tool = write_file()
     read_tool = read_file()
@@ -156,4 +155,3 @@ def test_instance_isolation():
         asyncio.run(_access())
     assert "a.txt" in str(exc_info.value.message)
     assert "not found" in str(exc_info.value.message)
-

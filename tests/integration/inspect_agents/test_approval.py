@@ -5,9 +5,8 @@ import types
 import pytest
 
 from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageUser, ChatMessageAssistant
+from inspect_ai.model._chat_message import ChatMessageAssistant
 from inspect_ai.tool._tool_call import ToolCall
-from inspect_ai.tool._tool import ToolApprovalError
 from inspect_ai._util.exception import TerminateSampleError
 
 from inspect_agents.agents import build_supervisor
@@ -23,8 +22,8 @@ def _install_apply_shim():
     """
     # Ensure inspect_ai.approval is a package so submodules load
     from pathlib import Path
-    REPO_ROOT = Path(__file__).resolve().parents[2]
-    approval_pkg_path = REPO_ROOT / "external" / "inspect_ai" / "src" / "inspect_ai" / "approval"
+    repo_root = Path(__file__).resolve().parents[2]
+    approval_pkg_path = repo_root / "external" / "inspect_ai" / "src" / "inspect_ai" / "approval"
     if "inspect_ai.approval" not in sys.modules:
         pkg = types.ModuleType("inspect_ai.approval")
         pkg.__path__ = [str(approval_pkg_path)]  # type: ignore[attr-defined]
@@ -175,11 +174,14 @@ def test_terminate_aborts_sample():
 
 
 def teardown_module(module):  # reset approval shim to default approve-all
-    import types, sys
+    import types
+    import sys
     apply_mod = types.ModuleType("inspect_ai.approval._apply")
     async def apply_tool_approval(message, call, viewer, history):  # pragma: no cover
         class _Approval:
-            decision = "approve"; modified = None; explanation = None
+            decision = "approve"
+            modified = None
+            explanation = None
         return True, _Approval()
     apply_mod.apply_tool_approval = apply_tool_approval
     sys.modules["inspect_ai.approval._apply"] = apply_mod

@@ -1,9 +1,7 @@
 import asyncio
-import os
 import sys
 import types
 
-import pytest
 
 from inspect_agents.tools import read_file, write_file, edit_file
 
@@ -61,7 +59,9 @@ def test_sandbox_mode_uses_editor_stub(monkeypatch):
     fs: dict[str, str] = {}
     _install_editor_stub(fs)
 
-    r = read_file(); w = write_file(); e = edit_file()
+    r = read_file()
+    w = write_file()
+    e = edit_file()
 
     async def run_all():
         await w(file_path="/repo/a.txt", content="hello")
@@ -80,7 +80,9 @@ def test_sandbox_mode_graceful_fallback_without_editor(monkeypatch):
     # Ensure no editor stub present so code falls back to store mode
     sys.modules.pop("inspect_ai.tool._tools._text_editor", None)
 
-    r = read_file(); w = write_file(); e = edit_file()
+    r = read_file()
+    w = write_file()
+    e = edit_file()
 
     async def roundtrip():
         await w(file_path="b.txt", content="alpha\nbeta\n")

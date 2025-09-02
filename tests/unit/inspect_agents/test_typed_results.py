@@ -10,7 +10,7 @@ from inspect_agents.tools import (
     FileReadResult, FileWriteResult, FileEditResult, FileListResult,
     TodoWriteResult, TodoStatusResult
 )
-from inspect_agents.state import Todo, Files
+from inspect_agents.state import Todo
 
 
 def _fresh_store() -> Store:
@@ -35,7 +35,7 @@ class TestTypedResults:
     
     def test_ls_typed_result(self):
         """Test ls tool returns FileListResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         ls_tool = ls()
         write_tool = write_file()
 
@@ -66,7 +66,7 @@ class TestTypedResults:
 
     def test_read_file_typed_result(self):
         """Test read_file tool returns FileReadResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         read_tool = read_file()
         write_tool = write_file()
 
@@ -102,7 +102,7 @@ class TestTypedResults:
 
     def test_read_file_empty_typed_result(self):
         """Test read_file with empty file returns proper typed result."""
-        s = _fresh_store()
+        _fresh_store()
         read_tool = read_file()
         write_tool = write_file()
 
@@ -122,7 +122,7 @@ class TestTypedResults:
 
     def test_write_file_typed_result(self):
         """Test write_file tool returns FileWriteResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         write_tool = write_file()
 
         with patch.dict(os.environ, {"INSPECT_AGENTS_TYPED_RESULTS": "1"}):
@@ -144,7 +144,7 @@ class TestTypedResults:
 
     def test_edit_file_typed_result(self):
         """Test edit_file tool returns FileEditResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         write_tool = write_file()
         edit_tool = edit_file()
 
@@ -186,7 +186,7 @@ class TestTypedResults:
 
     def test_write_todos_typed_result(self):
         """Test write_todos tool returns TodoWriteResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         write_tool = write_todos()
 
         todos = [
@@ -213,7 +213,7 @@ class TestTypedResults:
 
     def test_update_todo_status_typed_result(self):
         """Test update_todo_status tool returns TodoStatusResult when flag is set."""
-        s = _fresh_store()
+        _fresh_store()
         write_tool = write_todos()
         update_tool = update_todo_status()
 
@@ -258,7 +258,7 @@ class TestTypedResults:
 
     def test_environment_flag_variations(self):
         """Test different environment flag values."""
-        s = _fresh_store()
+        _fresh_store()
         ls_tool = ls()
         write_tool = write_file()
 
