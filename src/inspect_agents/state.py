@@ -15,6 +15,7 @@ Notes
 from __future__ import annotations
 
 from typing import Literal
+import logging
 
 from pydantic import BaseModel, Field
 from inspect_ai.util._store_model import StoreModel
@@ -41,6 +42,72 @@ class Todos(StoreModel):
 
     def set_todos(self, todos: list[Todo]) -> None:
         self.todos = todos
+
+    def update_status(
+        self,
+        index: int,
+        status: Literal["pending", "in_progress", "completed"],
+        allow_direct_complete: bool = False,
+    ) -> str | None:
+        """Update a single todo's status with validated transitions.
+
+        Allowed transitions:
+        - pending -> in_progress
+        - in_progress -> completed
+        - pending -> completed (only when allow_direct_complete is True)
+
+        Args:
+            index: Zero-based index into the todos list.
+            status: New status value.
+            allow_direct_complete: Permit pending -> completed with a warning.
+
+        Returns:
+            Optional warning string when a direct completion is allowed.
+
+        Raises:
+            IndexError: If index is out of range.
+            ValueError: If status is invalid or transition is not allowed.
+        """
+        if index < 0 or index >= len(self.todos):
+            raise IndexError(f"Invalid todo index {index}; list has {len(self.todos)} items")
+
+        if status not in ("pending", "in_progress", "completed"):
+            raise ValueError(f"Invalid status '{status}'")
+
+        current = self.todos[index].status
+        if current == status:
+            # No-op transition
+            return None
+
+        warning: str | None = None
+        if current == "pending" and status == "in_progress":
+            pass  # allowed
+        elif current == "in_progress" and status == "completed":
+            pass  # allowed
+        elif current == "pending" and status == "completed":
+            if not allow_direct_complete:
+                raise ValueError("Invalid transition pending -> completed (set allow_direct_complete=True to permit)")
+            warning = "Direct transition pending->completed allowed (allow_direct_complete=True)"
+            try:
+                logging.getLogger(__name__).warning(warning)
+            except Exception:
+                pass
+        else:
+            # Disallow other transitions (e.g., completed -> in_progress)
+            raise ValueError(f"Invalid status transition: {current} -> {status}")
+
+        # Apply update by copying the Todo (pydantic model copy)
+        try:
+            updated = self.todos[index].model_copy(update={"status": status})
+        except Exception:
+            # Fallback for older pydantic versions if needed
+            updated = Todo(content=self.todos[index].content, status=status)
+
+        new_list = list(self.todos)
+        new_list[index] = updated
+        self.todos = new_list
+
+        return warning
 
 
 class Files(StoreModel):
