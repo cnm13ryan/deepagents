@@ -1,3 +1,7 @@
+# ================================================================== 
+# Project Metadata
+# ================================================================== 
+
 [project]
 name = "deepagents"
 version = "0.0.4"
@@ -12,20 +16,117 @@ dependencies = [
     "tavily-python>=0.7.11",
 ]
 
+# ================================================================== 
+# Optional Dependencies
+# ================================================================== 
+
+[project.optional-dependencies]
+
+# Development tools - pinned versions for reproducible CI/CD
+dev = [
+    # Linting and formatting
+    "ruff==0.11.11",
+    # Type checking
+    "pyright==1.1.401",
+    # Git hooks
+    "pre-commit",
+]
+
+# Testing framework - comprehensive test suite
+testing = [
+    # Core testing
+    "pytest==8.3.5",
+    "pytest-asyncio==0.26.0",
+    # Testing utilities
+    "pytest-mock==3.14.0",
+    "pytest-benchmark==4.0.0",
+    "pytest-xdist", # parallel test execution
+    # Coverage
+    "pytest-cov==6.1.1",
+    "coverage[toml]",
+    # Property-based testing
+    "hypothesis==6.131.10",
+]
+
+# General utilities - runtime helpers
+utilities = [
+    # Environment management
+    "python-dotenv==1.0.0",
+    # Configuration formats
+    "PyYAML",
+    # Retry logic
+    "retry==0.9.2",
+    # Notebook support
+    "nbformat",
+]
+
+# ================================================================== 
+# Tool Configuration
+# ================================================================== 
+
+# --- Code Formatting & Linting ---
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP"] # Error, Pyflakes, Import, Naming, pyupgrade
+ignore = ["I001"] # Let ruff handle import sorting
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --- Type Checking ---
+[tool.pyright]
+pythonVersion = "3.12"
+ignore = ["**/node_modules", "**/__pycache__"]
+include = ["src"]
+
+# --- Testing ---
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+filterwarnings = [
+    # Suppress deprecations from Pydantic v2.11 category emitted by Inspect-AI store model
+    "ignore::pydantic.warnings.PydanticDeprecatedSince211",
+    # Target the specific unknown config option
+    "ignore:Unknown config option.*asyncio_default_fixture_loop_scope.*:pytest.PytestConfigWarning",
+]
+
+# --- Coverage ---
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+# ================================================================== 
+# Package Configuration
+# ================================================================== 
+
+[tool.pdm]
+distribution = true
+package-dir = { "" = "src" }
+
+[tool.pdm.dev-dependencies]
+dev = { composite = ["dev", "testing", "utilities"] }
+
+# --- UV Configuration ---
+[tool.uv]
+package = true
+environments = [
+    "sys_platform == 'linux' and python_version >= '3.12'",
+    "sys_platform == 'darwin' and python_version >= '3.12'",
+]
 
 [build-system]
-requires = ["setuptools>=73.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-packages = ["inspect_agents"]
-[tool.setuptools.package-dir]
-"inspect_agents" = "src/inspect_agents"
-
-[tool.setuptools.package-data]
-"*" = ["py.typed"]
-
-[dependency-groups]
-dev = [
-    "pytest>=8.4.1",
-]
+requires = ["pdm-backend>=2.4.4"]
+build-backend = "pdm.backend"
