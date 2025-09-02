@@ -11,7 +11,7 @@
 
 ### Current State Analysis
 
-- **Issue Description:** In the Inspect rewrite, sub‑agents created by `build_subagents` currently inherit the caller's history (subject to Inspect defaults). We don't set explicit filters, so quarantine is not enforced.
+- Status: Implemented. Sub‑agents created by `build_subagents` now apply strict default input filters (remove tools/system; last boundary only) with cascade-aware inheritance, and `content_only` output filtering. Scoped mode is opt‑in via env/config.
 - **Reproduction Steps:**
 
 ```python
@@ -84,10 +84,10 @@ grep -R "state.messages" src/inspect_agents
 ### Implementation Scope
 
 **In Scope:**
-- [ ] Provide quarantine filters: `strict_quarantine_filter()` and optionally `scoped_quarantine_filter(k)` built on Inspect primitives.
-- [ ] Default `build_subagents` to use strict input filtering when none is supplied; keep `output_filter=content_only`.
+- [x] Provide quarantine filters: `strict_quarantine_filter()` and optionally `scoped_quarantine_filter(k)` built on Inspect primitives.
+- [x] Default `build_subagents` to use strict input filtering when none is supplied; keep `output_filter=content_only`.
 - [ ] Tests to ensure sub‑agent input history is filtered (no tools/system; bounded context) and supervisor history only receives filtered output.
-- [ ] Ensure nested handoffs inherit the active input filter unless explicitly overridden in that sub‑agent’s config.
+- [x] Ensure nested handoffs inherit the active input filter unless explicitly overridden in that sub‑agent’s config.
 
 #### Repo‑wide Toggles (debug/ops)
 
@@ -178,14 +178,23 @@ pytest --cov=inspect_agents --cov-report=term-missing
 - [ ] Tests in `tests/test_context_isolation.py` pass.
 - [ ] No existing tests regress.
 - [ ] Coverage does not decrease.
-- [ ] Documentation updated to describe context quarantine.
-- [ ] Example usage updated.
+- [x] Documentation updated to describe context quarantine.
+- [x] Example usage updated.
 
 ### Quick Start
 
 ```bash
 git checkout -b feature/quarantine-filters && rg -n "build_subagents\(|handoff\(" src/inspect_agents external/inspect_ai/src
 ```
+
+### Follow-ups — Quarantine Hardening
+
+- [ ] Auto-scope Files per handoff: inject `instance=<normalized_subagent_name>` for file tools inside a handoff; supervisor uses a separate instance.
+- [ ] Scoped summary should read per-agent Files instance by default (with explicit override), to avoid leaking global filenames.
+- [ ] Optional quarantine for `mode: tool`: allow wrapping `as_tool` with filters via a flag/env for safety-critical tools.
+- [ ] Default approval preset: install `approval_preset('dev'|'prod')` based on environment when none is provided.
+- [ ] Sandbox preflight: health‑check `text_editor` transport when `INSPECT_AGENTS_FS_MODE=sandbox`; fallback to Store with a clear warning.
+- [ ] BASE_PROMPT reinforcement: add 1–2 lines reminding assistants not to assume prior history and to use shared state/tools.
 
 ## [DONE] 5.2 StoreModel + Filters (No Unified State)
 
@@ -296,9 +305,9 @@ grep -R "status" src/inspect_agents/tools.py
 ### Implementation Scope
 
 **In Scope:**
-- [ ] Add an Inspect tool `update_todo_status(todo_index: int, status: str, allow_direct_complete: bool = false)` or modify `write_todos` to support updating existing items by index.
-- [ ] Update `Todos` model with a method `update_status(index, status, allow_direct_complete=False)` that validates transitions and logs a warning when `pending → completed` occurs with `allow_direct_complete=True`.
-- [ ] Warning sink: log via Python `logging` and include a structured payload in tools: `{ "ok": true|false, "message"|"error", "meta": { "warning": "..." } }` when a direct completion occurs (hybrid approach), documented for consistency across tools.
+- [x] Add an Inspect tool `update_todo_status(todo_index: int, status: str, allow_direct_complete: bool = false)` or modify `write_todos` to support updating existing items by index.
+- [x] Update `Todos` model with a method `update_status(index, status, allow_direct_complete=False)` that validates transitions and logs a warning when `pending → completed` occurs with `allow_direct_complete=True`.
+- [x] Warning sink: log via Python `logging` and include a structured payload/log entry when a direct completion occurs (hybrid approach), documented for consistency across tools.
 - [ ] Write unit tests for valid and invalid transitions (e.g., cannot move directly from pending to completed without in_progress).
 
 **Out of Scope:**
