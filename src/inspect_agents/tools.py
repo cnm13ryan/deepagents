@@ -9,6 +9,7 @@ Currently includes:
 from typing import TYPE_CHECKING, List
 import os
 import anyio
+from pydantic import BaseModel
 
 # Avoid importing inspect_ai.tool at module import time; tests stub package
 if TYPE_CHECKING:  # pragma: no cover - only for type checkers
@@ -19,8 +20,23 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
     from inspect_ai.util._store_model import store_as  # noqa: F401
 
 from .state import Todo, Todos
+from .tools_files import (
+    files_tool, FilesParams, LsParams, ReadParams, WriteParams, EditParams,
+    execute_ls, execute_read, execute_write, execute_edit,
+    FileListResult, FileReadResult, FileWriteResult, FileEditResult
+)
 import json
 import logging
+
+# Import ToolException for structured error handling
+try:
+    from inspect_tool_support._util.common_types import ToolException
+except ImportError:
+    # Fallback for test environments where inspect_tool_support might not be available
+    class ToolException(Exception):
+        def __init__(self, message: str):
+            self.message = message
+            super().__init__(message)
 
 
 def _fs_mode() -> str:
@@ -48,6 +64,27 @@ def _truthy(env_val: str | None) -> bool:
     if env_val is None:
         return False
     return env_val.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _use_typed_results() -> bool:
+    """Return True if typed result models should be returned instead of strings/lists."""
+    return _truthy(os.getenv("INSPECT_AGENTS_TYPED_RESULTS"))
+
+
+
+
+class TodoWriteResult(BaseModel):
+    """Typed result for write_todos operations."""
+    count: int
+    summary: str
+
+
+class TodoStatusResult(BaseModel):
+    """Typed result for update_todo_status operations."""
+    index: int
+    status: str
+    warning: str | None
+    summary: str
 
 
 def standard_tools() -> list[object]:
@@ -155,13 +192,17 @@ def write_todos():  # -> Tool
 
     @tool
     def _factory() -> Tool:
-        async def execute(todos: list[Todo]) -> str:
+        async def execute(todos: list[Todo]) -> str | TodoWriteResult:
             model = store_as(Todos)
             model.set_todos(todos)
             rendered = [
                 t.model_dump() if hasattr(t, "model_dump") else t for t in model.todos
             ]
-            return f"Updated todo list to {rendered}"
+            
+            summary = f"Updated todo list to {rendered}"
+            if _use_typed_results():
+                return TodoWriteResult(count=len(todos), summary=summary)
+            return summary
 
         params = ToolParams()
         params.properties["todos"] = json_schema(list[Todo])  # type: ignore[arg-type]
@@ -198,7 +239,7 @@ def update_todo_status():  # -> Tool
             todo_index: int,
             status: str,
             allow_direct_complete: bool = False,
-        ) -> str:
+        ) -> str | TodoStatusResult:
             model = store_as(Todos)
             try:
                 warning = model.update_status(
@@ -206,9 +247,21 @@ def update_todo_status():  # -> Tool
                     status=str(status),
                     allow_direct_complete=bool(allow_direct_complete),
                 )
+                
+                message = f"Updated todo[{todo_index}] status to {status}"
+                
+                if _use_typed_results():
+                    return TodoStatusResult(
+                        index=todo_index,
+                        status=status,
+                        warning=warning,
+                        summary=message
+                    )
+                
+                # Legacy JSON format for non-typed mode
                 payload: dict = {
                     "ok": True,
-                    "message": f"Updated todo[{todo_index}] status to {status}",
+                    "message": message,
                 }
                 if warning:
                     payload["meta"] = {"warning": warning}
@@ -218,9 +271,9 @@ def update_todo_status():  # -> Tool
                         pass
                 return json.dumps(payload, ensure_ascii=False)
             except (IndexError, ValueError) as e:
-                return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
+                raise ToolException(f"Invalid todo operation: {str(e)}. Please check the todo index and status values.")
             except Exception as e:
-                return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
+                raise ToolException(f"Todo update failed: {str(e)}")
 
         params = ToolParams()
         params.properties["todo_index"] = json_schema(int)
@@ -245,25 +298,26 @@ def update_todo_status():  # -> Tool
 def ls():  # -> Tool
     """List all files in the Files store.
 
+    DEPRECATED: Use files_tool() with command='ls' instead.
+    This is a backward-compatible wrapper.
+
     Optionally scope to a Files(instance=...) for per-agent isolation.
     """
     from inspect_ai.tool._tool import Tool, tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
-    from inspect_ai.util._store_model import store_as
-    from .state import Files
 
     @tool
     def _factory() -> Tool:
-        async def execute(instance: str | None = None) -> list[str]:
-            files = store_as(Files, instance=instance)
-            return files.list_files()
+        async def execute(instance: str | None = None) -> list[str] | FileListResult:
+            # Convert old-style parameters to new unified format
+            params = LsParams(command="ls", instance=instance)
+            return await execute_ls(params)
 
         params = ToolParams()
         params.properties["instance"] = json_schema(str)
         params.properties["instance"].description = "Optional Files instance for isolation"
-        # instance optional
 
         return ToolDef(
             execute,
@@ -278,6 +332,9 @@ def ls():  # -> Tool
 def read_file():  # -> Tool
     """Read a file with cat -n formatting and safety limits.
 
+    DEPRECATED: Use files_tool() with command='read' instead.
+    This is a backward-compatible wrapper.
+
     Mirrors deepagents semantics: offset/limit by lines, per-line 2000-char truncation,
     and friendly error messages.
     """
@@ -285,8 +342,6 @@ def read_file():  # -> Tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
-    from inspect_ai.util._store_model import store_as
-    from .state import Files
 
     @tool
     def _factory() -> Tool:
@@ -295,64 +350,23 @@ def read_file():  # -> Tool
             offset: int = 0,
             limit: int = 2000,
             instance: str | None = None,
-        ) -> str:
-            # Sandbox FS mode: call text_editor('view', ...) then format lines
-            if _use_sandbox_fs():
-                try:
-                    from inspect_ai.tool._tools._text_editor import text_editor
-                    editor = text_editor()
-                    start_line = max(1, int(offset) + 1)
-                    if limit is None or limit <= 0:
-                        view_range = [start_line, -1]
-                    else:
-                        view_range = [start_line, start_line + int(limit) - 1]
-                    raw = await editor(
-                        command="view",
-                        path=file_path,
-                        view_range=view_range,
-                    )
-                    # Format numbered/truncated lines to preserve semantics
-                    if raw is None or str(raw).strip() == "":
-                        return "System reminder: File exists but has empty contents"
-                    lines = str(raw).splitlines()
-                    out_lines: list[str] = []
-                    ln = start_line
-                    for line_content in lines:
-                        if len(line_content) > 2000:
-                            line_content = line_content[:2000]
-                        out_lines.append(f"{ln:6d}\t{line_content}")
-                        ln += 1
-                    return "\n".join(out_lines)
-                except Exception:
-                    # Graceful fallback to store-backed mode
-                    pass
-
-            # Store-backed with timeout guard
-            with anyio.fail_after(_default_tool_timeout()):
-                files = store_as(Files, instance=instance)
-                content = files.get_file(file_path)
-            if content is None:
-                return f"Error: File '{file_path}' not found"
-
-            if not content or content.strip() == "":
-                return "System reminder: File exists but has empty contents"
-
-            lines = content.splitlines()
-            start_idx = offset
-            end_idx = min(start_idx + limit, len(lines))
-
-            if start_idx >= len(lines):
-                return f"Error: Line offset {offset} exceeds file length ({len(lines)} lines)"
-
-            out_lines: list[str] = []
-            for i in range(start_idx, end_idx):
-                line_content = lines[i]
-                if len(line_content) > 2000:
-                    line_content = line_content[:2000]
-                line_number = i + 1
-                out_lines.append(f"{line_number:6d}\t{line_content}")
-
-            return "\n".join(out_lines)
+        ) -> str | FileReadResult:
+            # Convert old-style parameters to new unified format
+            params = ReadParams(
+                command="read",
+                file_path=file_path,
+                offset=offset,
+                limit=limit,
+                instance=instance
+            )
+            try:
+                return await execute_read(params)
+            except Exception as e:
+                # Re-raise with correct ToolException type for backward compatibility
+                if hasattr(e, 'message'):
+                    raise ToolException(e.message)
+                else:
+                    raise ToolException(str(e))
 
         params = ToolParams()
         params.properties["file_path"] = json_schema(str)
@@ -378,13 +392,15 @@ def read_file():  # -> Tool
 
 
 def write_file():  # -> Tool
-    """Write content to a file in the Files store."""
+    """Write content to a file in the Files store.
+    
+    DEPRECATED: Use files_tool() with command='write' instead.
+    This is a backward-compatible wrapper.
+    """
     from inspect_ai.tool._tool import Tool, tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
-    from inspect_ai.util._store_model import store_as
-    from .state import Files
 
     @tool
     def _factory() -> Tool:
@@ -392,20 +408,15 @@ def write_file():  # -> Tool
             file_path: str,
             content: str,
             instance: str | None = None,
-        ) -> str:
-            if _use_sandbox_fs():
-                try:
-                    from inspect_ai.tool._tools._text_editor import text_editor
-                    editor = text_editor()
-                    await editor(command="create", path=file_path, file_text=content)
-                    return f"Updated file {file_path}"
-                except Exception:
-                    pass
-            # Store-backed with timeout guard
-            with anyio.fail_after(_default_tool_timeout()):
-                files = store_as(Files, instance=instance)
-                files.put_file(file_path, content)
-            return f"Updated file {file_path}"
+        ) -> str | FileWriteResult:
+            # Convert old-style parameters to new unified format
+            params = WriteParams(
+                command="write",
+                file_path=file_path,
+                content=content,
+                instance=instance
+            )
+            return await execute_write(params)
 
         params = ToolParams()
         params.properties["file_path"] = json_schema(str)
@@ -427,13 +438,15 @@ def write_file():  # -> Tool
 
 
 def edit_file():  # -> Tool
-    """Edit a file by replacing a string (first or all occurrences)."""
+    """Edit a file by replacing a string (first or all occurrences).
+    
+    DEPRECATED: Use files_tool() with command='edit' instead.
+    This is a backward-compatible wrapper.
+    """
     from inspect_ai.tool._tool import Tool, tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
-    from inspect_ai.util._store_model import store_as
-    from .state import Files
 
     @tool
     def _factory() -> Tool:
@@ -443,37 +456,24 @@ def edit_file():  # -> Tool
             new_string: str,
             replace_all: bool = False,
             instance: str | None = None,
-        ) -> str:
-            if _use_sandbox_fs():
-                try:
-                    from inspect_ai.tool._tools._text_editor import text_editor
-                    editor = text_editor()
-                    await editor(
-                        command="str_replace",
-                        path=file_path,
-                        old_str=old_string,
-                        new_str=new_string,
-                    )
-                    return f"Updated file {file_path}"
-                except Exception:
-                    pass
-            # Store-backed with timeout guard
-            with anyio.fail_after(_default_tool_timeout()):
-                files = store_as(Files, instance=instance)
-                content = files.get_file(file_path)
-            if content is None:
-                return f"Error: File '{file_path}' not found"
-
-            if old_string not in content:
-                return f"Error: String not found in file: '{old_string}'"
-
-            if replace_all:
-                updated = content.replace(old_string, new_string)
-            else:
-                updated = content.replace(old_string, new_string, 1)
-
-            files.put_file(file_path, updated)
-            return f"Updated file {file_path}"
+        ) -> str | FileEditResult:
+            # Convert old-style parameters to new unified format
+            params = EditParams(
+                command="edit",
+                file_path=file_path,
+                old_string=old_string,
+                new_string=new_string,
+                replace_all=replace_all,
+                instance=instance
+            )
+            try:
+                return await execute_edit(params)
+            except Exception as e:
+                # Re-raise with correct ToolException type for backward compatibility
+                if hasattr(e, 'message'):
+                    raise ToolException(e.message)
+                else:
+                    raise ToolException(str(e))
 
         params = ToolParams()
         params.properties["file_path"] = json_schema(str)
