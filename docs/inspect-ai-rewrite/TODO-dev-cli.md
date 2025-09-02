@@ -1,4 +1,4 @@
-# TODO — Dev CLI
+# done — TODO — Dev CLI
 
 Context & Motivation
 - Provide a simple command-line entry to run the Inspect-based supervisor for demos, local testing, and quick validation.

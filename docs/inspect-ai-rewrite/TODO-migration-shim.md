@@ -1,4 +1,4 @@
-# TODO — Migration Shim (`create_deep_agent` parity)
+# done — TODO — Migration Shim (`create_deep_agent` parity)
 
 Context & Motivation
 - Provide a drop-in `create_deep_agent(...)`-compatible API that builds Inspect-based supervisor + sub-agents + approval under the hood.

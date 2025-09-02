@@ -1,4 +1,4 @@
-# TODO — Core State Models (Store-backed)
+# done — TODO — Core State Models (Store-backed)
 
 Context & Motivation
 - Replace custom LangGraph state (todos/files) with Inspect-AI `Store` and typed `StoreModel` to enable durable, transcripted per-sample state.

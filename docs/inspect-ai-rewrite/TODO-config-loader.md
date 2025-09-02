@@ -1,4 +1,4 @@
-# TODO — Config Loader (YAML)
+# done — TODO — Config Loader (YAML)
 
 Context & Motivation
 - Allow declaring agents, tools, models, and approvals in YAML for easy iteration, environment variants, and CI profiles.
