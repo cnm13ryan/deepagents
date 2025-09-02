@@ -1,20 +1,21 @@
 """Tests for unified files tool with discriminated union."""
 
 import asyncio
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 
 from inspect_agents.tools_files import (
-    files_tool,
+    EditParams,
+    FileEditResult,
+    FileListResult,
+    FileReadResult,
     FilesParams,
+    FileWriteResult,
     LsParams,
     ReadParams,
     WriteParams,
-    EditParams,
-    FileListResult,
-    FileReadResult,
-    FileWriteResult,
-    FileEditResult,
+    files_tool,
 )
 
 

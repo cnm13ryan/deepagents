@@ -7,8 +7,9 @@ Currently includes:
 - write_todos: update the shared Todos list in the Store
 """
 
-from typing import TYPE_CHECKING, Any
 import os
+from typing import TYPE_CHECKING, Any
+
 from pydantic import BaseModel
 
 # Avoid importing inspect_ai.tool at module import time; tests stub package
@@ -19,15 +20,25 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
     from inspect_ai.util._json import json_schema  # noqa: F401
     from inspect_ai.util._store_model import store_as  # noqa: F401
 
-from .state import Todo, Todos
-from .tools_files import (
-    LsParams, ReadParams, WriteParams, EditParams,
-    execute_ls, execute_read, execute_write, execute_edit,
-    FileListResult, FileReadResult, FileWriteResult, FileEditResult
-)
 import json
 import logging
 import time
+
+from .state import Todo, Todos
+from .tools_files import (
+    EditParams,
+    FileEditResult,
+    FileListResult,
+    FileReadResult,
+    FileWriteResult,
+    LsParams,
+    ReadParams,
+    WriteParams,
+    execute_edit,
+    execute_ls,
+    execute_read,
+    execute_write,
+)
 
 # Structured observability configuration
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
@@ -184,7 +195,8 @@ def standard_tools() -> list[object]:
     # Local imports to avoid heavy imports at module import time
     try:
         from inspect_ai.tool import think, web_search
-        from inspect_ai.tool._tools._execute import bash, python as py_exec
+        from inspect_ai.tool._tools._execute import bash
+        from inspect_ai.tool._tools._execute import python as py_exec
         from inspect_ai.tool._tools._text_editor import text_editor
         from inspect_ai.tool._tools._web_browser import web_browser
     except Exception:

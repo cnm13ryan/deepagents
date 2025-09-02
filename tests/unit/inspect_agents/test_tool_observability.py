@@ -1,5 +1,6 @@
-import logging
 import json
+import logging
+
 import pytest
 
 from inspect_agents.tools_files import WriteParams, execute_write

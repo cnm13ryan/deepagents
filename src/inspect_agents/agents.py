@@ -8,9 +8,8 @@ with a base prompt and built-in tools (todos + virtual FS). The agent terminates
 via the default `submit()` tool provided by Inspect.
 """
 
-from typing import TypedDict, NotRequired, Any
 from collections.abc import Sequence
-
+from typing import Any, NotRequired, TypedDict
 
 # Base prompt modeled after deepagents.base_prompt
 BASE_PROMPT_HEADER = (
@@ -80,13 +79,13 @@ def _format_standard_tools_section(all_tools: list[object]) -> str:
 def _built_in_tools():
     # Local imports to avoid importing inspect_ai at module import time
     from inspect_agents.tools import (
-        write_todos,
+        edit_file,
+        ls,
+        read_file,
+        standard_tools,
         update_todo_status,
         write_file,
-        read_file,
-        ls,
-        edit_file,
-        standard_tools,
+        write_todos,
     )
 
     base = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
@@ -161,9 +160,10 @@ def build_subagents(
     - Returns tools named `transfer_to_<name>` (handoff) or the agent as a
       single-shot tool when `mode == 'tool'`.
     """
-    from inspect_ai.agent._react import react
-    from inspect_ai.agent._handoff import handoff
     from inspect_ai.agent._as_tool import as_tool
+    from inspect_ai.agent._handoff import handoff
+    from inspect_ai.agent._react import react
+
     # Default quarantine filters and env toggles
     from inspect_agents.filters import (
         default_input_filter,

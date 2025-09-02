@@ -1,10 +1,10 @@
 import asyncio
-import pytest
 
+import pytest
 from inspect_ai.util._store import Store, init_subtask_store
 
 from inspect_agents.state import Todo, Todos
-from inspect_agents.tools import write_todos, update_todo_status, ToolException
+from inspect_agents.tools import ToolException, update_todo_status, write_todos
 
 
 def _fresh_store() -> Store:

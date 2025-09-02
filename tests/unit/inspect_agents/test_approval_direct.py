@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Direct test for approval.py functionality."""
 
-import sys
-import types
 import asyncio
 import re
+import sys
+import types
 
 # Mock inspect_ai modules
 approval_mod = types.ModuleType('inspect_ai.approval._approval')

@@ -6,8 +6,9 @@ using a discriminated union for commands: ls, read, write, edit.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal
 import os
+from typing import TYPE_CHECKING, Annotated, Literal
+
 import anyio
 from pydantic import BaseModel, Discriminator, Field, RootModel
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from inspect_ai.tool._tool import Tool
 
 from .state import Files
+
 
 # Forward declare ToolException to avoid circular imports
 # This will be overridden by the import at runtime
@@ -121,6 +123,7 @@ class FilesParams(RootModel):
 async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     """Execute ls command."""
     from inspect_ai.util._store_model import store_as
+
     # Import lazily to avoid circular import during module import
     from .tools import _log_tool_event
 
@@ -146,6 +149,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 async def execute_read(params: ReadParams) -> str | FileReadResult:
     """Execute read command."""
     from inspect_ai.util._store_model import store_as
+
     from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
@@ -276,6 +280,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
     """Execute write command."""
     from inspect_ai.util._store_model import store_as
+
     from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
@@ -315,6 +320,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 async def execute_edit(params: EditParams) -> str | FileEditResult:
     """Execute edit command."""
     from inspect_ai.util._store_model import store_as
+
     from .tools import _log_tool_event
 
     _t0 = _log_tool_event(

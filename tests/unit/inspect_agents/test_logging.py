@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from inspect_agents.logging import write_transcript, DEFAULT_LOG_DIR
+from inspect_agents.logging import DEFAULT_LOG_DIR, write_transcript
 from inspect_agents.tools import write_file
 
 
@@ -15,7 +15,7 @@ def test_file_recorder_writes_events_and_redacts(tmp_path, monkeypatch):
     asyncio.run(wf(file_path="/tmp/secret.txt", content="super secret"))
 
     # Also inject an event with arguments to verify redaction
-    from inspect_ai.log._transcript import transcript, ToolEvent
+    from inspect_ai.log._transcript import ToolEvent, transcript
 
     ev = ToolEvent(id="x", function="write_file")
     ev.arguments = {"file_path": "/tmp/secret.txt", "file_text": "classified", "api_key": "K"}

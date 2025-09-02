@@ -1,9 +1,9 @@
 import asyncio
-import pytest
 
+import pytest
 from inspect_ai.util._store import Store, init_subtask_store
 
-from inspect_agents.tools import ls, read_file, write_file, edit_file, ToolException
+from inspect_agents.tools import ToolException, edit_file, ls, read_file, write_file
 
 
 def _fresh_store() -> Store:

@@ -6,9 +6,9 @@ Run with:
   CI=1 NO_NETWORK=1 PYTHONPATH=src python scripts/manual_approval_check.py
 """
 
+import asyncio
 import sys
 import types
-import asyncio
 
 # Mock inspect_ai modules
 approval_mod = types.ModuleType('inspect_ai.approval._approval')
@@ -53,6 +53,7 @@ sys.modules['inspect_ai._util.registry'] = registry_mod
 
 # Import the approval module
 from src.inspect_agents.approval import approval_preset, redact_arguments
+
 
 def test_patterns():
     """Test that our updated regex patterns work correctly."""

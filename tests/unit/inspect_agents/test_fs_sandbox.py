@@ -2,8 +2,7 @@ import asyncio
 import sys
 import types
 
-
-from inspect_agents.tools import read_file, write_file, edit_file
+from inspect_agents.tools import edit_file, read_file, write_file
 
 
 def _install_editor_stub(fs: dict[str, str]):
@@ -14,7 +13,7 @@ def _install_editor_stub(fs: dict[str, str]):
 
     mod = types.ModuleType(mod_name)
 
-    from inspect_ai.tool._tool import tool, Tool
+    from inspect_ai.tool._tool import Tool, tool
 
     @tool()
     def text_editor() -> Tool:  # type: ignore[return-type]

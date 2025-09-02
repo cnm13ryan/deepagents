@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
 from collections.abc import Sequence
+from typing import Any
 
 
 def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
@@ -36,9 +36,10 @@ def create_deep_agent(
     Maps the familiar deepagents surface to Inspect's ReAct agent, sub-agents,
     and optional approval policies. Unused params are accepted for parity.
     """
-    from inspect_ai.agent._react import react
     from inspect_ai.agent._agent import agent as as_agent
+    from inspect_ai.agent._react import react
     from inspect_ai.model._call_tools import execute_tools
+
     from inspect_agents.agents import BASE_PROMPT, build_subagents
 
     # Resolve built-ins and optional sub-agents
@@ -95,7 +96,8 @@ def create_deep_agent(
                         # stubbed environments), apply side-effects for common calls.
                         try:
                             from inspect_ai.util._store_model import store_as
-                            from inspect_agents.state import Files, Todos, Todo
+
+                            from inspect_agents.state import Files, Todo, Todos
                             for c in calls:
                                 fn = getattr(c, "function", "")
                                 args = getattr(c, "arguments", {}) or {}
@@ -124,9 +126,10 @@ def create_deep_agent(
     # If interrupts provided, convert to approval policies and wrap to init on call
     if interrupt_config:
         from inspect_ai.agent._agent import agent as as_agent  # re-import in stub-friendly scope
+
         from inspect_agents.approval import (
-            approval_from_interrupt_config,
             activate_approval_policies,
+            approval_from_interrupt_config,
         )
 
         policies = approval_from_interrupt_config(interrupt_config)

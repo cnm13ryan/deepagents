@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_LOG_DIR = ".inspect/logs"
 REDACT_KEYS = {"api_key", "authorization", "file_text", "content"}
 

@@ -1,7 +1,6 @@
 import asyncio
 
 from inspect_ai.model._call_tools import execute_tools, parse_tool_call
-from inspect_agents.schema import classify_tool_arg_error
 from inspect_ai.model._chat_message import (
     ChatMessageAssistant,
     ChatMessageTool,
@@ -11,6 +10,8 @@ from inspect_ai.tool._tool_def import ToolDef
 from inspect_ai.tool._tool_info import parse_tool_info
 from inspect_ai.tool._tool_params import ToolParams
 from inspect_ai.util._json import json_schema
+
+from inspect_agents.schema import classify_tool_arg_error
 
 
 def _sum_tool():

@@ -1,7 +1,7 @@
 import asyncio
 
 from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageUser, ChatMessageAssistant
+from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
 from inspect_ai.tool._tool_call import ToolCall
 
 from inspect_agents.agents import build_supervisor

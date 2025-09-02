@@ -26,8 +26,8 @@ def pytest_report_header(config):  # pragma: no cover
 try:  # pragma: no cover
     pass  # type: ignore
 except Exception:  # pragma: no cover
-    import types
     import json
+    import types
 
     stub = types.ModuleType("jsonlines")
 

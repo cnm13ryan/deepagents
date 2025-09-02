@@ -9,6 +9,7 @@ It creates the necessary .env files with the right settings.
 import sys
 from pathlib import Path
 
+
 def get_repo_root():
     """Find the repository root directory."""
     current = Path(__file__).parent.absolute()
