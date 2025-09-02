@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+# ruff: noqa: E402
 """Quarantine filters and defaults for Inspect handoffs.
 
 Provides strict/scoped input filters and repo-wide env-driven defaults.
 """
 
-from typing import Any, Awaitable, Callable, List, Optional
+from typing import Any
+from collections.abc import Awaitable, Callable
 import json
 import os
 import logging
 
 
 Message = Any  # defer to inspect_ai.model._chat_message.ChatMessage at runtime
-MessageFilter = Callable[[List[Message]], Awaitable[List[Message]]]
+MessageFilter = Callable[[list[Message]], Awaitable[list[Message]]]
 
 # Key used in Inspect Store to record the currently active input filter.
 # This lives in the per-(sub)task store so nested handoffs inherit it without
@@ -20,14 +22,14 @@ MessageFilter = Callable[[List[Message]], Awaitable[List[Message]]]
 ACTIVE_INPUT_FILTER_KEY = "inspect_agents:active_input_filter_mode"
 
 
-def _truthy(val: Optional[str]) -> bool:
+def _truthy(val: str | None) -> bool:
     if val is None:
         return False
     return val.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _compose_filters(*filters: MessageFilter) -> MessageFilter:
-    async def run(messages: List[Message]) -> List[Message]:
+    async def run(messages: list[Message]) -> list[Message]:
         out = messages
         for f in filters:
             out = await f(out)
@@ -37,7 +39,7 @@ def _compose_filters(*filters: MessageFilter) -> MessageFilter:
 
 
 def _identity_filter() -> MessageFilter:
-    async def run(messages: List[Message]) -> List[Message]:
+    async def run(messages: list[Message]) -> list[Message]:
         return messages
 
     return run
@@ -59,7 +61,7 @@ def strict_quarantine_filter() -> MessageFilter:
 
 
 def _append_scoped_summary_factory(max_todos: int = 10, max_files: int = 20, max_bytes: int = 2048) -> MessageFilter:
-    async def run(messages: List[Message]) -> List[Message]:
+    async def run(messages: list[Message]) -> list[Message]:
         # Late imports to avoid heavy deps at module import time
         try:
             from inspect_ai.util._store_model import store
@@ -173,7 +175,7 @@ def _normalize_agent_env_suffix(name: str) -> str:
     return collapsed
 
 
-def _per_agent_env_mode(agent_name: Optional[str]) -> Optional[str]:
+def _per_agent_env_mode(agent_name: str | None) -> str | None:
     if not agent_name:
         return None
     suffix = _normalize_agent_env_suffix(agent_name)
@@ -182,7 +184,7 @@ def _per_agent_env_mode(agent_name: Optional[str]) -> Optional[str]:
     return val
 
 
-def default_input_filter(agent_name: Optional[str] = None) -> MessageFilter:
+def default_input_filter(agent_name: str | None = None) -> MessageFilter:
     """Return a context-aware input filter that supports cascading.
 
     Precedence when no explicit filter is set on the sub-agent:
@@ -195,7 +197,7 @@ def default_input_filter(agent_name: Optional[str] = None) -> MessageFilter:
     nested handoffs inherit it within the subtask context.
     """
 
-    async def run(messages: List[Message]) -> List[Message]:
+    async def run(messages: list[Message]) -> list[Message]:
         # Late imports to avoid hard dependency at module import
         try:
             from inspect_ai.util._store import store
@@ -234,7 +236,11 @@ def default_input_filter(agent_name: Optional[str] = None) -> MessageFilter:
         # Record chosen so nested sub-handoffs inherit within this subtask
         try:
             # Persist mode string if resolvable; otherwise assume strict
-            mode_str = per_agent or (active_mode if isinstance(locals().get("active_mode"), str) else os.getenv("INSPECT_QUARANTINE_MODE", "strict"))
+            mode_str = per_agent or (
+                active_mode
+                if isinstance(locals().get("active_mode"), str)
+                else os.getenv("INSPECT_QUARANTINE_MODE", "strict")
+            )
             store().set(ACTIVE_INPUT_FILTER_KEY, mode_str)
         except Exception:
             pass
@@ -244,7 +250,7 @@ def default_input_filter(agent_name: Optional[str] = None) -> MessageFilter:
     return run
 
 
-def default_output_filter() -> Optional[MessageFilter]:
+def default_output_filter() -> MessageFilter | None:
     """Return a safe default output filter (content_only) if available."""
     try:
         from inspect_ai.agent._filter import content_only
