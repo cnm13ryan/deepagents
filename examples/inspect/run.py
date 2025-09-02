@@ -41,8 +41,19 @@ def _load_env_files() -> None:
     try:
         from dotenv import load_dotenv  # type: ignore
 
+        # 0) Explicit file via env var wins (highest precedence among files)
+        explicit = os.getenv("INSPECT_ENV_FILE")
+        if explicit:
+            load_dotenv(explicit, override=False)
+
+        # 1) Repo root .env (typical project defaults)
         load_dotenv(REPO_ROOT / ".env", override=False)
+
+        # 2) Legacy per-example .env (kept for back-compat)
         load_dotenv(Path(__file__).parent / ".env", override=False)
+
+        # 3) Centralized templates as fill-ins (lowest precedence)
+        load_dotenv(REPO_ROOT / "env_templates" / "inspect.env", override=False)
         return
     except Exception:
         pass
@@ -123,6 +134,16 @@ async def _main() -> int:
 
 
 def main() -> None:
+    # Allow a lightweight pre-parse of --env-file to point at a specific env
+    try:
+        mini = argparse.ArgumentParser(add_help=False)
+        mini.add_argument("--env-file")
+        known, _ = mini.parse_known_args()
+        if known.env_file:
+            os.environ["INSPECT_ENV_FILE"] = known.env_file
+    except Exception:
+        pass
+
     _load_env_files()
     raise SystemExit(asyncio.run(_main()))
 
