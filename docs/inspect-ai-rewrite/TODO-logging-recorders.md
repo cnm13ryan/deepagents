@@ -10,11 +10,11 @@ Implementation Guidance
 - Events to expect: `StoreEvent`, `ToolEvent`, span begin/end; approval events are reflected via tool events and decisions.
 
 Scope — Do
-- [ ] Choose default recorder(s) and output directory (e.g., `.inspect/logs/`)
+- [x] Choose default recorder(s) and output directory (e.g., `.inspect/logs/`) — transcript writer defaults added
 - [ ] Initialize recorder at run start; ensure it is active for agent.run
-- [ ] Add docs: where logs live; how to open transcripts/bundles
+- [x] Add docs: where logs live; how to open transcripts/bundles — quickstart updated with `write_transcript()`
 - [ ] Tests assert presence of `StoreEvent` after state changes and `ToolEvent` after tool calls
- - [ ] Define a redaction policy for sensitive fields (API keys, tokens, file paths) and apply it consistently to viewer content and logs
+ - [x] Define a redaction policy for sensitive fields (API keys, tokens, file paths) and apply it consistently to viewer content and logs
 
 Scope — Don’t
 - Don’t reimplement Inspect logging; configure and document usage
