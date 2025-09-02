@@ -9,10 +9,10 @@ Implementation Guidance
 - If approvals are used, call `init_tool_approval(policies)` (from `inspect_ai.approval._apply`) before running the agent.
 - For Solver‑style flows you can still use `external/inspect_ai/src/inspect_ai/solver/_run.py`.
 
-- [ ] Add `src/inspect_agents/run.py` with:
-  - [ ] `async def run_agent(agent: Agent, input: str|list[ChatMessage], approval: list[ApprovalPolicy]|None=None, limits: list[Limit]=[]) -> AgentState` that:
-    - [ ] Calls `init_tool_approval(approval)` if provided
-    - [ ] Delegates to `inspect_ai.agent.run(agent, input, limits=limits)`
+- [x] Add `src/inspect_agents/run.py` with:
+  - [x] `async def run_agent(agent: Agent, input: str|list[ChatMessage], approval: list[ApprovalPolicy]|None=None, limits: list[Limit]=[]) -> AgentState` that:
+    - [x] Calls `init_tool_approval(approval)` if provided
+    - [x] Delegates to `inspect_ai.agent._run.run(agent, input, limits=limits)`
   - [ ] Optionally provide `run_solver(solver, input)` for solver use cases
 - [ ] Tests `tests/inspect_agents/test_run.py` covering str vs. message inputs and both agent types
 
