@@ -21,11 +21,10 @@ Environment
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
 import sys
-import asyncio
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"
@@ -81,10 +80,10 @@ def _load_env_files() -> None:
 
 
 async def _main() -> int:
-    from inspect_agents.model import resolve_model
     from inspect_agents.agents import build_supervisor
-    from inspect_agents.run import run_agent
     from inspect_agents.logging import write_transcript
+    from inspect_agents.model import resolve_model
+    from inspect_agents.run import run_agent
 
     parser = argparse.ArgumentParser(description="Run the Inspect Agents supervisor.")
     parser.add_argument("prompt", nargs="*", help="User prompt text")

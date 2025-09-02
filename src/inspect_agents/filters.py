@@ -6,12 +6,11 @@ from __future__ import annotations
 Provides strict/scoped input filters and repo-wide env-driven defaults.
 """
 
-from typing import Any
-from collections.abc import Awaitable, Callable
 import json
-import os
 import logging
-
+import os
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 Message = Any  # defer to inspect_ai.model._chat_message.ChatMessage at runtime
 MessageFilter = Callable[[list[Message]], Awaitable[list[Message]]]
@@ -52,7 +51,7 @@ def strict_quarantine_filter() -> MessageFilter:
     Returns an identity filter if Inspect is unavailable.
     """
     try:
-        from inspect_ai.agent._filter import remove_tools, content_only, last_message
+        from inspect_ai.agent._filter import content_only, last_message, remove_tools
 
         return _compose_filters(remove_tools, content_only, last_message)
     except Exception:
@@ -64,10 +63,10 @@ def _append_scoped_summary_factory(max_todos: int = 10, max_files: int = 20, max
     async def run(messages: list[Message]) -> list[Message]:
         # Late imports to avoid heavy deps at module import time
         try:
-            from inspect_ai.util._store_model import store
-            from inspect_ai.util._store_model import store_as
             from inspect_ai.model._chat_message import ChatMessageUser
-            from .state import Todos, Files
+            from inspect_ai.util._store_model import store, store_as
+
+            from .state import Files, Todos
         except Exception:
             return messages
 

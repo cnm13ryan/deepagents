@@ -58,7 +58,7 @@ def build_from_config(cfg: RootConfig, *, model: Any | None = None) -> tuple[obj
     sub_tools: list[object] = []
     if cfg.subagents:
         # Build sub-agent tools using base tools (write_todos/fs) as universe
-        from .tools import write_todos, write_file, read_file, ls, edit_file
+        from .tools import edit_file, ls, read_file, write_file, write_todos
 
         base_universe = [write_todos(), write_file(), read_file(), ls(), edit_file()]
 
@@ -69,8 +69,8 @@ def build_from_config(cfg: RootConfig, *, model: Any | None = None) -> tuple[obj
         # (explicit input_filter in config would still override)
         try:
             from inspect_agents.filters import (
-                strict_quarantine_filter,
                 scoped_quarantine_filter,
+                strict_quarantine_filter,
             )
         except Exception:
             strict_quarantine_filter = scoped_quarantine_filter = None  # type: ignore

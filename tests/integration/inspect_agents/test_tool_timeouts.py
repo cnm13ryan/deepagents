@@ -4,13 +4,12 @@ import sys
 import types
 
 import anyio
-
-from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
-from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.model._call_tools import execute_tools
-from inspect_ai.tool._tool import tool, Tool
-from inspect_ai.tool._tool_params import ToolParams
+from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
+from inspect_ai.tool._tool import Tool, tool
+from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.tool._tool_def import ToolDef
+from inspect_ai.tool._tool_params import ToolParams
 
 
 def slow_tool() -> Tool:  # type: ignore[return-type]
@@ -65,7 +64,7 @@ def test_timeout_surfaces_tool_error_and_transcript():
     assert tool_msg.error.type == "timeout"
 
     # Transcript should have a ToolEvent whose error is timeout as well
-    from inspect_ai.log._transcript import transcript, ToolEvent
+    from inspect_ai.log._transcript import ToolEvent, transcript
 
     # Use helper to fetch the last ToolEvent
     ev = transcript().find_last_event(ToolEvent)
@@ -144,7 +143,7 @@ def test_sandbox_text_editor_timeout_integration():
         # Install a text_editor that will timeout
         _install_slow_text_editor()
         
-        from inspect_agents.tools import read_file, write_file, edit_file
+        from inspect_agents.tools import edit_file, read_file, write_file
         
         # These should timeout and fall back gracefully
         read_tool = read_file()

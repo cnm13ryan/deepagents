@@ -18,19 +18,19 @@ sub‑agents and the ``internet_search`` tool.
 """
 
 import os
-from typing import Literal, Any
+from typing import Any, Literal
 
 # Attempt to import Tavily client. This dependency is optional so that the
 # example can still run without the tavily‑python package being installed.
 try:
-    from tavily import TavilyClient # type: ignore
+    from tavily import TavilyClient  # type: ignore
 except Exception:
     TavilyClient = None # type: ignore
 
 # Attempt to import requests for Google search. If requests is not
 # installed then Google search will be disabled.
 try:
-    import requests # type: ignore
+    import requests  # type: ignore
 except Exception:
     requests = None # type: ignore
 

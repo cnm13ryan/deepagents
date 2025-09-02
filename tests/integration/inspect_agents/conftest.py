@@ -5,8 +5,8 @@ package provided by uv/pip. We intentionally do not add or stub the
 `external/inspect_ai` submodule to avoid version skew.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"

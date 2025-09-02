@@ -3,11 +3,10 @@ import sys
 import types
 
 import pytest
-
+from inspect_ai._util.exception import TerminateSampleError
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
 from inspect_ai.tool._tool_call import ToolCall
-from inspect_ai._util.exception import TerminateSampleError
 
 from inspect_agents.agents import build_supervisor
 from inspect_agents.approval import approval_from_interrupt_config
@@ -174,8 +173,8 @@ def test_terminate_aborts_sample():
 
 
 def teardown_module(module):  # reset approval shim to default approve-all
-    import types
     import sys
+    import types
     apply_mod = types.ModuleType("inspect_ai.approval._apply")
     async def apply_tool_approval(message, call, viewer, history):  # pragma: no cover
         class _Approval:

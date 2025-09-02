@@ -2,6 +2,7 @@ import asyncio
 import sys
 import types
 
+
 # Create minimal ToolCall class for testing
 class ToolCall:
     def __init__(self, id, function, arguments, parse_error=None, view=None, type=None):

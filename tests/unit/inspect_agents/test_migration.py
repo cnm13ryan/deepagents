@@ -1,14 +1,14 @@
 import asyncio
 
 from inspect_ai.agent._agent import AgentState, agent
-from inspect_ai.model._chat_message import ChatMessageUser, ChatMessageAssistant
+from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
 from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.util._store import Store, init_subtask_store
+from inspect_ai.util._store_model import store_as
 
 from inspect_agents.migration import create_deep_agent
-from inspect_agents.tools import read_file
 from inspect_agents.state import Todos
-from inspect_ai.util._store_model import store_as
+from inspect_agents.tools import read_file
 
 
 @agent

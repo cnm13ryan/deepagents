@@ -18,17 +18,17 @@ your shell before invoking.
 """
 
 from inspect_ai import Task, task
-from inspect_ai.dataset import Sample
 from inspect_ai.agent import react
+from inspect_ai.dataset import Sample
 
 from inspect_agents.model import resolve_model
 from inspect_agents.tools import (
-    write_todos,
-    read_file,
-    write_file,
-    ls,
     edit_file,
+    ls,
+    read_file,
     standard_tools,
+    write_file,
+    write_todos,
 )
 
 

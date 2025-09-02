@@ -14,11 +14,11 @@ Notes
 
 from __future__ import annotations
 
-from typing import Literal
 import logging
+from typing import Literal
 
-from pydantic import BaseModel, Field
 from inspect_ai.util._store_model import StoreModel
+from pydantic import BaseModel, Field
 
 
 class Todo(BaseModel):

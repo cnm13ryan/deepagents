@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
 import json
 import re
+from typing import Any
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
@@ -26,8 +26,8 @@ def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
-    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
+    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
     policies: list[ApprovalPolicy] = []
 
@@ -128,8 +128,8 @@ def approval_preset(preset: str) -> list[Any]:
             def __init__(self, approver, tools):
                 self.approver = approver
                 self.tools = tools
-    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
+    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
     sensitive = re.compile(r"^(write_file|text_editor|bash|python|web_browser_)")
 

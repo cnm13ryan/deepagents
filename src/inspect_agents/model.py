@@ -19,7 +19,6 @@ strings (e.g., "ollama/<tag>", "openai-api/lm-studio/<model>").
 
 import os
 
-
 LOCAL_DEFAULT_OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL_NAME", "qwen3:4b-thinking-2507-q4_K_M"
 )
