@@ -39,7 +39,7 @@ class TestFilesToolUnified:
                 mock_store_as.return_value = mock_files
                 
                 params = FilesParams(root=LsParams(command="ls", instance=None))
-                result = await self.tool.execute(params)
+                result = await self.tool(params)
                 
                 assert result == ['file1.txt', 'file2.txt']
                 mock_store_as.assert_called_once()
@@ -59,7 +59,7 @@ class TestFilesToolUnified:
             mock_store_as.return_value = mock_files
             
             params = FilesParams(root=LsParams(command="ls", instance="test"))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert isinstance(result, FileListResult)
             assert result.files == ['file1.txt', 'file2.txt']
@@ -84,7 +84,7 @@ class TestFilesToolUnified:
                 limit=2,
                 instance=None
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             # Should format with line numbers
             lines = result.split('\n')
@@ -110,7 +110,7 @@ class TestFilesToolUnified:
             ))
             
             with pytest.raises(Exception) as exc_info:
-                await self.tool.execute(params)
+                await self.tool(params)
             assert "not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -126,7 +126,7 @@ class TestFilesToolUnified:
             mock_store_as.return_value = mock_files
             
             params = FilesParams(root=ReadParams(command="read", file_path="empty.txt"))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert isinstance(result, FileReadResult)
             assert result.lines == []
@@ -149,7 +149,7 @@ class TestFilesToolUnified:
                 content="Hello world",
                 instance=None
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert "Updated file new.txt" in result
             mock_files.put_file.assert_called_once_with("new.txt", "Hello world")
@@ -170,7 +170,7 @@ class TestFilesToolUnified:
                 file_path="new.txt",
                 content="Hello world"
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert isinstance(result, FileWriteResult)
             assert result.path == "new.txt"
@@ -195,7 +195,7 @@ class TestFilesToolUnified:
                 new_string="universe",
                 replace_all=False
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert isinstance(result, FileEditResult)
             assert result.path == "edit.txt"
@@ -221,7 +221,7 @@ class TestFilesToolUnified:
                 new_string="universe",
                 replace_all=True
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             assert isinstance(result, FileEditResult)
             assert result.replaced == 2
@@ -246,7 +246,7 @@ class TestFilesToolUnified:
             ))
             
             with pytest.raises(Exception) as exc_info:
-                await self.tool.execute(params)
+                await self.tool(params)
             assert "not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -267,7 +267,7 @@ class TestFilesToolUnified:
                 offset=0,
                 limit=10
             ))
-            result = await self.tool.execute(params)
+            result = await self.tool(params)
             
             mock_editor.assert_called_once_with(
                 command="view",
