@@ -79,6 +79,7 @@ def _built_in_tools():
     # Local imports to avoid importing inspect_ai at module import time
     from inspect_agents.tools import (
         write_todos,
+        update_todo_status,
         write_file,
         read_file,
         ls,
@@ -86,7 +87,7 @@ def _built_in_tools():
         standard_tools,
     )
 
-    base = [write_todos(), write_file(), read_file(), ls(), edit_file()]
+    base = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
     # Append optional standard tools (enabled via env flags)
     return base + standard_tools()
 

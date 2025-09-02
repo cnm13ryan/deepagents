@@ -19,6 +19,8 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
     from inspect_ai.util._store_model import store_as  # noqa: F401
 
 from .state import Todo, Todos
+import json
+import logging
 
 
 def _fs_mode() -> str:
@@ -170,6 +172,70 @@ def write_todos():  # -> Tool
             execute,
             name="write_todos",
             description="Update the shared todo list.",
+            parameters=params,
+        ).as_tool()
+
+    return _factory()
+
+
+def update_todo_status():  # -> Tool
+    """Update the status of a single todo item with validation.
+
+    Enforces transitions: pending->in_progress, in_progress->completed.
+    Allows pending->completed only when allow_direct_complete=True.
+    Returns a JSON payload with optional 'warning' field when direct completion occurs.
+    """
+
+    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool_def import ToolDef
+    from inspect_ai.tool._tool_params import ToolParams
+    from inspect_ai.util._json import json_schema
+    from inspect_ai.util._store_model import store_as
+
+    @tool
+    def _factory() -> Tool:
+        async def execute(
+            todo_index: int,
+            status: str,
+            allow_direct_complete: bool = False,
+        ) -> str:
+            model = store_as(Todos)
+            try:
+                warning = model.update_status(
+                    index=int(todo_index),
+                    status=str(status),
+                    allow_direct_complete=bool(allow_direct_complete),
+                )
+                payload: dict = {
+                    "ok": True,
+                    "message": f"Updated todo[{todo_index}] status to {status}",
+                }
+                if warning:
+                    payload["meta"] = {"warning": warning}
+                    try:
+                        logging.getLogger(__name__).warning(warning)
+                    except Exception:
+                        pass
+                return json.dumps(payload, ensure_ascii=False)
+            except (IndexError, ValueError) as e:
+                return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
+            except Exception as e:
+                return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
+
+        params = ToolParams()
+        params.properties["todo_index"] = json_schema(int)
+        params.properties["todo_index"].description = "Index of the todo to update (0-based)"
+        params.properties["status"] = json_schema(str)
+        params.properties["status"].description = "New status: pending | in_progress | completed"
+        params.properties["allow_direct_complete"] = json_schema(bool)
+        params.properties["allow_direct_complete"].description = "Permit pending->completed directly (logs a warning)"
+        params.properties["allow_direct_complete"].default = False
+        params.required.extend(["todo_index", "status"])
+
+        return ToolDef(
+            execute,
+            name="update_todo_status",
+            description="Update the status of a single todo with validation.",
             parameters=params,
         ).as_tool()
 
