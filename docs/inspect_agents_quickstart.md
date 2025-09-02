@@ -13,6 +13,22 @@ python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e external/inspect_ai -e .
 ```
 
+## Centralized Env (env_templates)
+
+Use a single env file for the Inspect path:
+
+```bash
+# Option A: point the runner at the central env file
+uv run python examples/inspect/run.py --env-file env_templates/inspect.env "hello"
+
+# Option B: export variable once for your shell
+export INSPECT_ENV_FILE=env_templates/inspect.env
+uv run python examples/inspect/run.py "hello"
+```
+
+Note: The loader does not override existing values. Precedence is:
+1) real environment variables; 2) repo .env; 3) examples/inspect/.env (legacy); 4) env_templates/inspect.env.
+
 ## Minimal Run (toy model)
 
 ```python
@@ -122,4 +138,3 @@ You can expose Inspect’s standard tools in addition to the built‑ins (todos 
 - `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` — expose `text_editor()` directly (optional; FS tools already route to it in sandbox mode).
 
 Reference: Standard tools overview and setup details are documented at Inspect’s official site.
-
