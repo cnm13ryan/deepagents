@@ -6,22 +6,19 @@ using a discriminated union for commands: ls, read, write, edit.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal, Union, Any, Dict
+from typing import TYPE_CHECKING, Annotated, Literal
 import os
 import anyio
 from pydantic import BaseModel, Discriminator, Field, RootModel
 
 if TYPE_CHECKING:  # pragma: no cover
     from inspect_ai.tool._tool import Tool
-    from inspect_ai.tool._tool_def import ToolDef
-    from inspect_ai.tool._tool_params import ToolParams
-    from inspect_ai.util._json import json_schema
 
 from .state import Files
 
 # Forward declare ToolException to avoid circular imports
 # This will be overridden by the import at runtime
-class ToolException(Exception):
+class ToolException(Exception):  # noqa: N818
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
@@ -115,7 +112,7 @@ class EditParams(BaseFileParams):
 class FilesParams(RootModel):
     """Discriminated union of all file operation parameters."""
     root: Annotated[
-        Union[LsParams, ReadParams, WriteParams, EditParams],
+        LsParams | ReadParams | WriteParams | EditParams,
         Discriminator("command"),
     ]
 
@@ -125,7 +122,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     """Execute ls command."""
     from inspect_ai.util._store_model import store_as
     # Import lazily to avoid circular import during module import
-    from .tools import _log_tool_event, _redact_and_truncate
+    from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:ls",
@@ -149,12 +146,17 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 async def execute_read(params: ReadParams) -> str | FileReadResult:
     """Execute read command."""
     from inspect_ai.util._store_model import store_as
-    from .tools import _log_tool_event, _redact_and_truncate
+    from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:read",
         phase="start",
-        args={"file_path": params.file_path, "offset": params.offset, "limit": params.limit, "instance": params.instance},
+        args={
+            "file_path": params.file_path,
+            "offset": params.offset,
+            "limit": params.limit,
+            "instance": params.instance,
+        },
     )
     def _format_lines(content_lines: list[str], start_line_num: int = 1) -> tuple[list[str], str]:
         """Format lines with numbering and return both list and joined string."""
@@ -197,7 +199,12 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
             formatted_lines, joined_output = _format_lines(lines, start_line)
             
             if _use_typed_results():
-                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+                _log_tool_event(
+                    name="files:read",
+                    phase="end",
+                    extra={"ok": True, "lines": len(formatted_lines)},
+                    t0=_t0,
+                )
                 return FileReadResult(
                     lines=formatted_lines,
                     summary=f"Read {len(formatted_lines)} lines from {params.file_path} (sandbox mode)"
@@ -217,9 +224,16 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         try:
             from inspect_tool_support._util.common_types import ToolException as _ToolException
         except ImportError:
-            _ToolException = ToolException
-        _log_tool_event(name="files:read", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
-        raise _ToolException(f"File '{params.file_path}' not found. Please check the file path and ensure the file exists.")
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(
+            name="files:read",
+            phase="error",
+            extra={"ok": False, "error": "FileNotFound"},
+            t0=_t0,
+        )
+        raise _ToolException(  # noqa: N806
+            f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
+        )
 
     if not content or content.strip() == "":
         if _use_typed_results():
@@ -236,8 +250,11 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         try:
             from inspect_tool_support._util.common_types import ToolException as _ToolException
         except ImportError:
-            _ToolException = ToolException
-        raise _ToolException(f"Line offset {params.offset} exceeds file length ({len(lines)} lines). Use an offset between 0 and {len(lines)-1}.")
+            _ToolException = ToolException  # noqa: N806
+        raise _ToolException(  # noqa: N806
+            f"Line offset {params.offset} exceeds file length ({len(lines)} lines). "
+            f"Use an offset between 0 and {len(lines)-1}."
+        )
 
     selected_lines = lines[start_idx:end_idx]
     # Format with correct line numbers starting from offset + 1
@@ -247,7 +264,10 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
         return FileReadResult(
             lines=formatted_lines,
-            summary=f"Read {len(formatted_lines)} lines from {params.file_path} (lines {start_idx+1}-{start_idx+len(formatted_lines)})"
+            summary=(
+                f"Read {len(formatted_lines)} lines from {params.file_path} "
+                f"(lines {start_idx+1}-{start_idx+len(formatted_lines)})"
+            ),
         )
     _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
     return joined_output
@@ -256,7 +276,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
     """Execute write command."""
     from inspect_ai.util._store_model import store_as
-    from .tools import _log_tool_event, _redact_and_truncate
+    from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:write",
@@ -295,7 +315,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 async def execute_edit(params: EditParams) -> str | FileEditResult:
     """Execute edit command."""
     from inspect_ai.util._store_model import store_as
-    from .tools import _log_tool_event, _redact_and_truncate
+    from .tools import _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:edit",
@@ -340,17 +360,32 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         try:
             from inspect_tool_support._util.common_types import ToolException as _ToolException
         except ImportError:
-            _ToolException = ToolException
-        _log_tool_event(name="files:edit", phase="error", extra={"ok": False, "error": "FileNotFound"}, t0=_t0)
-        raise _ToolException(f"File '{params.file_path}' not found. Please check the file path and ensure the file exists.")
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(
+            name="files:edit",
+            phase="error",
+            extra={"ok": False, "error": "FileNotFound"},
+            t0=_t0,
+        )
+        raise _ToolException(  # noqa: N806
+            f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
+        )
 
     if params.old_string not in content:
         try:
             from inspect_tool_support._util.common_types import ToolException as _ToolException
         except ImportError:
-            _ToolException = ToolException
-        _log_tool_event(name="files:edit", phase="error", extra={"ok": False, "error": "StringNotFound"}, t0=_t0)
-        raise _ToolException(f"String '{params.old_string}' not found in file '{params.file_path}'. Please check the exact text to replace.")
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(
+            name="files:edit",
+            phase="error",
+            extra={"ok": False, "error": "StringNotFound"},
+            t0=_t0,
+        )
+        raise _ToolException(
+            f"String '{params.old_string}' not found in file '{params.file_path}'. "
+            f"Please check the exact text to replace."
+        )
 
     # Count replacements for accurate reporting
     if params.replace_all:
@@ -377,15 +412,16 @@ def files_tool():  # -> Tool
     Supports commands: ls, read, write, edit
     """
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
-    from inspect_ai.tool._tool import Tool, tool
+    from inspect_ai.tool._tool import tool
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
     from inspect_ai.util._json import json_schema
-    from inspect_ai.util._store_model import store_as
 
     @tool
     def _factory() -> Tool:
-        async def execute(params: FilesParams) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult:
+        async def execute(
+            params: FilesParams,
+        ) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult:
             command_params = params.root
             
             if isinstance(command_params, LsParams):
@@ -400,7 +436,7 @@ def files_tool():  # -> Tool
                 try:
                     from inspect_tool_support._util.common_types import ToolException as _ToolException
                 except ImportError:
-                    _ToolException = ToolException
+                    _ToolException = ToolException  # noqa: N806
                 raise _ToolException(f"Unknown command type: {type(command_params)}")
 
         params = ToolParams()
