@@ -187,11 +187,11 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                     view_range=view_range,
                 )
             if raw is None or str(raw).strip() == "":
-            if _use_typed_results():
+                if _use_typed_results():
+                    _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                    return FileReadResult(lines=[], summary=empty_message)
                 _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                return FileReadResult(lines=[], summary=empty_message)
-            _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-            return empty_message
+                return empty_message
             
             lines = str(raw).splitlines()
             formatted_lines, joined_output = _format_lines(lines, start_line)
