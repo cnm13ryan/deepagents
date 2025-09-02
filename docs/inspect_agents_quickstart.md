@@ -138,3 +138,19 @@ You can expose Inspect’s standard tools in addition to the built‑ins (todos 
 - `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` — expose `text_editor()` directly (optional; FS tools already route to it in sandbox mode).
 
 Reference: Standard tools overview and setup details are documented at Inspect’s official site.
+
+## Inspect CLI (no Python wrapper)
+
+Run the same flow via Inspect’s CLI without the Python runner:
+
+```bash
+# One‑off prompt task
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="Write a concise overview of LangGraph"
+
+# Enable standard tools at runtime
+INSPECT_ENABLE_THINK=1 \
+INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
+uv run inspect eval examples/inspect/prompt_task.py -S prompt="..."
+```
+
+The Inspect CLI auto‑loads `.env` from the current directory (and parents). Run from the repo root, or `source env_templates/inspect.env` first.
