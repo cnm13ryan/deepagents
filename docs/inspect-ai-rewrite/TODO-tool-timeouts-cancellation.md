@@ -8,7 +8,7 @@ Implementation Guidance
 - Cancellation outcome and error surface (ToolCallError with `timeout`): same module
 
 Scope — Do
-- [ ] Set sensible per-tool/default timeouts; document defaults
+- [x] Set sensible per-tool/default timeouts; document defaults (tools use a default 15s timeout with `INSPECT_AGENTS_TOOL_TIMEOUT` override)
 - [ ] Expose cancel controls in dev CLI for demos
 - [ ] Tests:
   - [ ] Simulate a long-running tool and assert timeout produces a ToolCallError with type `timeout`
