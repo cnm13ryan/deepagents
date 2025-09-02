@@ -1,4 +1,4 @@
-# TODO — Virtual FS Tools (Store-backed)
+# done — TODO — Virtual FS Tools (Store-backed)
 
 Context & Motivation
 - Recreate deepagents in-memory file tools on Inspect’s Store: `ls`, `read_file`, `write_file`, `edit_file`.

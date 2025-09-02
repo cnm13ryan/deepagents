@@ -1,4 +1,4 @@
-# TODO — Supervisor Agent (ReAct via Inspect)
+# done — TODO — Supervisor Agent (ReAct via Inspect)
 
 Context & Motivation
 - Implement the top-level agent using Inspect’s ReAct loop (submit-terminated), wiring built-in tools and user tools with a guiding base prompt.

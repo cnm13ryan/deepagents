@@ -1,4 +1,4 @@
-# TODO — Tool Approval Mapping (interrupts → ApprovalPolicy)
+# done — TODO — Tool Approval Mapping (interrupts → ApprovalPolicy)
 
 Context & Motivation
 - Recreate deepagents’ human-in-the-loop tool approvals using Inspect’s ApprovalPolicy and approvers.

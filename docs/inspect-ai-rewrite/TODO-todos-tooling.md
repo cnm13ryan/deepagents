@@ -1,4 +1,4 @@
-# TODO — Todos Tooling (Store-backed)
+# done — TODO — Todos Tooling (Store-backed)
 
 Context & Motivation
 - Provide Inspect-native `write_todos` so agents can plan and track work with a persistent list.
@@ -19,4 +19,3 @@ Scope — Don’t
 Success Criteria
 - [ ] Invoking tool updates Store; subsequent read reflects changes
 - [ ] Output string mirrors prior behavior (human-readable summary)
-

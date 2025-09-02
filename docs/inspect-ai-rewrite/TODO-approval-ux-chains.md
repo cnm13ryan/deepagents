@@ -1,4 +1,4 @@
-# TODO — Approval UX & Chains
+# done — TODO — Approval UX & Chains
 
 Context & Motivation
 - Deliver a safe, ergonomic human-in-the-loop flow: appropriate approver chains (auto→human), redacted views, and predictable decisions.

@@ -1,4 +1,4 @@
-# TODO — Model Resolver (Inspect-native)
+# done — TODO — Model Resolver (Inspect-native)
 
 Context & Motivation
 - Replace LangChain model selection with Inspect model/role resolution driven by env vars and parameters.
