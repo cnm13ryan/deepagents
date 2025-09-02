@@ -18,7 +18,13 @@ from inspect_agents.agents import build_subagents
 def sub_read_agent():
     async def execute(state: AgentState, tools: list = []):
         val = store().get("shared", None)
-        state.messages.append(ChatMessageAssistant(content=f"shared={val}"))
+        
+        # Create assistant message with submit tool call to exit the react loop
+        assistant_message = ChatMessageAssistant(
+            content=f"shared={val}",
+            tool_calls=[ToolCall(id="submit_1", function="submit", arguments={"answer": f"shared={val}"})]
+        )
+        state.messages.append(assistant_message)
         return state
 
     return execute
