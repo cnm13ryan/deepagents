@@ -23,3 +23,8 @@ packages = ["inspect_agents"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
