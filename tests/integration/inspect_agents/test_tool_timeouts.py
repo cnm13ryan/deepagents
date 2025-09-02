@@ -118,12 +118,9 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
         # The timeout should occur in the anyio.fail_after context,
         # which will raise CancelledError. Since the tool catches Exception,
         # this will be caught and the tool will fall back to store mode.
-        # The key is to verify the timeout mechanism is in place.
-        result = await tool(file_path="/tmp/test.txt")
-        # If we get here, the timeout worked (fell back to store) or didn't timeout
-        # For a proper timeout test, we need to mock the text_editor to actually raise
-        # a proper exception that gets propagated
-        assert "not found" in result.lower() or "error" in result.lower()
+        # On missing file, the fallback raises ToolException.
+        with pytest.raises(ToolException):
+            await tool(file_path="/tmp/test.txt")
     
     asyncio.run(run_tool())
 
@@ -175,3 +172,4 @@ def test_sandbox_text_editor_timeout_integration():
             os.environ["INSPECT_AGENTS_FS_MODE"] = original_fs_mode  
         else:
             os.environ.pop("INSPECT_AGENTS_FS_MODE", None)
+import pytest
