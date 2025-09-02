@@ -17,8 +17,11 @@ def test_file_recorder_writes_events_and_redacts(tmp_path, monkeypatch):
     # Also inject an event with arguments to verify redaction
     from inspect_ai.log._transcript import ToolEvent, transcript
 
-    ev = ToolEvent(id="x", function="write_file")
-    ev.arguments = {"file_path": "/tmp/secret.txt", "file_text": "classified", "api_key": "K"}
+    ev = ToolEvent(
+        id="x",
+        function="write_file",
+        arguments={"file_path": "/tmp/secret.txt", "file_text": "classified", "api_key": "K"},
+    )
     transcript()._event(ev)
 
     # Write transcript to file
@@ -31,4 +34,3 @@ def test_file_recorder_writes_events_and_redacts(tmp_path, monkeypatch):
     redacted_line = next((ln for ln in lines if '"api_key"' in ln or '"file_text"' in ln), None)
     assert redacted_line is not None
     assert "[REDACTED]" in redacted_line
-
