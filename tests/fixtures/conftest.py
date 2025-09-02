@@ -24,9 +24,10 @@ def pytest_report_header(config):  # pragma: no cover
 # used by Inspect‑AI trace/dataset utilities. This keeps tests offline‑friendly
 # while still allowing import of Inspect‑AI internals that reference jsonlines.
 try:  # pragma: no cover
-    import jsonlines  # type: ignore
+    pass  # type: ignore
 except Exception:  # pragma: no cover
-    import types, json
+    import types
+    import json
 
     stub = types.ModuleType("jsonlines")
 
