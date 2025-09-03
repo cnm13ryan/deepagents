@@ -8,7 +8,8 @@ can be passed to `react(model=...)` or `get_model(...)`.
 
 Rules (summary):
 - Explicit `model` wins; return as-is if it contains a provider prefix ("/").
-- If `role` is provided (and `model` is not), return "inspect/<role>".
+- If `role` is provided (and `model` is not), consult role → model env mapping
+  and otherwise return "inspect/<role>".
 - Prefer local (Ollama) by default: use `OLLAMA_MODEL_NAME` or a sensible default.
 - If a remote provider is selected, fail fast when required API keys are absent.
 
@@ -22,6 +23,53 @@ import os
 LOCAL_DEFAULT_OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL_NAME", "qwen3:4b-thinking-2507-q4_K_M"
 )
+
+# Default roles known to the repository. These do not enforce a concrete model
+# by default; in absence of env mapping they resolve to the Inspect role indirection
+# string ("inspect/<role>") so that environments with Inspect-native role routing
+# continue to work. Repositories may choose to add stricter defaults later.
+DEFAULT_ROLES: tuple[str, ...] = (
+    "researcher",
+    "coder",
+    "editor",
+    "grader",
+)
+
+
+def _role_env_key(role: str) -> str:
+    return f"INSPECT_ROLE_{role.upper().replace('-', '_')}"  # prefix; add _MODEL etc.
+
+
+def _resolve_role_mapping(role: str) -> tuple[str | None, str | None]:
+    """Resolve provider/model from role-specific env, if configured.
+
+    Env precedence (if present):
+    - INSPECT_ROLE_<ROLE>_MODEL: if value contains '/', interpret as
+      '<provider-path>/<model-tag>' (e.g., 'openai-api/lm-studio/qwen3').
+      Otherwise treat as a bare model tag to be combined with provider
+      INSPECT_ROLE_<ROLE>_PROVIDER or default provider resolution.
+
+    Returns:
+        (provider, model) or (None, None) if no mapping is configured.
+    """
+
+    base = _role_env_key(role)
+    raw = os.getenv(f"{base}_MODEL")
+    if not raw:
+        return (None, None)
+
+    raw = raw.strip()
+    if "/" in raw:
+        # Split '<provider-path>/<tag>' while allowing provider paths that contain '/'
+        *provider_parts, tag = raw.split("/")
+        provider = "/".join(provider_parts)
+        return (provider, tag)
+
+    # Bare model tag; find provider override or fall back to default chain
+    provider = os.getenv(f"{base}_PROVIDER")
+    if provider:
+        provider = provider.strip().lower()
+    return (provider, raw)
 
 
 def resolve_model(
@@ -47,17 +95,30 @@ def resolve_model(
         RuntimeError: if a remote provider is selected without required keys.
     """
 
-    # 1) Explicit model with provider prefix wins
+    # 1) Explicit model with provider prefix wins (caller-originated only)
     if model and "/" in model:
         return model
 
-    # 2) Role indirection when no explicit model
+    # 2) Role-mapped resolution when role is provided and no explicit model
     if model is None and role:
-        return f"inspect/{role}"
+        # Env-mapped provider/model for role, if any
+        r_provider, r_model = _resolve_role_mapping(role)
+        if r_provider or r_model:
+            # r_provider may be None (falls through to default provider chain)
+            provider = r_provider or provider
+            model = r_model
+        else:
+            # No mapping configured; return Inspect role indirection
+            return f"inspect/{role}"
 
     # 3) Env-specified full model via Inspect convention
     env_inspect_model = os.getenv("INSPECT_EVAL_MODEL")
-    if model is None and env_inspect_model and "/" in env_inspect_model:
+    if (
+        model is None
+        and env_inspect_model
+        and "/" in env_inspect_model
+        and env_inspect_model.strip().lower() != "none/none"
+    ):
         return env_inspect_model
 
     # 4) Determine provider: function arg > env > default (ollama)
