@@ -51,5 +51,4 @@ Design Pointers
 - Runner forwards `limits` via `agent_run(..., limits=...)`.
 
 See also
-- Decision D0003: rationale and rollout details (`docs/decisions/0003-supervisor-limits-and-observability.md`).
-
+- Decision D0003: rationale and rollout details (`docs/adr/0003-supervisor-limits-and-observability.md`).

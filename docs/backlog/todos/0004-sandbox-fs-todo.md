@@ -1,6 +1,6 @@
 # TODO — Filesystem Sandbox & Safety Work Items (ADR-0004)
 
-Context: Follow-ups derived from ADR 0004 (docs/decisions/0004-filesystem-sandbox-guardrails.md) to harden sandbox FS behavior while preserving current defaults. Each section is self-contained and actionable for implementation.
+Context: Follow-ups derived from ADR 0004 (docs/adr/0004-filesystem-sandbox-guardrails.md) to harden sandbox FS behavior while preserving current defaults. Each section is self-contained and actionable for implementation.
 
 Owner: Core Inspect Agents
 Last Updated: 2025-09-03
@@ -176,4 +176,3 @@ Last Updated: 2025-09-03
 
 - Success Criteria
   - [ ] Unit tests validate ls returns items under FS_ROOT only; deterministic ordering.
-

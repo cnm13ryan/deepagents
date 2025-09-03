@@ -1,6 +1,8 @@
 # Stateless vs Stateful Tools (Inspect Tool Support)
 
-See also: [Stateless vs Stateful Tools — Harmonized](./stateless-vs-stateful-tools-harmonized.md) for the canonical, consolidated definitions, templates, and checklists that integrate Inspect AI usage patterns.
+> Note: This document is superseded by the canonical Harmonized guide. See `../stateless-vs-stateful-tools-harmonized.md` for up‑to‑date definitions, templates, and checklists. This page is retained for historical context.
+
+See also: [Stateless vs Stateful Tools — Harmonized](../stateless-vs-stateful-tools-harmonized.md) for the canonical, consolidated definitions, templates, and checklists that integrate Inspect AI usage patterns.
 
 This guide explains how tools in Inspect Tool Support are categorized as stateless or stateful, and provides concrete design and documentation practices for each. It aligns with the package’s JSON‑RPC + Pydantic patterns, `ToolException` error handling, and `SessionController` for session isolation.
 
