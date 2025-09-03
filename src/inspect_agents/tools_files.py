@@ -502,6 +502,30 @@ def files_tool():  # -> Tool
         async def execute(
             params: FilesParams,
         ) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult | FileDeleteResult:
+            # Add Pydantic validation layer for early error detection
+            try:
+                from .tool_types import FilesToolParams
+
+                # Validate input using our stricter Pydantic model before proceeding
+                if hasattr(params, "root") and hasattr(params.root, "model_dump"):
+                    raw_dict = params.root.model_dump()
+                else:
+                    # Fallback for dict inputs
+                    raw_dict = params if isinstance(params, dict) else params.root
+
+                # This will raise ValidationError with clear message if unknown fields are present
+                FilesToolParams.model_validate(raw_dict)
+            except ImportError:
+                # If tool_types not available, skip validation
+                pass
+            except Exception as e:
+                # Import here to use the same ToolException as the tools module
+                try:
+                    from inspect_tool_support._util.common_types import ToolException as _ToolException
+                except ImportError:
+                    _ToolException = ToolException  # noqa: N806
+                raise _ToolException(f"Invalid parameters: {str(e)}")
+
             command_params = params.root
 
             if isinstance(command_params, LsParams):

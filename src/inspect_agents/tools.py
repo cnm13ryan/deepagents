@@ -283,6 +283,34 @@ def write_todos():  # -> Tool
     @tool
     def _factory() -> Tool:
         async def execute(todos: list[Todo]) -> str | TodoWriteResult:
+            # Add Pydantic validation layer for early error detection
+            try:
+                from .tool_types import TodoItem, WriteTodosParams
+
+                # Convert Todo objects to TodoItem format for validation
+                todo_items = []
+                for todo in todos:
+                    if hasattr(todo, "model_dump"):
+                        todo_dict = todo.model_dump()
+                    else:
+                        # Handle case where todo might be a string or have different structure
+                        if hasattr(todo, "content"):
+                            content = todo.content
+                        elif hasattr(todo, "text"):
+                            content = todo.text
+                        else:
+                            content = str(todo)
+                        todo_dict = {"content": content, "status": getattr(todo, "status", "pending")}
+                    todo_items.append(TodoItem.model_validate(todo_dict))
+
+                # Validate the complete parameters
+                WriteTodosParams.model_validate({"todos": todo_items})
+            except ImportError:
+                # If tool_types not available, skip validation
+                pass
+            except Exception as e:
+                raise ToolException(f"Invalid todo parameters: {str(e)}")
+
             _t0 = _log_tool_event(
                 name="write_todos",
                 phase="start",
@@ -341,6 +369,20 @@ def update_todo_status():  # -> Tool
             status: str,
             allow_direct_complete: bool = False,
         ) -> str | TodoStatusResult:
+            # Add Pydantic validation layer for early error detection
+            try:
+                from .tool_types import UpdateTodoStatusParams
+
+                # Validate all parameters using our stricter Pydantic model
+                UpdateTodoStatusParams.model_validate(
+                    {"todo_index": todo_index, "status": status, "allow_direct_complete": allow_direct_complete}
+                )
+            except ImportError:
+                # If tool_types not available, skip validation
+                pass
+            except Exception as e:
+                raise ToolException(f"Invalid todo status parameters: {str(e)}")
+
             _t0 = _log_tool_event(
                 name="update_todo_status",
                 phase="start",
