@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from inspect_agents.tools_files import WriteParams, EditParams, ReadParams, execute_write, execute_edit, execute_read
+from inspect_agents.tools_files import EditParams, ReadParams, WriteParams, execute_edit, execute_read, execute_write
 
 
 @pytest.mark.asyncio

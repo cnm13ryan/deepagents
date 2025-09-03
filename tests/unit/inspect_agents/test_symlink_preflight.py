@@ -4,7 +4,7 @@ import types
 
 import pytest
 
-from inspect_agents.tools import ToolException, edit_file, read_file, write_file
+from inspect_agents.tools import edit_file, read_file, write_file
 
 
 def _install_editor_stub():

@@ -13,7 +13,6 @@ import logging
 import sys
 import types
 
-
 # Minimal stubs for inspect_ai dependencies used by approval.py
 approval_mod = types.ModuleType('inspect_ai.approval._approval')
 class Approval:  # pragma: no cover - tiny shim
