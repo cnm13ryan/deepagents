@@ -121,22 +121,35 @@ def test_sandbox_text_editor_timeout_read_file(monkeypatch):
         # this will be caught and the tool will fall back to store mode.
         # On missing file, the fallback raises ToolException.
         with pytest.raises(ToolException):
-            await tool(file_path="/tmp/test.txt")
+            # Use a sandbox-rooted path so validation passes and timeout triggers fallback
+            await tool(file_path="/repo/test.txt")
     
     asyncio.run(run_tool())
 
 
 def test_sandbox_text_editor_timeout_integration():
-    """Integration test to verify timeout behavior works correctly."""
-    
+    """Integration test to verify timeout behavior works correctly.
+
+    Use a sandbox-safe path by setting INSPECT_AGENTS_FS_ROOT to a temporary
+    directory so `_validate_sandbox_path` passes and the slow text_editor
+    triggers timeout and fallback to the Store-backed filesystem.
+    """
+
     # Set short timeout
     original_timeout = os.environ.get("INSPECT_AGENTS_TOOL_TIMEOUT")
     os.environ["INSPECT_AGENTS_TOOL_TIMEOUT"] = "0.05"  # 50ms
-    
+
     # Set sandbox mode
-    original_fs_mode = os.environ.get("INSPECT_AGENTS_FS_MODE")  
+    original_fs_mode = os.environ.get("INSPECT_AGENTS_FS_MODE")
     os.environ["INSPECT_AGENTS_FS_MODE"] = "sandbox"
-    
+
+    # Constrain sandbox root to a temp dir and target a file within it
+    import tempfile
+    tmp_dir = tempfile.mkdtemp(prefix="inspect-agents-sbx-")
+    original_fs_root = os.environ.get("INSPECT_AGENTS_FS_ROOT")
+    os.environ["INSPECT_AGENTS_FS_ROOT"] = tmp_dir
+    file_path = os.path.join(tmp_dir, "test.txt")
+
     try:
         # Install a text_editor that will timeout
         _install_slow_text_editor()
@@ -150,9 +163,9 @@ def test_sandbox_text_editor_timeout_integration():
         
         async def test_timeout_fallback():
             # All of these should fall back to store mode due to timeout in sandbox mode
-            write_result = await write_tool(file_path="/tmp/test.txt", content="test")
-            read_result = await read_tool(file_path="/tmp/test.txt")
-            edit_result = await edit_tool(file_path="/tmp/test.txt", old_string="test", new_string="TEST")
+            write_result = await write_tool(file_path=file_path, content="test")
+            read_result = await read_tool(file_path=file_path)
+            edit_result = await edit_tool(file_path=file_path, old_string="test", new_string="TEST")
             
             # Verify they completed (fell back to store mode)
             assert "Updated file" in write_result
@@ -170,6 +183,11 @@ def test_sandbox_text_editor_timeout_integration():
             os.environ.pop("INSPECT_AGENTS_TOOL_TIMEOUT", None)
             
         if original_fs_mode is not None:
-            os.environ["INSPECT_AGENTS_FS_MODE"] = original_fs_mode  
+            os.environ["INSPECT_AGENTS_FS_MODE"] = original_fs_mode
         else:
             os.environ.pop("INSPECT_AGENTS_FS_MODE", None)
+
+        if original_fs_root is not None:
+            os.environ["INSPECT_AGENTS_FS_ROOT"] = original_fs_root
+        else:
+            os.environ.pop("INSPECT_AGENTS_FS_ROOT", None)
