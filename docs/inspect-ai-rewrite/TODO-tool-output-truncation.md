@@ -8,10 +8,10 @@ Implementation Guidance
 
 Scope — Do
 - [ ] Set default `max_tool_output` via generate config
-- [ ] Tests: produce oversized tool output; assert the truncation template and byte limits
+- [x] Tests: produce oversized tool output; assert the truncation template and byte limits
 
 Scope — Don’t
 - Don’t disable truncation globally; allow per-run overrides
 
 Success Criteria
-- [ ] Long outputs are truncated with the Inspect standard wrapper; model receives clear guidance
+- [x] Long outputs are truncated with the Inspect standard wrapper; model receives clear guidance
