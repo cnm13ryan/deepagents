@@ -8,10 +8,10 @@ Implementation Guidance
 - Handoff is non-parallel by design: `agent/_handoff.py`
 
 Scope — Do
-- [ ] Declare which tools are parallel-safe vs must-run-serially
-- [ ] Ensure handoff tools remain serial
+- [x] Declare which tools are parallel-safe vs must-run-serially (handoff tools are serial)
+- [x] Ensure handoff tools remain serial
 - [ ] Tests:
-  - [ ] Emit two simple parallel-safe tool calls → both ChatMessageTool results present
+  - [x] Emit two simple parallel-safe tool calls → both ChatMessageTool results present
   - [ ] Handoff tool issued with another tool → only handoff is handled; others deferred/cancelled as designed
 
 Scope — Don’t
