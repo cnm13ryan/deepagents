@@ -12,7 +12,7 @@ Welcome to the unified documentation site for DeepAgents. This site collects all
 - Reference: [Environment Variables](reference/environment.md)
 - Architecture: [Overview](ARCHITECTURE.md)
 - ADRs: [Index](adr/README.md)
-- Open Questions: [Discussion Topics](open-questions.md)
+- Open Questions: [Discussion Topics](design/open-questions.md)
 
 For a fuller section-by-section map of all docs, see the in-repo index at [docs/README.md](README.md).
 

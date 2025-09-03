@@ -10,6 +10,19 @@ nav:
   - Getting Started:
       - Inspect Agents Quickstart: getting-started/inspect_agents_quickstart.md
       - Inspect Console Cheat Sheet: getting-started/inspect_console_cheatsheet.md
+  - CLI:
+      - Index: cli/README.md
+      - View: cli/inspect_view.md
+      - Log: cli/inspect_log.md
+      - Eval: cli/inspect_eval.md
+      - Eval Retry: cli/inspect_eval_retry.md
+      - Eval Set: cli/inspect_eval_set.md
+      - Score: cli/inspect_score.md
+      - Cache: cli/inspect_cache.md
+      - Info: cli/inspect_info.md
+      - List: cli/inspect_list.md
+      - Sandbox: cli/inspect_sandbox.md
+      - Trace: cli/inspect_trace.md
   - How-To:
       - Approvals & Policies: how-to/approvals.md
       - Filesystem Tools: how-to/filesystem.md
@@ -45,8 +58,7 @@ nav:
   - Design:
       - Architecture: ARCHITECTURE.md
       - DeepAgents Implementation Prompts: design/deepagents_implementation_prompts.md
-      - Inspect View: inspect_view.md
-      - Open Questions: open-questions.md
+      - Open Questions: design/open-questions.md
   - Decisions:
       - Overview: adr/README.md
       - D0002 — Model Roles Map: adr/0002-model-roles-map.md
