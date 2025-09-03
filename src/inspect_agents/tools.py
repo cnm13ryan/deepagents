@@ -97,7 +97,7 @@ def _log_tool_event(
     if args:
         # Belt-and-suspenders normalization: rewrite raw content fields to length metadata
         # before any redaction/truncation. This prevents accidental leaks from new callers
-        # that might pass raw strings. See docs/open-questions.md §2.
+        # that might pass raw strings. See docs/design/open-questions.md §2.
         try:
             norm = dict(args)
             # Known sensitive keys -> length-only fields (allowlist)
