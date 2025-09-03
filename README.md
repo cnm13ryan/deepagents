@@ -14,6 +14,45 @@
 ## Problem / Value Proposition
 Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. deepagents removes the overhead with an Inspect‑AI–native, CLI‑first workflow: one command to run; typed state (todos/files); built‑in tools; transcripts and traces by default. Compared to bespoke frameworks, you ship faster (minutes not days), keep observability, and scale cleanly to sub‑agents as “handoffs” or single‑shot “tools.”
 
+## High-level Architecture
+
+```mermaid
+flowchart LR
+    %% Legend: solid = control/invocation, dashed = data/outputs
+  
+    SP[[System Prompt / Config]] --> S[Supervisor]
+    MR[Model Resolver] --> S
+    S --> L[Logs / Traces]
+  
+    %% Single-shot tools
+    S -->|tool call| AP[Approvals & Policies]
+    AP --> ST[Stateless Tools]
+    AP --> SS[Stateful Tools]
+    ST -.-> S
+    SS -.-> S
+  
+    %% FS path modes (via FS Tools)
+    subgraph "FS Path Modes (MODE=store|sandbox)"
+      direction LR
+      FST[FS Tools] -->|"store (default)"|VFS["(VFS)"]
+      FST -->|sandbox| SBX[["Sandboxed Editor (no delete)"]]
+      SBX --> HFS[(Host FS)]
+    end
+    AP --> FST
+    VFS -.-> S
+    SBX -.-> S
+    HFS -.-> S
+  
+    %% Iterative handoff
+    S -->|handoff| CG[Context Gate]
+    CG <-->|iterate| SA[Sub‑Agents]
+    SA -.-> S
+```
+Figure: DeepAgents control and data flow with filesystem routing. Read left‑to‑right: System Prompt/Config and Model Resolver steer the Supervisor, which logs outputs,
+invokes tools through optional Approvals & Policies, and coordinates iterative handoffs via a Context Gate to Sub‑Agents. File operations travel through FS Tools and
+are routed by INSPECT_AGENTS_FS_MODE to VFS (default “store”) or, in “sandbox”, through a sandboxed editor bridge to the Host FS (deletes disabled); results return to
+the Supervisor. Solid lines denote control/invocation; dashed lines denote data/outputs.
+
 ## Table of Contents
 - [Quick Start / Installation](#quick-start--installation)
 - [Usage Examples](#usage-examples)
@@ -241,4 +280,3 @@ uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "...
 - Thanks to the Inspect‑AI project and ecosystem for the agent runtime, tools, and logging model.
 - Inspiration: CLI‑first DX from projects like Bun and Supabase; awesome‑readme best practices.
 
-![TODO: Architecture diagram — boxes for “Supervisor (react)”, “handoff sub‑agent(s)”, “tools (todos, FS, web_search, etc.)”, arrows showing flow; 1280×720](TODO: add link)
