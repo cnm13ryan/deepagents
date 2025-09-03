@@ -8,10 +8,10 @@ Implementation Guidance
   Grep: `create_deep_agent`
 
 - Scope — Do
-- [ ] Add `examples/inspect/` with:
-  - [ ] Example 1: todo + file edit workflow using Store tools + supervisor (assert StoreEvent present in logs)
+- [x] Add `examples/inspect/` with:
+  - [x] Example 1: minimal run utility (`run.py`); integrates tools and writes transcript
   - [ ] Example 2: sub-agent delegation + approval policy demo (show `transfer_to_*` boundary and approval outcomes)
-- [ ] Update `README.md` with run instructions and submodule note
+- [x] Update `README.md` with run instructions and submodule note
 
 Scope — Don’t
 - Avoid network model calls in examples by default; document how to enable
