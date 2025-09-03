@@ -40,7 +40,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # --- Minimal path setup so imports work when run from repo root --------------
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"
@@ -57,7 +56,6 @@ def _install_apply_if_missing() -> None:
     lightweight fallback for environments where it's not importable.
     """
     try:
-        from inspect_ai.approval import _apply as _  # type: ignore
         return
     except Exception:
         pass
@@ -161,8 +159,9 @@ def main() -> None:
     agent = _build_demo_agent(args.preset)
 
     # Run with an arbitrary prompt (our model ignores content)
-    from inspect_agents.run import run_agent
     from inspect_ai.model._chat_message import ChatMessageTool
+
+    from inspect_agents.run import run_agent
 
     result = asyncio.run(run_agent(agent, "start"))
 
