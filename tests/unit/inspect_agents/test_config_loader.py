@@ -3,7 +3,6 @@ import asyncio
 import pytest
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
-from inspect_ai.tool._tool_call import ToolCall
 
 from inspect_agents.config import load_and_build, load_yaml
 from inspect_agents.run import run_agent

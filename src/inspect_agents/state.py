@@ -17,8 +17,8 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from inspect_ai.util._store_model import StoreModel
 from inspect_ai.log._transcript import track_store_changes
+from inspect_ai.util._store_model import StoreModel
 from pydantic import BaseModel, Field
 
 
