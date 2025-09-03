@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from inspect_agents.tools_files import (
+    DeleteParams,
     EditParams,
+    FileDeleteResult,
     FileEditResult,
     FileListResult,
     FileReadResult,
@@ -25,69 +27,69 @@ class TestFilesToolUnified:
     def setup_method(self):
         """Set up test fixtures."""
         self.tool = files_tool()
-        
+
     def test_ls_command_store_mode(self):
         """Test ls command in store mode."""
+
         async def _test():
-            with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-                 patch('inspect_agents.tools_files._use_typed_results', return_value=False), \
-                 patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-                
+            with (
+                patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+                patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+                patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+            ):
                 # Mock Files store
                 mock_files = Mock()
-                mock_files.list_files.return_value = ['file1.txt', 'file2.txt']
+                mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
                 mock_store_as.return_value = mock_files
-                
+
                 params = FilesParams(root=LsParams(command="ls", instance=None))
                 result = await self.tool(params)
-                
-                assert result == ['file1.txt', 'file2.txt']
+
+                assert result == ["file1.txt", "file2.txt"]
                 mock_store_as.assert_called_once()
                 mock_files.list_files.assert_called_once()
-        
+
         asyncio.run(_test())
 
     @pytest.mark.asyncio
     async def test_ls_command_typed_results(self):
         """Test ls command with typed results."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=True), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
-            mock_files.list_files.return_value = ['file1.txt', 'file2.txt']
+            mock_files.list_files.return_value = ["file1.txt", "file2.txt"]
             mock_store_as.return_value = mock_files
-            
+
             params = FilesParams(root=LsParams(command="ls", instance="test"))
             result = await self.tool(params)
-            
+
             assert isinstance(result, FileListResult)
-            assert result.files == ['file1.txt', 'file2.txt']
+            assert result.files == ["file1.txt", "file2.txt"]
             mock_store_as.assert_called_with(mock_store_as.call_args[0][0], instance="test")
 
     @pytest.mark.asyncio
     async def test_read_command_store_mode(self):
         """Test read command in store mode."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=False), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = "line 1\nline 2\nline 3"
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=ReadParams(
-                command="read",
-                file_path="test.txt",
-                offset=0,
-                limit=2,
-                instance=None
-            ))
+
+            params = FilesParams(
+                root=ReadParams(command="read", file_path="test.txt", offset=0, limit=2, instance=None)
+            )
             result = await self.tool(params)
-            
+
             # Should format with line numbers
-            lines = result.split('\n')
+            lines = result.split("\n")
             assert "     1\tline 1" in lines[0]
             assert "     2\tline 2" in lines[1]
             assert len(lines) == 2
@@ -96,19 +98,17 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_read_command_file_not_found(self):
         """Test read command when file doesn't exist."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = None
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=ReadParams(
-                command="read",
-                file_path="nonexistent.txt"
-            ))
-            
+
+            params = FilesParams(root=ReadParams(command="read", file_path="nonexistent.txt"))
+
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)
             assert "not found" in str(exc_info.value)
@@ -116,18 +116,19 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_read_command_empty_file(self):
         """Test read command with empty file."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=True), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = ""
             mock_store_as.return_value = mock_files
-            
+
             params = FilesParams(root=ReadParams(command="read", file_path="empty.txt"))
             result = await self.tool(params)
-            
+
             assert isinstance(result, FileReadResult)
             assert result.lines == []
             assert "empty contents" in result.summary
@@ -135,43 +136,38 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_write_command_store_mode(self):
         """Test write command in store mode."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=False), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=WriteParams(
-                command="write",
-                file_path="new.txt",
-                content="Hello world",
-                instance=None
-            ))
+
+            params = FilesParams(
+                root=WriteParams(command="write", file_path="new.txt", content="Hello world", instance=None)
+            )
             result = await self.tool(params)
-            
+
             assert "Updated file new.txt" in result
             mock_files.put_file.assert_called_once_with("new.txt", "Hello world")
 
     @pytest.mark.asyncio
     async def test_write_command_typed_results(self):
         """Test write command with typed results."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=True), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=WriteParams(
-                command="write",
-                file_path="new.txt",
-                content="Hello world"
-            ))
+
+            params = FilesParams(root=WriteParams(command="write", file_path="new.txt", content="Hello world"))
             result = await self.tool(params)
-            
+
             assert isinstance(result, FileWriteResult)
             assert result.path == "new.txt"
             assert "Updated file" in result.summary
@@ -179,24 +175,23 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_edit_command_store_mode(self):
         """Test edit command in store mode."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=True), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = "Hello world\nGoodbye world"
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=EditParams(
-                command="edit",
-                file_path="edit.txt",
-                old_string="world",
-                new_string="universe",
-                replace_all=False
-            ))
+
+            params = FilesParams(
+                root=EditParams(
+                    command="edit", file_path="edit.txt", old_string="world", new_string="universe", replace_all=False
+                )
+            )
             result = await self.tool(params)
-            
+
             assert isinstance(result, FileEditResult)
             assert result.path == "edit.txt"
             assert result.replaced == 1
@@ -205,24 +200,23 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_edit_command_replace_all(self):
         """Test edit command with replace_all=True."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=True), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = "Hello world\nGoodbye world"
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=EditParams(
-                command="edit",
-                file_path="edit.txt",
-                old_string="world",
-                new_string="universe",
-                replace_all=True
-            ))
+
+            params = FilesParams(
+                root=EditParams(
+                    command="edit", file_path="edit.txt", old_string="world", new_string="universe", replace_all=True
+                )
+            )
             result = await self.tool(params)
-            
+
             assert isinstance(result, FileEditResult)
             assert result.replaced == 2
             mock_files.put_file.assert_called_once_with("edit.txt", "Hello universe\nGoodbye universe")
@@ -230,50 +224,133 @@ class TestFilesToolUnified:
     @pytest.mark.asyncio
     async def test_edit_command_string_not_found(self):
         """Test edit command when old_string is not found."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=False), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.util._store_model.store_as') as mock_store_as:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
             mock_files = Mock()
             mock_files.get_file.return_value = "Hello world"
             mock_store_as.return_value = mock_files
-            
-            params = FilesParams(root=EditParams(
-                command="edit",
-                file_path="edit.txt",
-                old_string="notfound",
-                new_string="replacement"
-            ))
-            
+
+            params = FilesParams(
+                root=EditParams(command="edit", file_path="edit.txt", old_string="notfound", new_string="replacement")
+            )
+
             with pytest.raises(Exception) as exc_info:
                 await self.tool(params)
             assert "not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
+    async def test_delete_command_store_mode_file_exists(self):
+        """Test delete command in store mode when file exists."""
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
+            mock_files = Mock()
+            mock_files.get_file.return_value = "some content"  # File exists
+            mock_store_as.return_value = mock_files
+
+            params = FilesParams(root=DeleteParams(command="delete", file_path="test.txt", instance=None))
+            result = await self.tool(params)
+
+            assert "Deleted file test.txt" in result
+            mock_files.get_file.assert_called_once_with("test.txt")
+            mock_files.delete_file.assert_called_once_with("test.txt")
+
+    @pytest.mark.asyncio
+    async def test_delete_command_store_mode_file_not_exists(self):
+        """Test delete command in store mode when file doesn't exist (idempotent)."""
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
+            mock_files = Mock()
+            mock_files.get_file.return_value = None  # File doesn't exist
+            mock_store_as.return_value = mock_files
+
+            params = FilesParams(root=DeleteParams(command="delete", file_path="nonexistent.txt", instance=None))
+            result = await self.tool(params)
+
+            assert "did not exist" in result
+            assert "idempotent" in result
+            mock_files.get_file.assert_called_once_with("nonexistent.txt")
+            mock_files.delete_file.assert_called_once_with("nonexistent.txt")
+
+    @pytest.mark.asyncio
+    async def test_delete_command_typed_results_file_exists(self):
+        """Test delete command with typed results when file exists."""
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
+            mock_files = Mock()
+            mock_files.get_file.return_value = "some content"
+            mock_store_as.return_value = mock_files
+
+            params = FilesParams(root=DeleteParams(command="delete", file_path="test.txt", instance="test_instance"))
+            result = await self.tool(params)
+
+            assert isinstance(result, FileDeleteResult)
+            assert result.path == "test.txt"
+            assert "Deleted file test.txt" in result.summary
+            mock_store_as.assert_called_with(mock_store_as.call_args[0][0], instance="test_instance")
+
+    @pytest.mark.asyncio
+    async def test_delete_command_typed_results_file_not_exists(self):
+        """Test delete command with typed results when file doesn't exist."""
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=False),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.util._store_model.store_as") as mock_store_as,
+        ):
+            mock_files = Mock()
+            mock_files.get_file.return_value = None
+            mock_store_as.return_value = mock_files
+
+            params = FilesParams(root=DeleteParams(command="delete", file_path="nonexistent.txt"))
+            result = await self.tool(params)
+
+            assert isinstance(result, FileDeleteResult)
+            assert result.path == "nonexistent.txt"
+            assert "did not exist" in result.summary
+            assert "idempotent" in result.summary
+
+    @pytest.mark.asyncio
+    async def test_delete_command_sandbox_mode_unsupported(self):
+        """Test delete command in sandbox mode raises appropriate error."""
+        with patch("inspect_agents.tools_files._use_sandbox_fs", return_value=True):
+            params = FilesParams(root=DeleteParams(command="delete", file_path="test.txt"))
+
+            with pytest.raises(Exception) as exc_info:
+                await self.tool(params)
+            assert "delete unsupported in sandbox mode" in str(exc_info.value)
+
+    @pytest.mark.asyncio
     async def test_sandbox_mode_read(self):
         """Test read command in sandbox mode."""
-        with patch('inspect_agents.tools_files._use_sandbox_fs', return_value=True), \
-             patch('inspect_agents.tools_files._use_typed_results', return_value=False), \
-             patch('inspect_agents.tools_files.anyio.fail_after'), \
-             patch('inspect_ai.tool._tools._text_editor.text_editor') as mock_editor_factory:
-            
+        with (
+            patch("inspect_agents.tools_files._use_sandbox_fs", return_value=True),
+            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
+            patch("inspect_agents.tools_files.anyio.fail_after"),
+            patch("inspect_ai.tool._tools._text_editor.text_editor") as mock_editor_factory,
+        ):
             mock_editor = AsyncMock()
             mock_editor.return_value = "line 1\nline 2"
             mock_editor_factory.return_value = mock_editor
-            
-            params = FilesParams(root=ReadParams(
-                command="read",
-                file_path="test.txt",
-                offset=0,
-                limit=10
-            ))
+
+            params = FilesParams(root=ReadParams(command="read", file_path="test.txt", offset=0, limit=10))
             result = await self.tool(params)
-            
-            mock_editor.assert_called_once_with(
-                command="view",
-                path="test.txt",
-                view_range=[1, 10]
-            )
+
+            mock_editor.assert_called_once_with(command="view", path="test.txt", view_range=[1, 10])
             assert "     1\tline 1" in result
             assert "     2\tline 2" in result
 
@@ -288,13 +365,13 @@ class TestFilesToolUnified:
         # Valid discriminated union
         params1 = FilesParams(root={"command": "ls"})
         assert isinstance(params1.root, LsParams)
-        
+
         params2 = FilesParams(root={"command": "read", "file_path": "test.txt"})
         assert isinstance(params2.root, ReadParams)
-        
+
         params3 = FilesParams(root={"command": "write", "file_path": "test.txt", "content": "data"})
         assert isinstance(params3.root, WriteParams)
-        
+
         params4 = FilesParams(
             root={
                 "command": "edit",
@@ -304,6 +381,9 @@ class TestFilesToolUnified:
             }
         )
         assert isinstance(params4.root, EditParams)
+
+        params5 = FilesParams(root={"command": "delete", "file_path": "test.txt"})
+        assert isinstance(params5.root, DeleteParams)
 
     def test_invalid_command_discriminator(self):
         """Test that invalid command values are rejected."""
@@ -320,11 +400,11 @@ class TestFilesToolIntegration:
         valid_read = ReadParams(command="read", file_path="test.txt", offset=0, limit=100)
         assert valid_read.command == "read"
         assert valid_read.file_path == "test.txt"
-        
+
         # Missing required fields should fail
         with pytest.raises(Exception):
             ReadParams(command="read")  # Missing file_path
-            
+
         # Wrong types should fail
         with pytest.raises(Exception):
             ReadParams(command="read", file_path="test.txt", offset="not_int")
@@ -333,6 +413,6 @@ class TestFilesToolIntegration:
         """Test that all command params inherit from BaseFileParams correctly."""
         params = ReadParams(command="read", file_path="test.txt", instance="test_instance")
         assert params.instance == "test_instance"
-        
+
         params2 = LsParams(command="ls", instance=None)
         assert params2.instance is None

@@ -51,31 +51,43 @@ def _use_typed_results() -> bool:
 # Result types
 class FileReadResult(BaseModel):
     """Typed result for read operations."""
+
     lines: list[str]
     summary: str
 
 
 class FileWriteResult(BaseModel):
     """Typed result for write operations."""
+
     path: str
     summary: str
 
 
 class FileEditResult(BaseModel):
     """Typed result for edit operations."""
+
     path: str
     replaced: int
     summary: str
 
 
+class FileDeleteResult(BaseModel):
+    """Typed result for delete operations."""
+
+    path: str
+    summary: str
+
+
 class FileListResult(BaseModel):
     """Typed result for ls operations."""
+
     files: list[str]
 
 
 # Parameter schemas for each command
 class BaseFileParams(BaseModel):
     """Base parameters for all file operations."""
+
     instance: str | None = Field(None, description="Optional Files instance for isolation")
 
     class Config:
@@ -84,11 +96,13 @@ class BaseFileParams(BaseModel):
 
 class LsParams(BaseFileParams):
     """Parameters for ls command."""
+
     command: Literal["ls"] = "ls"
 
 
 class ReadParams(BaseFileParams):
     """Parameters for read command."""
+
     command: Literal["read"] = "read"
     file_path: str = Field(description="Path to read")
     offset: int = Field(0, description="Line offset (0-based)")
@@ -97,6 +111,7 @@ class ReadParams(BaseFileParams):
 
 class WriteParams(BaseFileParams):
     """Parameters for write command."""
+
     command: Literal["write"] = "write"
     file_path: str = Field(description="Path to write")
     content: str = Field(description="Content to write")
@@ -104,6 +119,7 @@ class WriteParams(BaseFileParams):
 
 class EditParams(BaseFileParams):
     """Parameters for edit command."""
+
     command: Literal["edit"] = "edit"
     file_path: str = Field(description="Path to edit")
     old_string: str = Field(description="String to replace")
@@ -111,10 +127,18 @@ class EditParams(BaseFileParams):
     replace_all: bool = Field(False, description="Replace all occurrences if true")
 
 
+class DeleteParams(BaseFileParams):
+    """Parameters for delete command."""
+
+    command: Literal["delete"] = "delete"
+    file_path: str = Field(description="Path to delete")
+
+
 class FilesParams(RootModel):
     """Discriminated union of all file operation parameters."""
+
     root: Annotated[
-        LsParams | ReadParams | WriteParams | EditParams,
+        LsParams | ReadParams | WriteParams | EditParams | DeleteParams,
         Discriminator("command"),
     ]
 
@@ -134,7 +158,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     )
     files = store_as(Files, instance=params.instance)
     file_list = files.list_files()
-    
+
     if _use_typed_results():
         return FileListResult(files=file_list)
     _log_tool_event(
@@ -162,6 +186,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
             "instance": params.instance,
         },
     )
+
     def _format_lines(content_lines: list[str], start_line_num: int = 1) -> tuple[list[str], str]:
         """Format lines with numbering and return both list and joined string."""
         out_lines: list[str] = []
@@ -180,6 +205,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     if _use_sandbox_fs():
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
+
             editor = text_editor()
             start_line = max(1, int(params.offset) + 1)
             if params.limit is None or params.limit <= 0:
@@ -198,10 +224,10 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                     return FileReadResult(lines=[], summary=empty_message)
                 _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
                 return empty_message
-            
+
             lines = str(raw).splitlines()
             formatted_lines, joined_output = _format_lines(lines, start_line)
-            
+
             if _use_typed_results():
                 _log_tool_event(
                     name="files:read",
@@ -211,7 +237,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                 )
                 return FileReadResult(
                     lines=formatted_lines,
-                    summary=f"Read {len(formatted_lines)} lines from {params.file_path} (sandbox mode)"
+                    summary=f"Read {len(formatted_lines)} lines from {params.file_path} (sandbox mode)",
                 )
             _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
             return joined_output
@@ -257,20 +283,20 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
             _ToolException = ToolException  # noqa: N806
         raise _ToolException(  # noqa: N806
             f"Line offset {params.offset} exceeds file length ({len(lines)} lines). "
-            f"Use an offset between 0 and {len(lines)-1}."
+            f"Use an offset between 0 and {len(lines) - 1}."
         )
 
     selected_lines = lines[start_idx:end_idx]
     # Format with correct line numbers starting from offset + 1
     formatted_lines, joined_output = _format_lines(selected_lines, start_idx + 1)
-    
+
     if _use_typed_results():
         _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
         return FileReadResult(
             lines=formatted_lines,
             summary=(
                 f"Read {len(formatted_lines)} lines from {params.file_path} "
-                f"(lines {start_idx+1}-{start_idx+len(formatted_lines)})"
+                f"(lines {start_idx + 1}-{start_idx + len(formatted_lines)})"
             ),
         )
     _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
@@ -289,14 +315,15 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
         args={"file_path": params.file_path, "content": params.content, "instance": params.instance},
     )
     summary = f"Updated file {params.file_path}"
-    
+
     if _use_sandbox_fs():
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
+
             editor = text_editor()
             with anyio.fail_after(_default_tool_timeout()):
                 await editor(command="create", path=params.file_path, file_text=params.content)
-            
+
             if _use_typed_results():
                 _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
                 return FileWriteResult(path=params.file_path, summary=summary + " (sandbox mode)")
@@ -304,12 +331,12 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
             return summary
         except Exception:
             pass
-    
+
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
         files = store_as(Files, instance=params.instance)
         files.put_file(params.file_path, params.content)
-    
+
     if _use_typed_results():
         _log_tool_event(name="files:write", phase="end", extra={"ok": True}, t0=_t0)
         return FileWriteResult(path=params.file_path, summary=summary)
@@ -338,6 +365,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     if _use_sandbox_fs():
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
+
             editor = text_editor()
             with anyio.fail_after(_default_tool_timeout()):
                 await editor(
@@ -346,7 +374,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                     old_str=params.old_string,
                     new_str=params.new_string,
                 )
-            
+
             summary = f"Updated file {params.file_path} (sandbox mode)"
             if _use_typed_results():
                 # In sandbox mode, we don't know exact replacement count
@@ -356,7 +384,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             return summary
         except Exception:
             pass
-    
+
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
         files = store_as(Files, instance=params.instance)
@@ -402,7 +430,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         updated = content.replace(params.old_string, params.new_string, 1)
 
     files.put_file(params.file_path, updated)
-    
+
     summary = f"Updated file {params.file_path}"
     if _use_typed_results():
         _log_tool_event(name="files:edit", phase="end", extra={"ok": True, "replaced": replacement_count}, t0=_t0)
@@ -411,11 +439,57 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     return summary
 
 
+async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
+    """Execute delete command."""
+    from inspect_ai.util._store_model import store_as
+
+    from .tools import _log_tool_event
+
+    _t0 = _log_tool_event(
+        name="files:delete",
+        phase="start",
+        args={"file_path": params.file_path, "instance": params.instance},
+    )
+
+    # Sandbox mode: not supported yet
+    if _use_sandbox_fs():
+        # Import here to use the same ToolException as the tools module
+        try:
+            from inspect_tool_support._util.common_types import ToolException as _ToolException
+        except ImportError:
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(
+            name="files:delete",
+            phase="error",
+            extra={"ok": False, "error": "SandboxUnsupported"},
+            t0=_t0,
+        )
+        raise _ToolException("delete unsupported in sandbox mode")
+
+    # Store-backed with timeout guard
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
+        # Check if file exists before deletion for proper messaging
+        file_exists = files.get_file(params.file_path) is not None
+        files.delete_file(params.file_path)
+
+    if file_exists:
+        summary = f"Deleted file {params.file_path}"
+    else:
+        summary = f"File {params.file_path} did not exist (delete operation was idempotent)"
+
+    if _use_typed_results():
+        _log_tool_event(name="files:delete", phase="end", extra={"ok": True, "existed": file_exists}, t0=_t0)
+        return FileDeleteResult(path=params.file_path, summary=summary)
+    _log_tool_event(name="files:delete", phase="end", extra={"ok": True, "existed": file_exists}, t0=_t0)
+    return summary
+
+
 # The main files tool
 def files_tool():  # -> Tool
     """Unified files tool using discriminated union for commands.
-    
-    Supports commands: ls, read, write, edit
+
+    Supports commands: ls, read, write, edit, delete
     """
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
     from inspect_ai.tool._tool import tool
@@ -427,9 +501,9 @@ def files_tool():  # -> Tool
     def _factory() -> Tool:
         async def execute(
             params: FilesParams,
-        ) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult:
+        ) -> str | FileListResult | FileReadResult | FileWriteResult | FileEditResult | FileDeleteResult:
             command_params = params.root
-            
+
             if isinstance(command_params, LsParams):
                 return await execute_ls(command_params)
             elif isinstance(command_params, ReadParams):
@@ -438,6 +512,8 @@ def files_tool():  # -> Tool
                 return await execute_write(command_params)
             elif isinstance(command_params, EditParams):
                 return await execute_edit(command_params)
+            elif isinstance(command_params, DeleteParams):
+                return await execute_delete(command_params)
             else:
                 try:
                     from inspect_tool_support._util.common_types import ToolException as _ToolException
@@ -453,7 +529,7 @@ def files_tool():  # -> Tool
         return ToolDef(
             execute,
             name="files",
-            description="Unified file operations tool (ls, read, write, edit).",
+            description="Unified file operations tool (ls, read, write, edit, delete).",
             parameters=params,
         ).as_tool()
 

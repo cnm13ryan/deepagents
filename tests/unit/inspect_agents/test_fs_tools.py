@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from inspect_ai.util._store import Store, init_subtask_store
 
-from inspect_agents.tools import ToolException, edit_file, ls, read_file, write_file
+from inspect_agents.tools import ToolException, delete_file, edit_file, ls, read_file, write_file
 
 
 def _fresh_store() -> Store:
@@ -44,10 +44,7 @@ def test_read_file_behaviors():
         await write_tool(file_path="empty.txt", content="")
         return await read_tool(file_path="empty.txt")
 
-    assert (
-        asyncio.run(_write_empty())
-        == "System reminder: File exists but has empty contents"
-    )
+    assert asyncio.run(_write_empty()) == "System reminder: File exists but has empty contents"
 
     # offsets and limits
     content = "line1\nline2\nline3\n"
@@ -71,6 +68,7 @@ def test_read_file_behaviors():
 
     # truncation to 2000 chars per line
     long_line = "x" * 2500
+
     async def _write_long():
         await write_tool(file_path="long.txt", content=long_line)
         return await read_tool(file_path="long.txt")
@@ -93,9 +91,7 @@ def test_edit_file_uniqueness_and_replace_all():
 
     # replace first only
     async def _first_only():
-        await edit_tool(
-            file_path="e.txt", old_string="foo", new_string="FOO", replace_all=False
-        )
+        await edit_tool(file_path="e.txt", old_string="foo", new_string="FOO", replace_all=False)
         return await read_tool(file_path="e.txt")
 
     out1 = asyncio.run(_first_only())
@@ -103,9 +99,7 @@ def test_edit_file_uniqueness_and_replace_all():
 
     # replace all remaining
     async def _all():
-        await edit_tool(
-            file_path="e.txt", old_string="foo", new_string="FOO", replace_all=True
-        )
+        await edit_tool(file_path="e.txt", old_string="foo", new_string="FOO", replace_all=True)
         return await read_tool(file_path="e.txt")
 
     out2 = asyncio.run(_all())
@@ -120,9 +114,7 @@ def test_edit_file_uniqueness_and_replace_all():
         )
 
     async def _string_not_found_error():
-        await edit_tool(
-            file_path="e.txt", old_string="zzz", new_string="y", replace_all=True
-        )
+        await edit_tool(file_path="e.txt", old_string="zzz", new_string="y", replace_all=True)
 
     with pytest.raises(ToolException) as exc_info:
         asyncio.run(_file_not_found_error())
@@ -155,3 +147,100 @@ def test_instance_isolation():
         asyncio.run(_access())
     assert "a.txt" in str(exc_info.value.message)
     assert "not found" in str(exc_info.value.message)
+
+
+def test_delete_file_behaviors():
+    _fresh_store()
+    delete_tool = delete_file()
+    write_tool = write_file()
+    ls_tool = ls()
+    read_tool = read_file()
+
+    # Create a file first
+    async def _setup():
+        await write_tool(file_path="to_delete.txt", content="delete me")
+        return await ls_tool()
+
+    initial_listing = asyncio.run(_setup())
+    assert "to_delete.txt" in initial_listing
+
+    # Delete existing file
+    async def _delete_existing():
+        result = await delete_tool(file_path="to_delete.txt")
+        listing = await ls_tool()
+        return result, listing
+
+    result, final_listing = asyncio.run(_delete_existing())
+    assert "Deleted file to_delete.txt" in result
+    assert "to_delete.txt" not in final_listing
+
+    # Verify file is actually deleted by trying to read it
+    async def _verify_deleted():
+        return await read_tool(file_path="to_delete.txt")
+
+    with pytest.raises(ToolException) as exc_info:
+        asyncio.run(_verify_deleted())
+    assert "to_delete.txt" in str(exc_info.value.message)
+    assert "not found" in str(exc_info.value.message)
+
+    # Delete non-existent file (idempotent behavior)
+    async def _delete_nonexistent():
+        return await delete_tool(file_path="never_existed.txt")
+
+    result = asyncio.run(_delete_nonexistent())
+    assert "did not exist" in result
+    assert "idempotent" in result
+
+
+def test_delete_file_sandbox_mode_error():
+    """Test that delete_file raises error in sandbox mode."""
+    _fresh_store()
+    delete_tool = delete_file()
+
+    # Mock sandbox mode
+    with pytest.raises(ToolException) as exc_info:
+
+        async def _test_sandbox():
+            # This will patch the environment to simulate sandbox mode
+            import os
+            from unittest.mock import patch
+
+            with patch.dict(os.environ, {"INSPECT_AGENTS_FS_MODE": "sandbox"}):
+                await delete_tool(file_path="test.txt")
+
+        asyncio.run(_test_sandbox())
+
+    assert "delete unsupported in sandbox mode" in str(exc_info.value.message)
+
+
+def test_delete_file_instance_isolation():
+    _fresh_store()
+    delete_tool = delete_file()
+    write_tool = write_file()
+    ls_tool = ls()
+
+    async def _setup():
+        # Create files in different instances
+        await write_tool(file_path="shared_name.txt", content="in instance A", instance="agentA")
+        await write_tool(file_path="shared_name.txt", content="in instance B", instance="agentB")
+
+        # Verify both exist
+        list_a = await ls_tool(instance="agentA")
+        list_b = await ls_tool(instance="agentB")
+        return list_a, list_b
+
+    list_a_before, list_b_before = asyncio.run(_setup())
+    assert "shared_name.txt" in list_a_before
+    assert "shared_name.txt" in list_b_before
+
+    # Delete from one instance only
+    async def _delete_from_a():
+        result = await delete_tool(file_path="shared_name.txt", instance="agentA")
+        list_a = await ls_tool(instance="agentA")
+        list_b = await ls_tool(instance="agentB")
+        return result, list_a, list_b
+
+    result, list_a_after, list_b_after = asyncio.run(_delete_from_a())
+    assert "Deleted file shared_name.txt" in result
+    assert "shared_name.txt" not in list_a_after  # Deleted from A
+    assert "shared_name.txt" in list_b_after  # Still exists in B

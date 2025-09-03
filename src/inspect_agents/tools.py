@@ -26,7 +26,9 @@ import time
 
 from .state import Todo, Todos
 from .tools_files import (
+    DeleteParams,
     EditParams,
+    FileDeleteResult,
     FileEditResult,
     FileListResult,
     FileReadResult,
@@ -34,6 +36,7 @@ from .tools_files import (
     LsParams,
     ReadParams,
     WriteParams,
+    execute_delete,
     execute_edit,
     execute_ls,
     execute_read,
@@ -112,6 +115,7 @@ def _log_tool_event(
 
     return now if phase == "start" else (t0 or now)
 
+
 # Import ToolException for structured error handling
 try:
     from inspect_tool_support._util.common_types import ToolException
@@ -155,16 +159,16 @@ def _use_typed_results() -> bool:
     return _truthy(os.getenv("INSPECT_AGENTS_TYPED_RESULTS"))
 
 
-
-
 class TodoWriteResult(BaseModel):
     """Typed result for write_todos operations."""
+
     count: int
     summary: str
 
 
 class TodoStatusResult(BaseModel):
     """Typed result for update_todo_status operations."""
+
     index: int
     status: str
     warning: str | None
@@ -212,10 +216,12 @@ def standard_tools() -> list[object]:
 
     # web_search(...)
     enable_web_search_env = os.getenv("INSPECT_ENABLE_WEB_SEARCH")
-    enable_web_search = _truthy(enable_web_search_env) if enable_web_search_env is not None else (
-        os.getenv("TAVILY_API_KEY")
-        or (os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY"))
-    ) is not None
+    enable_web_search = (
+        _truthy(enable_web_search_env)
+        if enable_web_search_env is not None
+        else (os.getenv("TAVILY_API_KEY") or (os.getenv("GOOGLE_CSE_ID") and os.getenv("GOOGLE_CSE_API_KEY")))
+        is not None
+    )
     if enable_web_search:
         try:
             providers_cfg: list[object] = []
@@ -281,20 +287,13 @@ def write_todos():  # -> Tool
                 name="write_todos",
                 phase="start",
                 args={
-                    "todos": [
-                        getattr(t, "title", None)
-                        or getattr(t, "text", None)
-                        or "todo"
-                        for t in todos
-                    ],
+                    "todos": [getattr(t, "title", None) or getattr(t, "text", None) or "todo" for t in todos],
                     "count": len(todos),
                 },
             )
             model = store_as(Todos)
             model.set_todos(todos)
-            rendered = [
-                t.model_dump() if hasattr(t, "model_dump") else t for t in model.todos
-            ]
+            rendered = [t.model_dump() if hasattr(t, "model_dump") else t for t in model.todos]
             summary = f"Updated todo list to {rendered}"
             _log_tool_event(
                 name="write_todos",
@@ -358,7 +357,7 @@ def update_todo_status():  # -> Tool
                     status=str(status),
                     allow_direct_complete=bool(allow_direct_complete),
                 )
-                
+
                 message = f"Updated todo[{todo_index}] status to {status}"
                 _log_tool_event(
                     name="update_todo_status",
@@ -366,15 +365,10 @@ def update_todo_status():  # -> Tool
                     extra={"ok": True, "warning": bool(warning)},
                     t0=_t0,
                 )
-                
+
                 if _use_typed_results():
-                    return TodoStatusResult(
-                        index=todo_index,
-                        status=status,
-                        warning=warning,
-                        summary=message
-                    )
-                
+                    return TodoStatusResult(index=todo_index, status=status, warning=warning, summary=message)
+
                 # Legacy JSON format for non-typed mode
                 payload: dict = {
                     "ok": True,
@@ -481,18 +475,12 @@ def read_file():  # -> Tool
             instance: str | None = None,
         ) -> str | FileReadResult:
             # Convert old-style parameters to new unified format
-            params = ReadParams(
-                command="read",
-                file_path=file_path,
-                offset=offset,
-                limit=limit,
-                instance=instance
-            )
+            params = ReadParams(command="read", file_path=file_path, offset=offset, limit=limit, instance=instance)
             try:
                 return await execute_read(params)
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
-                if hasattr(e, 'message'):
+                if hasattr(e, "message"):
                     raise ToolException(e.message)
                 else:
                     raise ToolException(str(e))
@@ -522,7 +510,7 @@ def read_file():  # -> Tool
 
 def write_file():  # -> Tool
     """Write content to a file in the Files store.
-    
+
     DEPRECATED: Use files_tool() with command='write' instead.
     This is a backward-compatible wrapper.
     """
@@ -539,12 +527,7 @@ def write_file():  # -> Tool
             instance: str | None = None,
         ) -> str | FileWriteResult:
             # Convert old-style parameters to new unified format
-            params = WriteParams(
-                command="write",
-                file_path=file_path,
-                content=content,
-                instance=instance
-            )
+            params = WriteParams(command="write", file_path=file_path, content=content, instance=instance)
             return await execute_write(params)
 
         params = ToolParams()
@@ -568,7 +551,7 @@ def write_file():  # -> Tool
 
 def edit_file():  # -> Tool
     """Edit a file by replacing a string (first or all occurrences).
-    
+
     DEPRECATED: Use files_tool() with command='edit' instead.
     This is a backward-compatible wrapper.
     """
@@ -593,13 +576,13 @@ def edit_file():  # -> Tool
                 old_string=old_string,
                 new_string=new_string,
                 replace_all=replace_all,
-                instance=instance
+                instance=instance,
             )
             try:
                 return await execute_edit(params)
             except Exception as e:
                 # Re-raise with correct ToolException type for backward compatibility
-                if hasattr(e, 'message'):
+                if hasattr(e, "message"):
                     raise ToolException(e.message)
                 else:
                     raise ToolException(str(e))
@@ -622,6 +605,51 @@ def edit_file():  # -> Tool
             execute,
             name="edit_file",
             description="Edit a file by replacing text.",
+            parameters=params,
+        ).as_tool()
+
+    return _factory()
+
+
+def delete_file():  # -> Tool
+    """Delete a file from the Files store.
+
+    This is a backward-compatible wrapper around files_tool() with command='delete'.
+    Only works in store mode; sandbox mode is not yet supported.
+    """
+    from inspect_ai.tool._tool import tool
+    from inspect_ai.tool._tool_def import ToolDef
+    from inspect_ai.tool._tool_params import ToolParams
+    from inspect_ai.util._json import json_schema
+
+    @tool
+    def _factory() -> Tool:
+        async def execute(
+            file_path: str,
+            instance: str | None = None,
+        ) -> str | FileDeleteResult:
+            # Convert old-style parameters to new unified format
+            params = DeleteParams(command="delete", file_path=file_path, instance=instance)
+            try:
+                return await execute_delete(params)
+            except Exception as e:
+                # Re-raise with correct ToolException type for backward compatibility
+                if hasattr(e, "message"):
+                    raise ToolException(e.message)
+                else:
+                    raise ToolException(str(e))
+
+        params = ToolParams()
+        params.properties["file_path"] = json_schema(str)
+        params.properties["file_path"].description = "Path to delete"
+        params.properties["instance"] = json_schema(str)
+        params.properties["instance"].description = "Optional Files instance for isolation"
+        params.required.append("file_path")
+
+        return ToolDef(
+            execute,
+            name="delete_file",
+            description="Delete a file from the virtual store (store mode only).",
             parameters=params,
         ).as_tool()
 
