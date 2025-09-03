@@ -3,7 +3,7 @@
 This folder contains self-contained, actionable TODO checklists for each feature in the Inspect-AI–native rewrite of deepagents. Work on the `inspect-ai-rewrite` branch. Complete and commit each feature atomically.
 
 Features
-- [ ] Examples Parity — see `TODO-examples-parity.md`
+- [x] Examples Parity — see `TODO-examples-parity.md`
 - [ ] CI & Submodule Bootstrap — see `TODO-ci-submodule-bootstrap.md`
 - [x] Canonical Tools Rework — see `TODO-canonical-tools-rework.md`
 
