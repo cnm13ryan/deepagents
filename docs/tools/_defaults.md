@@ -18,6 +18,8 @@ Central source for shared limits, environment flags, and behaviors used by built
   Source: tools_files `_use_typed_results()`.
 - INSPECT_TOOL_OBS_TRUNCATE: Max characters for string fields in tool‑arg logging (observability). Default 200 chars; overage appended as `...[+N chars]`.  
   Source: tools `_OBS_TRUNCATE` and `_redact_and_truncate()`.
+ - INSPECT_AGENTS_FS_ROOT: Absolute filesystem root for sandbox confinement. Defaults to `/repo` when unset; non‑absolute values are normalized to absolute. Applies to sandbox paths only; store mode does not touch host FS.
+ - INSPECT_AGENTS_FS_MAX_BYTES: Size ceiling (bytes) for file reads/writes/edits in both sandbox and store paths. Defaults to `5_000_000` bytes.
 
 ## File Tools — Defaults & Limits
 These apply to the unified `files` tool and its backward‑compatible wrappers (`read_file`, `write_file`, `edit_file`, `ls`, `delete_file`).
@@ -29,7 +31,7 @@ These apply to the unified `files` tool and its backward‑compatible wrappers (
   - Empty file message: “System reminder: File exists but has empty contents”.
 - write_file
   - Timeout: 15s.  
-  - Size caps: no explicit size limit in store mode; sandbox editor may impose provider limits.  
+  - Size caps: `INSPECT_AGENTS_FS_MAX_BYTES` applies in both modes; exceeding raises `FileSizeExceeded`.  
   - Content is written as provided (no newline normalization).
 - edit_file
   - Timeout: 15s.  
@@ -41,6 +43,10 @@ These apply to the unified `files` tool and its backward‑compatible wrappers (
 - delete_file
   - Timeout: 15s.  
   - Disabled in sandbox mode; store mode only (idempotent when file absent).
+
+### Security Defaults
+- Root confinement (sandbox): file operations must remain under `INSPECT_AGENTS_FS_ROOT` (default `/repo`).
+- Symlink denial (sandbox): symlinks are denied for reads/writes/edits.
 
 ## Todos Tools — Defaults & Limits
 - write_todos
@@ -58,4 +64,3 @@ These apply to the unified `files` tool and its backward‑compatible wrappers (
 ## Documentation Guidance
 - In each tool page’s “Timeouts & Limits”, include: “Execution timeout: 15s (INSPECT_AGENTS_TOOL_TIMEOUT). See Tool Defaults for shared caps and provider notes.”
 - Only add per‑tool exceptions where behavior meaningfully differs (e.g., provider/session limits or per‑call overrides).
-

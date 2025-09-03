@@ -1,8 +1,25 @@
 # ADR 0004: Filesystem Sandbox Mode — Guardrails and Defaults
 
-Status: Accepted (documentation-only; enforcement for some items is proposed)
+Status: Accepted, partially implemented
+
+Notes: Partially implemented; see Implementation Status for pointers.
 
 Date: 2025-09-03
+
+## Implementation Status (pointers)
+
+Implemented today in code:
+- Mode switching via `INSPECT_AGENTS_FS_MODE` with helpers `_use_sandbox_fs()` (src/inspect_agents/tools_files.py) and `_fs_mode()` (src/inspect_agents/tools.py).
+- Sandbox routing of file ops: `execute_ls` → `bash_session('run', 'ls -1 <root>')`, `execute_read` → `text_editor('view')`, `execute_write` → `text_editor('create')`, `execute_edit` → `text_editor('str_replace')` (see src/inspect_agents/tools_files.py).
+- Root confinement and symlink denial for sandbox paths via `_validate_sandbox_path()` and `_deny_symlink()` (applied in read/write/edit flows) in src/inspect_agents/tools_files.py.
+- Byte ceilings and timeouts via `_max_bytes()` and `_default_tool_timeout()` in src/inspect_agents/tools_files.py.
+
+Environment flags supported today:
+- `INSPECT_AGENTS_FS_MODE` (default `store`; `sandbox` enables host FS routing). Example default in template env (env_templates/inspect.env).
+- `INSPECT_AGENTS_FS_ROOT` (root confinement for sandbox ops).
+- `INSPECT_AGENTS_FS_MAX_BYTES` (size caps for read/write/edit).
+- `INSPECT_AGENTS_TOOL_TIMEOUT` (per-call timeouts).
+- `INSPECT_AGENTS_TYPED_RESULTS` (opt-in typed return models).
 
 ## Context
 
@@ -52,10 +69,11 @@ Existing:
 - `INSPECT_AGENTS_FS_MODE`: `store` (default) or `sandbox`.
 - `INSPECT_AGENTS_TOOL_TIMEOUT`: per-call timeout in seconds (default 15).
 - `INSPECT_AGENTS_TYPED_RESULTS`: enable typed result models for tools.
-
-Proposed (documentation guidance; not yet enforced):
 - `INSPECT_AGENTS_FS_ROOT`: absolute path confining sandbox file operations.
 - `INSPECT_AGENTS_FS_MAX_BYTES`: hard cap for read/write/replace payloads.
+
+Proposed:
+- (TBD) read-only mode flag to disable write/edit/delete in sandbox.
 
 ## Consequences
 
@@ -70,11 +88,10 @@ Proposed (documentation guidance; not yet enforced):
 
 ## Rollout & Testing
 
-- Documentation-only in this change. Existing unit tests cover sandbox routing and fallback. Future enforcement will add unit tests for root confinement, symlink denial, and size ceilings.
+- Partially implemented in code today (including sandbox routing, root confinement, symlink denial, byte ceilings, and timeouts). Existing unit tests exercise these behaviors; future work will add tests for atomic rename and read-only mode.
 
 ## Future Work
 
-- Implement root confinement and symlink policy with tests.
-- Add `expected_count` and optional dry-run preview for `str_replace`.
+- Implement atomic write + rename for host FS writes in sandbox mode (temp file then atomic rename) to reduce partial-write risk.
 - Provide read-only mode and per-call overrides for expert workflows.
-
+- Add `expected_count` and optional dry-run preview for `str_replace`.

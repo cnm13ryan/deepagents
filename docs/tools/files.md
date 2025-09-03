@@ -34,13 +34,19 @@ See also: [Typed Results vs Legacy Outputs](typed_results.md) for examples and t
 ## Timeouts & Limits
 - Execution timeout: 15s by default (overridable via `INSPECT_AGENTS_TOOL_TIMEOUT`).
 - Read caps: default `limit=2000` lines; per-line truncation 2000 characters.
-- No explicit hard cap for write/edit sizes in store mode.
+- Size ceiling (both modes): `INSPECT_AGENTS_FS_MAX_BYTES` caps bytes for read/write/edit. Default 5,000,000 bytes. Exceeding the cap raises `FileSizeExceeded` with actual/max sizes.
 
 ## Sandbox vs Store
 - When `INSPECT_AGENTS_FS_MODE=sandbox` and sandbox is available:
   - read/edit/write route to `text_editor` operations; `ls` proxies to a shell `ls -1` via sandbox.
   - delete is intentionally disabled and will raise an error.
 - When sandbox is unavailable or `store` mode is active, operations use the in‑memory `Files` store.
+
+## Security & Confinement
+- Root confinement: sandbox operations are confined under `INSPECT_AGENTS_FS_ROOT` (absolute path, default `/repo`). Paths outside the root are rejected before calling the editor.  
+  Store mode never touches the host filesystem and therefore cannot escape a root by construction.
+- Symlink denial: sandbox operations deny symbolic links (checked via the sandbox shell).  
+  Store mode is in‑memory (no symlinks), so this policy is effectively always enforced.
 
 ## Examples
 ```json
@@ -60,10 +66,33 @@ See also: [Typed Results vs Legacy Outputs](typed_results.md) for examples and t
 {"params": {"command": "delete", "file_path": "docs/note.md"}}
 ```
 
+### Examples — Limits & Confinement
+```bash
+# Set a 1 KiB ceiling for file ops (both modes)
+export INSPECT_AGENTS_FS_MAX_BYTES=1024
+
+# Attempting to read or write >1 KiB raises FileSizeExceeded
+```
+
+```bash
+# Sandbox root confinement (paths must live under the root)
+export INSPECT_AGENTS_FS_MODE=sandbox
+export INSPECT_AGENTS_FS_ROOT=/repo
+# Reading /etc/hosts will be rejected; reading /repo/README.md is allowed.
+```
+
+```bash
+# Symlink denial (sandbox mode)
+export INSPECT_AGENTS_FS_MODE=sandbox
+# If /repo/link -> /secret, reads/writes to /repo/link are denied.
+```
+
 ## Config Keys
 - INSPECT_AGENTS_TOOL_TIMEOUT — per-call timeout in seconds (default 15).
 - INSPECT_AGENTS_TYPED_RESULTS — `1/true` to enable typed result models.
 - INSPECT_AGENTS_FS_MODE — `store` (default) | `sandbox` to use host editor tools.
+- INSPECT_AGENTS_FS_ROOT — absolute root for sandbox confinement (default `/repo`).
+- INSPECT_AGENTS_FS_MAX_BYTES — byte ceiling for read/write/edit in both modes (default 5,000,000).
 
 ## Source of Truth
 - Code: src/inspect_agents/tools_files.py (`files_tool`, `execute_*`)
