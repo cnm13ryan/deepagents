@@ -95,7 +95,29 @@ def _log_tool_event(
         "phase": phase,
     }
     if args:
-        data["args"] = _redact_and_truncate(args)
+        # Belt-and-suspenders normalization: rewrite raw content fields to length metadata
+        # before any redaction/truncation. This prevents accidental leaks from new callers
+        # that might pass raw strings. See docs/open-questions.md §2.
+        try:
+            norm = dict(args)
+            # Known sensitive keys -> length-only fields (allowlist)
+            mapping: list[tuple[str, str]] = [
+                ("content", "content_len"),
+                ("file_text", "file_text_len"),
+                ("old_string", "old_len"),
+                ("new_string", "new_len"),
+            ]
+            for src, dst in mapping:
+                if src in norm and isinstance(norm[src], str):
+                    try:
+                        norm[dst] = len(norm[src])
+                    except Exception:
+                        norm[dst] = "[len_error]"
+                    # Remove the original raw field
+                    norm.pop(src, None)
+        except Exception:
+            norm = args  # fall back to original if normalization errors
+        data["args"] = _redact_and_truncate(norm)
     if t0 is not None and phase in ("end", "error"):
         try:
             data["duration_ms"] = round((now - t0) * 1000, 2)
