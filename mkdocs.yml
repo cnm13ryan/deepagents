@@ -1,0 +1,127 @@
+site_name: DeepAgents
+site_description: Inspect-AI–based agents and tools
+site_url: https://cnm13ryan.github.io/deepagents
+repo_url: https://github.com/cnm13ryan/deepagents
+docs_dir: docs
+edit_uri: edit/main/docs/
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Inspect Agents Quickstart: getting-started/inspect_agents_quickstart.md
+      - Inspect Console Cheat Sheet: getting-started/inspect_console_cheatsheet.md
+  - How-To:
+      - Approvals & Policies: how-to/approvals.md
+      - Filesystem Tools: how-to/filesystem.md
+      - "Operations: Logging & Tracing": how-to/operations_logging_tracing.md
+  - Guides:
+      - Stateless vs Stateful Tools — Harmonized: guides/stateless-vs-stateful-tools-harmonized.md
+      - Canonical and Standard Tools — Umbrellas: guides/tool-umbrellas.md
+      - Sub‑agent Recipes: guides/subagents.md
+      - Supervisor Limits & Observability: guides/supervisor-limits.md
+      - Retries & Cache: guides/retries_cache.md
+      - Archive:
+          - Stateless vs Stateful Tools (Inspect Tool Support): guides/archive/stateless-vs-stateful-tools.md
+          - Stateless vs Stateful Tools — Q&A: guides/archive/stateless-vs-stateful-tools-1.md
+  - Reference:
+      - Environment Variables: reference/environment.md
+      - Tools:
+          - Index: tools/README.md
+          - Bash: tools/bash.md
+          - Files: tools/files.md
+          - Read File: tools/read_file.md
+          - Write File: tools/write_file.md
+          - Web Browser: tools/web_browser.md
+          - Web Search: tools/web_search.md
+          - Python: tools/python.md
+          - Edit File: tools/edit_file.md
+          - Text Editor: tools/text_editor.md
+          - Think: tools/think.md
+          - Typed Results: tools/typed_results.md
+          - ls: tools/ls.md
+          - Delete File: tools/delete_file.md
+          - Write Todos: tools/write_todos.md
+          - Update Todo Status: tools/update_todo_status.md
+  - Design:
+      - Architecture: ARCHITECTURE.md
+      - DeepAgents Implementation Prompts: design/deepagents_implementation_prompts.md
+      - Inspect View: inspect_view.md
+      - Open Questions: open-questions.md
+  - Decisions:
+      - Overview: adr/README.md
+      - D0002 — Model Roles Map: adr/0002-model-roles-map.md
+      - D0003 — Supervisor Limits & Observability: adr/0003-supervisor-limits-and-observability.md
+      - D0004 — Filesystem Sandbox Guardrails: adr/0004-filesystem-sandbox-guardrails.md
+      - D0004 — Tool Output Truncation Defaults: adr/0004-tool-output-truncation.md
+      - D0005 — Tool Parallelism Policy: adr/0005-tool-parallelism-policy.md
+  - Docs Index: README.md
+  - Backlog:
+      - Rewrite Backlog: backlog/rewrite/README.md
+      - Todos Index: backlog/todos/README.md
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/white-balance-sunny
+        name: Switch to light mode
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - toc.follow
+    - toc.integrate
+    - content.code.copy
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
+  - https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js
+
+# Omit local assets for now; we can add overrides later.
+# extra_css:
+#   - assets/stylesheets/mermaid-extras.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang: en
+  - mermaid2:
+      version: 10.6.1
+  - autorefs
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - sys.path.append("src")
+          options:
+            show_source: true
+            show_root_heading: true
+            separate_signature: true
+            members_order: alphabetical

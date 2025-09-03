@@ -1,0 +1,39 @@
+# Inspect View — Visualize Evaluation Logs
+
+The `inspect view` command launches the Inspect log viewer, a web‑based interface for visualizing and exploring evaluation logs.
+
+## Core Functionality
+
+- Starts a local web server that provides an interactive UI for browsing evaluation logs.
+- By default, serves logs from `./logs` and runs on port `7575`.
+
+## Key Features
+
+- **Live viewing**: See real‑time updates as evaluations run, including completed samples and incremental metric calculations.
+- **Sample exploration**: Drill into individual samples to view message histories, tool calls, scoring decisions, and metadata.
+- **Log history navigation**: Browse all evaluation logs in the directory via a history panel.
+- **Filtering and sorting**: Filter samples (e.g., by score) and sort by different criteria.
+
+## Usage
+
+Run the viewer once at the beginning of a session; it automatically updates as new evaluations are written.
+
+```bash
+# Default: uses ./logs and port 7575
+uv run inspect view
+
+# Specify a different log directory and port
+uv run inspect view --log-dir ./experiment-logs --port 6565
+```
+
+Common options:
+- `--log-dir`: Use an alternate log directory.
+- `--port`: Listen on a different port (default 7575).
+- `--host`: Bind host (default 127.0.0.1).
+
+Open your browser to http://127.0.0.1:7575 (or your chosen host/port).
+
+## Implementation Notes (for contributors)
+
+- The CLI `view` group delegates to `start`, which calls `inspect_ai._view.view()`. That initializes logging, acquires the port (terminating any stale viewer on the same port), and starts the aiohttp server that serves the UI and log APIs.
+

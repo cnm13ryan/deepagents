@@ -1,0 +1,500 @@
+/* Enhanced Mermaid container styling for MkDocs Material */
+.mermaid {
+  text-align: center;
+  margin: 2rem auto;
+  max-width: 100%;
+  border: 1px solid var(--md-default-fg-color--lightest, #e1e4e8);
+  border-radius: 8px;
+  padding: 2.5rem;
+  background-color: var(--md-code-bg-color, #fafbfc);
+  position: relative;
+  overflow: visible !important;
+  min-height: 300px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Trebuchet MS', Verdana, Arial, var(--md-text-font-family, sans-serif) !important;
+  overscroll-behavior: contain;
+  touch-action: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Better styling for light mode */
+[data-md-color-scheme="default"] .mermaid,
+.mermaid {
+  background-color: #fafbfc;
+  border-color: #e1e4e8;
+}
+
+/* Enhanced SVG styling for better text rendering */
+.mermaid svg {
+  max-width: 100%;
+  min-width: 400px;
+  height: auto;
+  cursor: grab;
+  outline: none;
+  shape-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
+  font-family: 'Trebuchet MS', Verdana, Arial, sans-serif !important;
+  transform-origin: center center;
+}
+
+.mermaid svg text,
+.mermaid svg tspan {
+  font-size: inherit;
+  font-family: 'Trebuchet MS', Verdana, Arial, sans-serif !important;
+}
+
+/* Text styling for better readability */
+.mermaid svg .node rect,
+.mermaid svg .node circle,
+.mermaid svg .node ellipse,
+.mermaid svg .node polygon,
+.mermaid svg .node path {
+  fill: #fff;
+  stroke: #333;
+  stroke-width: 1.5px;
+}
+
+.mermaid svg .node text,
+.mermaid svg .cluster text,
+.mermaid svg .actor text,
+.mermaid svg .messageText,
+.mermaid svg .labelText {
+  font-weight: 400;
+  font-size: 14px !important;
+  fill: #333333;
+}
+
+.mermaid svg .titleText,
+.mermaid svg .sectionTitle {
+  font-weight: 700;
+  font-size: 18px !important;
+  fill: #000000;
+}
+
+/* Edge and arrow styling */
+.mermaid svg .edgePath .path {
+  stroke: #333333;
+  stroke-width: 1.5px;
+  fill: none;
+}
+
+.mermaid svg .marker {
+  fill: #333333;
+}
+
+/* Flowchart specific styling */
+.mermaid svg .flowchart-link {
+  stroke: #333333;
+  fill: none;
+}
+
+@media (min-width: 1200px) {
+  .mermaid {
+    margin-left: -3%;
+    margin-right: -3%;
+    width: 106%;
+    padding: 3rem;
+  }
+}
+
+.mermaid svg:active { 
+  cursor: grabbing; 
+}
+
+.mermaid svg:focus {
+  box-shadow: 0 0 0 2px var(--md-accent-fg-color, #0366d6);
+}
+
+/* Control icons styling - MkDocs Material compatible */
+.svg-pan-zoom-control {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #d1d5da !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.svg-pan-zoom-control:hover {
+  background: rgba(255, 255, 255, 1) !important;
+  border-color: var(--md-accent-fg-color, #0366d6) !important;
+}
+
+/* Fullscreen button - MkDocs Material style */
+.mermaid-fullscreen-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d1d5da;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 10;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-family: monospace;
+  color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--md-accent-fg-color, #0366d6);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Enhanced fullscreen mode */
+.mermaid-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  z-index: 9999 !important;
+  background: #fafbfc !important;
+  overscroll-behavior: contain;
+  touch-action: none;
+  border-radius: 0 !important;
+  border: none !important;
+  padding: 30px !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+.mermaid-fullscreen svg {
+  width: 100% !important;
+  height: calc(100vh - 60px) !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Enhanced user hint */
+.mermaid::after {
+  content: "💡 Drag to pan • Scroll to zoom • R to reset • F for fullscreen • +/- to zoom • 0 to fit";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 11px;
+  color: #6a737d;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  max-width: 320px;
+  text-align: right;
+  line-height: 1.3;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.mermaid:hover::after {
+  opacity: 1;
+}
+
+/* Figure and caption styling */
+.mermaid-figure {
+  text-align: center;
+  margin: 2em auto;
+  display: block;
+  clear: both;
+  max-width: 100%;
+}
+
+.mermaid-figure figcaption,
+.mermaid-caption { 
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0.8em auto 0 auto !important;
+  padding: 12px 20px !important;
+  font-size: 0.9em !important;
+  color: #586069 !important;
+  font-style: italic !important;
+  text-align: center !important;
+  font-weight: normal !important;
+  line-height: 1.5 !important;
+  background: rgba(0,0,0,0.02) !important;
+  border: 1px solid #e1e4e8 !important;
+  border-radius: 6px !important;
+  max-width: 90% !important;
+  box-sizing: border-box !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+}
+
+/* Ensure captions are always visible */
+.mermaid-figure figcaption:empty {
+  display: none !important;
+}
+
+/* Hide captions when diagram goes fullscreen */
+.mermaid-fullscreen ~ figcaption,
+.mermaid-figure .mermaid-fullscreen ~ figcaption {
+  display: none !important;
+}
+
+/* Dark mode support - explicit */
+[data-md-color-scheme="slate"] .mermaid {
+  background-color: #161b22;
+  border-color: #30363d;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg text,
+[data-md-color-scheme="slate"] .mermaid svg tspan {
+  fill: #f0f6fc !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg .node rect,
+[data-md-color-scheme="slate"] .mermaid svg .node circle,
+[data-md-color-scheme="slate"] .mermaid svg .node ellipse,
+[data-md-color-scheme="slate"] .mermaid svg .node polygon,
+[data-md-color-scheme="slate"] .mermaid svg .node path {
+  fill: #21262d;
+  stroke: #58a6ff;
+  stroke-width: 1.5px;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg .node text,
+[data-md-color-scheme="slate"] .mermaid svg .cluster text,
+[data-md-color-scheme="slate"] .mermaid svg .actor text,
+[data-md-color-scheme="slate"] .mermaid svg .messageText,
+[data-md-color-scheme="slate"] .mermaid svg .labelText {
+  fill: #e6edf3 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg .titleText,
+[data-md-color-scheme="slate"] .mermaid svg .sectionTitle {
+  fill: #f0f6fc !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg .edgePath .path,
+[data-md-color-scheme="slate"] .mermaid svg .flowchart-link {
+  stroke: #8b949e;
+}
+
+[data-md-color-scheme="slate"] .mermaid svg .marker {
+  fill: #8b949e;
+}
+
+[data-md-color-scheme="slate"] .mermaid-fullscreen {
+  background: #161b22 !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid-fullscreen-btn {
+  background: rgba(22, 27, 34, 0.95);
+  border-color: #30363d;
+  color: #f0f6fc;
+}
+
+[data-md-color-scheme="slate"] .mermaid-fullscreen-btn:hover {
+  background: rgba(22, 27, 34, 1);
+  border-color: #58a6ff;
+}
+
+[data-md-color-scheme="slate"] .mermaid::after {
+  color: #8b949e;
+  background: rgba(22, 27, 34, 0.9);
+}
+
+[data-md-color-scheme="slate"] .svg-pan-zoom-control {
+  background: rgba(22, 27, 34, 0.95) !important;
+  border-color: #30363d !important;
+  color: #f0f6fc !important;
+}
+
+[data-md-color-scheme="slate"] .svg-pan-zoom-control:hover {
+  background: rgba(22, 27, 34, 1) !important;
+  border-color: #58a6ff !important;
+}
+
+[data-md-color-scheme="slate"] .mermaid-figure figcaption,
+[data-md-color-scheme="slate"] .mermaid-caption { 
+  color: #8b949e !important;
+  background: rgba(255,255,255,0.03) !important;
+  border-color: #30363d !important;
+}
+
+/* Dark mode support - media query fallback */
+@media (prefers-color-scheme: dark) {
+  .mermaid {
+    background-color: #161b22;
+    border-color: #30363d;
+  }
+  
+  .mermaid svg text,
+  .mermaid svg tspan {
+    fill: #f0f6fc !important;
+  }
+  
+  .mermaid svg .node rect,
+  .mermaid svg .node circle,
+  .mermaid svg .node ellipse,
+  .mermaid svg .node polygon,
+  .mermaid svg .node path {
+    fill: #21262d;
+    stroke: #58a6ff;
+  }
+  
+  .mermaid svg .node text,
+  .mermaid svg .cluster text,
+  .mermaid svg .actor text,
+  .mermaid svg .messageText,
+  .mermaid svg .labelText {
+    fill: #e6edf3 !important;
+  }
+  
+  .mermaid svg .edgePath .path,
+  .mermaid svg .flowchart-link {
+    stroke: #8b949e;
+  }
+  
+  .mermaid svg .marker {
+    fill: #8b949e;
+  }
+  
+  .mermaid-fullscreen {
+    background: #161b22 !important;
+  }
+  
+  .mermaid-fullscreen-btn {
+    background: rgba(22, 27, 34, 0.95);
+    border-color: #30363d;
+    color: #f0f6fc;
+  }
+  
+  .mermaid-fullscreen-btn:hover {
+    background: rgba(22, 27, 34, 1);
+    border-color: #58a6ff;
+  }
+  
+  .mermaid::after {
+    color: #8b949e;
+    background: rgba(22, 27, 34, 0.9);
+  }
+  
+  .svg-pan-zoom-control {
+    background: rgba(22, 27, 34, 0.95) !important;
+    border-color: #30363d !important;
+    color: #f0f6fc !important;
+  }
+  
+  .svg-pan-zoom-control:hover {
+    background: rgba(22, 27, 34, 1) !important;
+    border-color: #58a6ff !important;
+  }
+  
+  .mermaid-figure figcaption,
+  .mermaid-caption { 
+    color: #8b949e !important;
+    background: rgba(255,255,255,0.03) !important;
+    border-color: #30363d !important;
+  }
+}
+
+/* Theme-specific support for explicit dark class */
+.dark .mermaid {
+  background-color: #161b22;
+  border-color: #30363d;
+}
+
+.dark .mermaid svg text,
+.dark .mermaid svg tspan {
+  fill: #f0f6fc !important;
+}
+
+.dark .mermaid svg .node rect,
+.dark .mermaid svg .node circle,
+.dark .mermaid svg .node ellipse,
+.dark .mermaid svg .node polygon,
+.dark .mermaid svg .node path {
+  fill: #21262d;
+  stroke: #58a6ff;
+}
+
+.dark .mermaid-figure figcaption,
+.dark .mermaid-caption { 
+  color: #8b949e !important;
+  background: rgba(255,255,255,0.03) !important;
+  border-color: #30363d !important;
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+  .mermaid {
+    padding: 1.5rem;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+  }
+  
+  .mermaid svg {
+    min-width: unset;
+  }
+  
+  .mermaid::after {
+    display: none;
+  }
+  
+  .mermaid-fullscreen-btn {
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .mermaid-figure figcaption,
+  .mermaid-caption {
+    font-size: 0.85em !important;
+    padding: 10px 15px !important;
+    max-width: 95% !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .mermaid {
+    border: 1px solid #000;
+    background: white !important;
+    page-break-inside: avoid;
+  }
+  
+  .mermaid svg text,
+  .mermaid svg tspan {
+    fill: #000 !important;
+  }
+  
+  .mermaid svg .node rect,
+  .mermaid svg .node circle,
+  .mermaid svg .node ellipse,
+  .mermaid svg .node polygon,
+  .mermaid svg .node path {
+    fill: #fff !important;
+    stroke: #000 !important;
+  }
+  
+  .mermaid svg .edgePath .path,
+  .mermaid svg .flowchart-link {
+    stroke: #000 !important;
+  }
+  
+  .mermaid svg .marker {
+    fill: #000 !important;
+  }
+  
+  .mermaid-fullscreen-btn,
+  .svg-pan-zoom-control,
+  .mermaid::after {
+    display: none !important;
+  }
+  
+  .mermaid-figure figcaption,
+  .mermaid-caption {
+    color: #000 !important;
+    background: none !important;
+    border: 1px solid #ccc !important;
+    font-style: normal !important;
+  }
+}
