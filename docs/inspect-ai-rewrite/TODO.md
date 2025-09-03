@@ -15,10 +15,12 @@ Additional Cross-Cutting TODOs
 - [ ] Retries & Cache — see `TODO-retries-and-cache.md`
 - [ ] Tool Parallelism Policy — see `TODO-parallel-tools.md`
 - [ ] Tool Output Truncation — see `TODO-tool-output-truncation.md`
-- [ ] Approval UX & Chains — see `TODO-approval-ux-chains.md`
+- [x] Approval UX & Chains — see `TODO-approval-ux-chains.md`
 - [ ] Sandbox Readiness Check — see `TODO-sandbox-health.md`
 - [ ] Model Roles Map — see `TODO-model-roles.md`
-- [ ] Dev CLI — see `TODO-dev-cli.md`
+- [x] Dev CLI — see `TODO-dev-cli.md`
+- [x] Migration Shim — see `TODO-migration-shim.md`
+- [x] Config Loader — see `TODO-config-loader.md`
 
 Open Deviations / Decisions
 - See `DECISIONS-PENDING.md` — lists known differences vs deepagents and choices (parity vs Inspect‑native) awaiting a decision. Implement a temporary `parity_mode` flag to toggle key behaviors until finalized.
