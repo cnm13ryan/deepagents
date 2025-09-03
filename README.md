@@ -122,7 +122,7 @@ uv run inspect view
 uv run inspect view --log-dir ./experiment-logs --port 6565
 ```
 
-See docs: [docs/inspect_view.md](docs/inspect_view.md)
+See docs: [docs/cli/inspect_view.md](docs/cli/inspect_view.md)
 
 ### Provider Examples
 ```bash
@@ -207,7 +207,7 @@ Fallback: `docs/diagrams/architecture_overview.png`
 - **Tools Reference**: `docs/tools/README.md`
 - **Sub-agent Patterns**: `docs/guides/subagents.md`
 - **Examples**: `examples/inspect/`
-- **Open Questions**: `docs/open-questions.md`
+- **Open Questions**: `docs/design/open-questions.md`
 
 ### Docs (MkDocs)
 Preview the documentation site locally with MkDocs.
