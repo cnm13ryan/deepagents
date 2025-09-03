@@ -176,6 +176,5 @@ Stateful operational notes
 
 ## Related Docs
 - Original perspectives retained for context:
-  - [Stateless vs Stateful Tools (Inspect Tool Support)](./stateless-vs-stateful-tools.md)
-  - [What is the difference between stateless and stateful tools?](./stateless-vs-stateful-tools-1.md)
-
+  - [Stateless vs Stateful Tools (Inspect Tool Support)](./archive/stateless-vs-stateful-tools.md)
+  - [What is the difference between stateless and stateful tools?](./archive/stateless-vs-stateful-tools-1.md)
