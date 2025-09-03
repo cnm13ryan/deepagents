@@ -35,7 +35,7 @@ See `./adr/README.md` for a compact ADR index.
 ## Backlog
 
 Root Backlog (status):
-- TODO — Model Roles Map — Implementation Checklists: `./backlog/TODO-model-roles-map.md`
+- PARTIAL — Model Roles Map — Implementation Checklists: `./backlog/TODO-model-roles-map.md`
 - TODO — Configurable Cache Policy: `./backlog/todo_feature_cache_policy.md`
 - TODO — Retry Policy Surface: `./backlog/todo_feature_retry_policy.md`
 - TODO — Retry/Cache Tests: `./backlog/todo_feature_retry_cache_tests.md`
