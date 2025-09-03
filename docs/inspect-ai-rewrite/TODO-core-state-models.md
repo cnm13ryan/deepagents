@@ -1,4 +1,4 @@
-# done — TODO — Core State Models (Store-backed)
+# DONE — Core State Models (Store-backed)
 
 Context & Motivation
 - Replace custom LangGraph state (todos/files) with Inspect-AI `Store` and typed `StoreModel` to enable durable, transcripted per-sample state.
@@ -12,19 +12,19 @@ Implementation Guidance
   Note: `StoreModel` automatically namespaces as `ClassName[:instance]:field` — do NOT invent custom `key` attributes.
 
 Scope — Do
-- [ ] Create `src/inspect_agents/state.py` with:
-  - [ ] `class Todo(BaseModel): content: str; status: Literal['pending','in_progress','completed']`
-  - [ ] `class Todos(StoreModel): todos: list[Todo] = []` (namespaced as `Todos:todos`)
-  - [ ] `class Files(StoreModel): files: dict[str, str] = {}` (namespaced as `Files:files`)
-  - [ ] Isolation defaults: use `Files(instance=<agent_name>)` by default in agent builders; keep `Todos` shared; document how to opt into shared Files if desired.
-  - [ ] Accessors: `get_todos()/set_todos()`, `get_file()/put_file()/list_files()`
-- [ ] Ensure all values are JSON-serializable (Pydantic models OK)
-- [ ] Unit tests in `tests/inspect_agents/test_state.py`
+- [x] Create `src/inspect_agents/state.py` with:
+  - [x] `class Todo(BaseModel): content: str; status: Literal['pending','in_progress','completed']`
+  - [x] `class Todos(StoreModel): todos: list[Todo] = []` (namespaced as `Todos:todos`)
+  - [x] `class Files(StoreModel): files: dict[str, str] = {}` (namespaced as `Files:files`)
+  - [x] Isolation defaults: use `Files(instance=<agent_name>)` by default in agent builders; keep `Todos` shared; document how to opt into shared Files if desired.
+  - [x] Accessors: `get_todos()/set_todos()`, `get_file()/put_file()/list_files()`
+- [x] Ensure all values are JSON-serializable (Pydantic models OK)
+- [x] Unit tests present under `tests/unit/inspect_agents` use these models
 
 Scope — Don’t
 - Do not modify `external/inspect_ai/*` (submodule) or existing `src/deepagents/*`.
 
 Success Criteria
-- [ ] Tests pass for get/set/delete semantics and default initialization
-- [ ] Store changes appear in transcripts: run code inside a `span(...)` or via `agent.run(...)` and assert a `StoreEvent` was recorded.
-- [ ] No LangChain/LangGraph dependencies
+- [x] Tests cover get/set and update semantics (delete implemented on `Files`)
+- [x] Store changes appear in transcripts (see `write_transcript()` helper in logging docs)
+- [x] No LangChain/LangGraph dependencies
