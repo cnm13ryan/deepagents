@@ -1,4 +1,9 @@
 import asyncio
+import os
+import pytest
+from inspect_ai.util._limit import time_limit
+from inspect_ai.agent._agent import agent as agent_dec, Agent, AgentState
+from inspect_ai.agent._handoff import handoff
 
 from inspect_ai.model._call_tools import execute_tools
 from inspect_ai.model._chat_message import (
@@ -53,6 +58,8 @@ def test_handoff_tool_declares_serial_execution():
                 name="reader",
                 description="Reads stuff",
                 prompt="Reply",
+                model="mockllm/model",
+                limits=[time_limit(0.01)],
             )
         ],
         base_tools=[],
@@ -64,3 +71,48 @@ def test_handoff_tool_declares_serial_execution():
     assert len(defs) == 1
     assert defs[0].parallel is False
 
+
+@pytest.mark.xfail(reason="Handoff should cancel/skip other tool calls in same turn")
+def test_handoff_with_other_tool_only_handoff_executes():
+    # Simple parallel-safe echo tool
+    echo = _tool("echo_b", "B")
+
+    # Tiny no-model agent that returns immediately, wrapped as a handoff tool
+    @agent_dec(name="reader", description="Reads stuff")
+    def simple_agent() -> Agent:  # pragma: no cover
+        async def _run(state: AgentState) -> AgentState:
+            return state
+
+        return _run
+
+    agent = simple_agent()
+
+    handoff_tool = handoff(
+        agent,
+        description="Reads stuff",
+        tool_name="transfer_to_reader",
+        limits=[time_limit(0.01)],
+    )
+
+    # Assistant calls both the handoff tool and a normal tool
+    messages = [
+        ChatMessageUser(content="start"),
+        ChatMessageAssistant(
+            content="",
+            tool_calls=[
+                dict(id="1", function="transfer_to_reader", arguments={}),
+                dict(id="2", function="echo_b", arguments={}),
+            ],
+        ),
+    ]
+
+    # Execute with both tools available
+    os.environ.setdefault("INSPECT_EVAL_MODEL", "mockllm/model")
+    result = asyncio.run(execute_tools(messages, [handoff_tool, echo]))
+
+    # Only the handoff should be satisfied; echo_b should NOT run
+    tool_msgs = [m for m in result.messages if isinstance(m, ChatMessageTool)]
+    funcs = [m.function for m in tool_msgs]
+
+    assert "transfer_to_reader" in funcs
+    assert "echo_b" not in funcs
