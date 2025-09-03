@@ -115,7 +115,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=os.getenv("INSPECT_EVAL_MODEL"),
+            env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
             final=final_result,
             path=path,
         )
@@ -142,7 +142,7 @@ def resolve_model(
                 model_arg=model_arg,
                 role_env_model=role_env_model,
                 role_env_provider=role_env_provider,
-                env_INSPECT_EVAL_MODEL=os.getenv("INSPECT_EVAL_MODEL"),
+                env_inspect_eval_model=os.getenv("INSPECT_EVAL_MODEL"),
                 final=final_result,
                 path=path,
             )
@@ -164,7 +164,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
+            env_inspect_eval_model=env_inspect_model,
             final=final_result,
             path=path,
         )
@@ -185,7 +185,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
+            env_inspect_eval_model=env_inspect_model,
             final=final_result,
             path=path,
         )
@@ -202,7 +202,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
+            env_inspect_eval_model=env_inspect_model,
             final=final_result,
             path=path,
         )
@@ -249,7 +249,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
+            env_inspect_eval_model=env_inspect_model,
             final=final_result,
             path=path,
         )
@@ -277,7 +277,7 @@ def resolve_model(
             model_arg=model_arg,
             role_env_model=role_env_model,
             role_env_provider=role_env_provider,
-            env_INSPECT_EVAL_MODEL=env_inspect_model,
+            env_inspect_eval_model=env_inspect_model,
             final=final_result,
             path=path,
         )
@@ -308,7 +308,7 @@ def resolve_model(
         model_arg=model_arg,
         role_env_model=role_env_model,
         role_env_provider=role_env_provider,
-        env_INSPECT_EVAL_MODEL=env_inspect_model,
+        env_inspect_eval_model=env_inspect_model,
         final=final_result,
         path=path,
     )
@@ -321,7 +321,7 @@ def _log_model_debug(
     model_arg: str | None,
     role_env_model: str | None,
     role_env_provider: str | None,
-    env_INSPECT_EVAL_MODEL: str | None,
+    env_inspect_eval_model: str | None,
     final: str,
     path: str,
 ) -> None:
@@ -332,14 +332,14 @@ def _log_model_debug(
     logger = logging.getLogger(__name__)
     logger.info(
         "Model resolution: role=%s provider_arg=%s model_arg=%s "
-        "role_env_model=%s role_env_provider=%s env_INSPECT_EVAL_MODEL=%s "
+        "role_env_model=%s role_env_provider=%s env_inspect_eval_model=%s "
         "final=%s path=%s",
         role,
         provider_arg,
         model_arg,
         role_env_model,
         role_env_provider,
-        env_INSPECT_EVAL_MODEL,
+        env_inspect_eval_model,
         final,
         path,
     )
