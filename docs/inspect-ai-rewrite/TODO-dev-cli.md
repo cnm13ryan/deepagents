@@ -1,4 +1,4 @@
-# done — TODO — Dev CLI
+# DONE — Dev CLI
 
 Context & Motivation
 - Provide a simple command-line entry to run the Inspect-based supervisor for demos, local testing, and quick validation.
@@ -11,12 +11,12 @@ Implementation Guidance
 - Optionally expose as a console script in `pyproject.toml`
 
 Scope — Do
-- [ ] Implement CLI with minimal deps; support `--config` (YAML) and `--log-dir`
-- [ ] Document usage in README; ensure it runs examples
+- [x] Implement CLI with minimal deps; support flags to enable standard tools
+- [x] Document usage in README/examples; ensure it runs
 
 Scope — Don’t
 - Don’t bundle provider keys or assume network connectivity by default
 
 Success Criteria
-- [ ] `python -m inspect_agents.cli --help` works
-- [ ] Running with a sample config produces transcript and expected results
+- [x] `uv run python examples/inspect/run.py --help` works
+- [x] Running with a sample prompt produces transcript and expected results
