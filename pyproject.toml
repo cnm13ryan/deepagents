@@ -61,6 +61,20 @@ utilities = [
     "nbformat",
 ]
 
+# Documentation generation
+docs = [
+    # MkDocs core
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
+    # MkDocs plugins
+    "mkdocs-mermaid2-plugin",
+    "mkdocs-autorefs>=1.0",
+    # API documentation
+    "mkdocstrings[python]>=0.21",
+    # Docstring coverage
+    "interrogate",
+]
+
 # ================================================================== 
 # Tool Configuration
 # ================================================================== 
