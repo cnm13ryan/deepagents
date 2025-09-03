@@ -11,8 +11,18 @@
 [![PyPI Downloads](https://img.shields.io/pypi/dm/deepagents)](https://pypi.org/project/deepagents/)
 [![Last Commit](https://img.shields.io/github/last-commit/cnm13ryan/deepagents/inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/commits/inspect-ai-rewrite)
 
-## Problem / Value Proposition
-Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. deepagents removes the overhead with an Inspect‑AI–native, CLI‑first workflow: one command to run; typed state (todos/files); built‑in tools; transcripts and traces by default. Compared to bespoke frameworks, you ship faster (minutes not days), keep observability, and scale cleanly to sub‑agents as “handoffs” or single‑shot “tools.”
+## Why deepagents?
+Setting up practical LLM agents is slow: you fight glue code, logging, state, and tool orchestration. deepagents removes the overhead with an Inspect-AI-native, CLI-first workflow: one command to run; typed state (todos/files); built-in tools; transcripts and traces by default. Ship in minutes, not days.
+
+## Key Features
+- ✅ **CLI-first**: One command to run an agent or eval with Inspect
+- ✅ **Inspect-native tools**: Todos + virtual filesystem (store or sandbox)
+- ✅ **Optional standard tools**: Think, web_search, bash/python, web_browser, text_editor
+- ✅ **Typed state**: Simple, explicit models backed by Inspect Store
+- ✅ **Sub-agents**: Choose "handoff" (iterative control-flow) or "tool" (single-shot)
+- ✅ **Traces & transcripts**: Rich logs and JSONL artifacts out of the box
+- ✅ **Safe by default**: Approvals, quarantine filters, and sandbox file operations
+- ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
 
 ## High-level Architecture
 
