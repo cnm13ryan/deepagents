@@ -38,6 +38,20 @@ We welcome contributions of all kinds — bug fixes, docs, tests, and new exampl
   - `fix(tools): correct sandbox editor fallback`  
   - `docs(readme): clarify install instructions`
 
+## Docs Backlog Status & Sweep
+
+To keep user‑facing documentation accurate and avoid drift across multiple indexes, we use a deterministic docs sweep:
+
+- Leaf backlog files under `docs/backlog/` (especially `rewrite/TODO-*.md`) must begin with an H1 status toggle:
+  - `# DONE — <feature>` or `# TODO — <feature>` (em‑dash between status and title).
+- Use Markdown checkboxes to track progress inside leaves (`- [x]` / `- [ ]`). The sweep infers `PARTIAL` when both checked and unchecked items exist. Do not use `# PARTIAL` as an H1.
+- Aggregation pages (rewrite backlog index, todos index, docs Backlog section, `STATUS.md`) are synchronized by `scripts/sweep_status.py`.
+  - Check mode (CI): `python3 scripts/sweep_status.py` → prints diffs and exits non‑zero on drift.
+  - Write mode (local): `python3 scripts/sweep_status.py --write` → applies fixes; commit the result.
+- Scope is intentionally conservative: the sweep never auto‑promotes items to DONE unless the leaf H1 says DONE.
+
+Please follow these conventions for any new backlog/TODO documents so the sweep can govern statuses automatically.
+
 ## Pull Requests
 
 - Link an issue when applicable and include a brief rationale.
