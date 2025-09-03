@@ -16,15 +16,15 @@ Scope — Do
 - [x] In `src/inspect_agents/agents.py` add:
   - [x] `def build_subagents(configs: list[SubAgentCfg], base_tools: list[Tool]) -> list[Tool]`
   - [x] For each cfg, build Inspect agent with prompt/tools/model; expose `handoff(..., tool_name=f"transfer_to_{name}")`
-- [ ] Tests `tests/inspect_agents/test_subagents.py`:
-  - [ ] Assert a `ChatMessageTool` boundary exists with content `Successfully transferred to <agent_name>.`
-  - [ ] Ensure only the sub‑agent’s new messages are appended (compare message IDs vs. pre‑handoff list)
-  - [ ] Verify assistant messages from sub‑agent are prefixed with the agent name
-  - [ ] Verify shared store visibility (or use `store_as(..., instance=...)` if isolating)
+- [x] Tests `tests/integration/inspect_agents/test_subagents.py` and `tests/integration/inspect_agents/test_subagent_filters.py`:
+  - [x] Assert a `ChatMessageTool` boundary exists with content `Successfully transferred to <agent_name>.`
+  - [x] Ensure only the sub‑agent’s new messages are appended (compare message IDs vs. pre‑handoff list)
+  - [x] Verify assistant messages from sub‑agent are prefixed with the agent name
+  - [x] Verify shared store visibility (or use `store_as(..., instance=...)` if isolating)
 
 Filters (Optional, Recommended)
 - [x] Demonstrate `input_filter` (e.g., remove tool chatter) and `output_filter` (e.g., content_only) for sub-agents (defaults applied; docs updated)
-- [ ] Tests verify that filtered conversations do not include tool calls or system messages when configured
+- [x] Tests verify that filtered conversations do not include tool calls or system messages when configured
 
 Scope — Don’t
 - Do not couple to LangGraph
