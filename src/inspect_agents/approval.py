@@ -188,4 +188,97 @@ __all__ = [
     "activate_approval_policies",
     "approval_preset",
     "redact_arguments",
+    "handoff_exclusive_policy",
 ]
+
+
+def handoff_exclusive_policy() -> list[Any]:
+    """Enforce first-handoff exclusivity within an assistant turn.
+
+    If the most recent assistant message contains any handoff tool calls
+    (function name prefix "transfer_to_"), then only the first such handoff
+    is approved; all other tool calls from that same message are skipped.
+
+    Skipped calls are rejected with explanation "Skipped due to handoff exclusivity"
+    and a repo-local logger event is emitted via tools._log_tool_event with:
+      {tool:"handoff_exclusive", phase:"skipped", selected_handoff_id, skipped_function}.
+    """
+    from inspect_ai.approval._approval import Approval  # type: ignore
+    try:
+        from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
+    except Exception:
+        class ApprovalPolicy:  # type: ignore
+            def __init__(self, approver, tools):
+                self.approver = approver
+                self.tools = tools
+    from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
+    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
+
+    def _get(obj: Any, name: str, default: Any = None) -> Any:
+        try:
+            return getattr(obj, name)
+        except Exception:
+            try:
+                return obj.get(name, default)  # type: ignore[attr-defined]
+            except Exception:
+                return default
+
+    def _last_assistant_with_calls(message: Any, history: list[Any]) -> Any | None:
+        # Prefer the current message when it has tool_calls; otherwise scan history backwards
+        tcs = _get(message, "tool_calls") if message is not None else None
+        if isinstance(tcs, (list, tuple)) and len(tcs) > 0:
+            return message
+        for msg in reversed(list(history or [])):
+            tcs = _get(msg, "tool_calls")
+            if isinstance(tcs, (list, tuple)) and len(tcs) > 0:
+                return msg
+        return None
+
+    def _first_handoff_from_message(msg: Any) -> ToolCall | None:  # type: ignore[valid-type]
+        tool_calls = _get(msg, "tool_calls") or []
+        for tc in tool_calls:
+            fn = _get(tc, "function", "")
+            if isinstance(fn, str) and fn.startswith("transfer_to_"):
+                return tc  # type: ignore[return-value]
+        return None
+
+    async def approver(message, call: ToolCall, view, history):  # type: ignore[no-redef]
+        # Identify the source assistant message for this batch of tool calls
+        source = _last_assistant_with_calls(message, history)
+        if source is None:
+            return Approval(decision="approve")
+
+        selected = _first_handoff_from_message(source)
+        if selected is None:
+            # No handoff present: no exclusivity needed
+            return Approval(decision="approve")
+
+        selected_id = _get(selected, "id")
+        current_is_handoff = isinstance(call.function, str) and call.function.startswith("transfer_to_")
+
+        if current_is_handoff and call.id == selected_id:
+            return Approval(decision="approve")
+
+        # Skip everything else in the same batch when a handoff is present
+        try:
+            # Lazy import to avoid tools module at import time
+            from .tools import _log_tool_event  # local import
+
+            _log_tool_event(
+                name="handoff_exclusive",
+                phase="skipped",
+                extra={
+                    "selected_handoff_id": selected_id,
+                    "skipped_function": call.function,
+                },
+            )
+        except Exception:
+            # Logging should never fail policy decisions
+            pass
+
+        return Approval(decision="reject", explanation="Skipped due to handoff exclusivity")
+
+    # Tag for Inspect logging/registry
+    registry_tag(lambda: None, approver, RegistryInfo(type="approver", name="policy/handoff_exclusive"))
+
+    return [ApprovalPolicy(approver=approver, tools="*")]
