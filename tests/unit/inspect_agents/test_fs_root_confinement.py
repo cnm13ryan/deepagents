@@ -8,7 +8,16 @@ from unittest.mock import patch
 
 import pytest
 
-from inspect_agents.tools_files import _fs_root, _validate_sandbox_path, files_tool, FilesParams, ReadParams, WriteParams, EditParams, LsParams
+from inspect_agents.tools_files import (
+    EditParams,
+    FilesParams,
+    LsParams,
+    ReadParams,
+    WriteParams,
+    _fs_root,
+    _validate_sandbox_path,
+    files_tool,
+)
 
 
 class TestFsRootConfinement:
