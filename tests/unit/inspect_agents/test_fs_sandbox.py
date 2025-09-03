@@ -70,12 +70,16 @@ def _install_bash_stub(fs: dict[str, str]):
     @tool()
     def bash_session() -> Tool:  # type: ignore[return-type]
         async def execute(action: str, command: str | None = None) -> MockResult:
-            if action == "run" and command == "ls -1":
-                # Return files from the dict as a newline-separated list
-                file_list = list(fs.keys())
-                return MockResult("\n".join(file_list))
-            else:
+            # Match the tool's usage: `ls -1 {escaped_root}` where escaped_root defaults to '/repo'
+            if action == "run" and command and command.startswith("ls -1"):
+                # Accept bare `ls -1` (legacy) and `ls -1 /repo` (current)
+                # Handle both quoted and unquoted /repo
+                if command == "ls -1" or command.endswith(" /repo") or "'/repo'" in command or '"/repo"' in command:
+                    file_list = list(fs.keys())
+                    return MockResult("\n".join(file_list))
+                # Unknown root: return empty (best-effort behavior)
                 return MockResult("")
+            return MockResult("")
 
         return execute
 
