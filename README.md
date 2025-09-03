@@ -110,6 +110,20 @@ uv run inspect eval examples/inspect/prompt_task.py \
   -T 'prompt="Identify research about: Cultural traditions and scientific processes"'
 ```
 
+## Viewing Logs (Inspect View)
+
+Start the Inspect log viewer to explore evaluation logs in your browser:
+
+```bash
+# Default: uses ./logs and serves on http://127.0.0.1:7575
+uv run inspect view
+
+# Specify an alternate directory/port
+uv run inspect view --log-dir ./experiment-logs --port 6565
+```
+
+See docs: [docs/inspect_view.md](docs/inspect_view.md)
+
 ### Provider Examples
 ```bash
 # LM Studio
@@ -194,6 +208,23 @@ Fallback: `docs/diagrams/architecture_overview.png`
 - **Sub-agent Patterns**: `docs/guides/subagents.md`
 - **Examples**: `examples/inspect/`
 - **Open Questions**: `docs/open-questions.md`
+
+### Docs (MkDocs)
+Preview the documentation site locally with MkDocs.
+
+Using uv (recommended):
+```bash
+uv sync --extra docs
+uv run mkdocs serve
+```
+
+Using pip/venv:
+```bash
+pip install -e '.[docs]'
+mkdocs serve
+```
+
+Then open http://127.0.0.1:8000. Sources live under `docs/` and the site is configured via `mkdocs.yml`.
 
 ## Project Status
 - **Version**: 0.0.4 (repo) / 0.0.5 (PyPI)
