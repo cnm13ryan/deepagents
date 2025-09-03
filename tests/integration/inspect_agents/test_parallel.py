@@ -1,10 +1,10 @@
 import asyncio
 import os
-import pytest
-from inspect_ai.util._limit import time_limit
-from inspect_ai.agent._agent import agent as agent_dec, Agent, AgentState
-from inspect_ai.agent._handoff import handoff
 
+import pytest
+from inspect_ai.agent._agent import Agent, AgentState
+from inspect_ai.agent._agent import agent as agent_dec
+from inspect_ai.agent._handoff import handoff
 from inspect_ai.model._call_tools import execute_tools
 from inspect_ai.model._chat_message import (
     ChatMessageAssistant,
@@ -14,6 +14,7 @@ from inspect_ai.model._chat_message import (
 from inspect_ai.tool._tool import Tool
 from inspect_ai.tool._tool_def import ToolDef, tool_defs
 from inspect_ai.tool._tool_params import ToolParams
+from inspect_ai.util._limit import time_limit
 
 from inspect_agents.agents import build_subagents
 
