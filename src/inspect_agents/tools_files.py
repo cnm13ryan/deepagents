@@ -216,9 +216,12 @@ class FilesParams(RootModel):
 # Execution functions (can be used by wrapper tools)
 async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     """Execute ls command.
-    
-    Security: In sandbox mode, uses bash_session with 'ls -1' command.
-    Falls back gracefully to store-backed mode if sandbox unavailable.
+
+    Sandbox vs store:
+    - Sandbox: proxies via `bash_session` running `ls -1` inside the sandbox.
+    - Store: lists files tracked by the in‑memory `Files` store for this instance.
+
+    Notes: falls back from sandbox to store if sandbox is unavailable.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -264,7 +267,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
             # Graceful fallback to store-backed mode
             pass
 
-    # Store-backed mode with timeout guard
+    # Store-backed mode (in-memory Files store) with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
         files = store_as(Files, instance=params.instance)
         file_list = files.list_files()
@@ -288,9 +291,14 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 
 async def execute_read(params: ReadParams) -> str | FileReadResult:
     """Execute read command.
-    
-    Security: In sandbox mode, uses text_editor('view') for file access.
-    Path traversal protection relies on sandbox environment isolation.
+
+    Sandbox vs store:
+    - Sandbox: routes through `text_editor('view')` with `view_range=[start,end]`.
+    - Store: reads from the in‑memory `Files` store for this instance.
+
+    Limits: returns at most `limit` lines (default 2000) and truncates each
+    line to 2000 characters to control output size. Path traversal protection
+    relies on sandbox isolation when in sandbox mode.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -425,9 +433,13 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
     """Execute write command.
-    
-    Security: In sandbox mode, uses text_editor('create') for file creation.
-    Content is passed directly without sanitization - ensure trusted input.
+
+    Sandbox vs store:
+    - Sandbox: routes through `text_editor('create')` to write a file.
+    - Store: writes to the in‑memory `Files` store for this instance.
+
+    Limits: no automatic truncation on write; subsequent reads may truncate
+    each line to 2000 characters. Content is not sanitized; ensure trusted input.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -470,9 +482,14 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
 async def execute_edit(params: EditParams) -> str | FileEditResult:
     """Execute edit command.
-    
-    Security: In sandbox mode, uses text_editor('str_replace') for file modification.
-    String replacement occurs without validation - ensure trusted input.
+
+    Sandbox vs store:
+    - Sandbox: routes through `text_editor('str_replace')`; replacement count is
+      not returned by the underlying tool.
+    - Store: edits the in‑memory `Files` store and reports replacement count.
+
+    Limits: none beyond read/write; subsequent reads may truncate long lines.
+    String replacement is not validated; ensure trusted input.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -569,9 +586,10 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
 async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
     """Execute delete command.
-    
-    Security: Delete is intentionally unsupported in sandbox mode to prevent 
-    accidental deletion of host files. Only available in store-backed mode.
+
+    Sandbox vs store:
+    - Sandbox: delete is disabled to avoid accidental host‑FS deletion.
+    - Store: delete is supported against the in‑memory `Files` store.
     """
     from inspect_ai.util._store_model import store_as
 
@@ -583,7 +601,7 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
         args={"file_path": params.file_path, "instance": params.instance},
     )
 
-    # Sandbox mode: not supported yet
+    # Sandbox mode: disabled for safety
     if _use_sandbox_fs():
         # Import here to use the same ToolException as the tools module
         try:
@@ -596,7 +614,10 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
             extra={"ok": False, "error": "SandboxUnsupported"},
             t0=_t0,
         )
-        raise _ToolException("delete unsupported in sandbox mode")
+        raise _ToolException(
+            "delete is disabled in sandbox mode; set INSPECT_AGENTS_FS_MODE=store "
+            "to delete from the in-memory Files store"
+        )
 
     # Store-backed with timeout guard
     with anyio.fail_after(_default_tool_timeout()):
@@ -621,17 +642,20 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
 def files_tool():  # -> Tool
     """Unified files tool using discriminated union for commands.
 
-    Supports commands: ls, read, write, edit, delete
+    Supports commands: ls, read, write, edit, delete.
 
-    Security Notes:
-    - In sandbox mode (INSPECT_AGENTS_FS_MODE=sandbox), file operations 
-      are routed through Inspect's text_editor tool and bash_session for ls,
-      providing isolation from the host filesystem.
-    - Store-backed mode operates on an in-memory virtual filesystem that 
+    Sandbox vs store:
+    - Sandbox (INSPECT_AGENTS_FS_MODE=sandbox): routes reads/writes/edits via
+      Inspect's `text_editor` tool and proxies `ls` via `bash_session`, isolating
+      operations from the host filesystem. Delete is disabled in sandbox mode.
+    - Store (default): operates on an in‑memory virtual filesystem (`Files`) that
       is isolated per execution context.
-    - File paths are not validated against directory traversal attacks - 
-      ensure proper sandboxing when using with untrusted input.
-    - The delete command is not supported in sandbox mode for security reasons.
+
+    Limits: reads return at most `limit` lines (default 2000) and each line is
+    truncated to 2000 characters to bound output size.
+
+    Security: paths are not validated for traversal; rely on sandbox isolation
+    when handling untrusted input.
     """
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
     from inspect_ai.tool._tool import tool
@@ -695,7 +719,10 @@ def files_tool():  # -> Tool
         return ToolDef(
             execute,
             name="files",
-            description="Unified file operations tool (ls, read, write, edit, delete).",
+            description=(
+                "Unified file operations tool (ls, read, write, edit, delete). "
+                "Delete disabled in sandbox mode."
+            ),
             parameters=params,
         ).as_tool()
 
