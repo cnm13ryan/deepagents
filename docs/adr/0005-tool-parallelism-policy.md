@@ -1,6 +1,6 @@
 # ADR 0005 — Tool Parallelism and Handoff Exclusivity
 
-Status: Proposed (tests in place; implementation pending)
+Status: Accepted — v1 (approval‑policy enforcement shipped); v2 scoped (optional executor pre‑scan)
 
 Date: 2025-09-03
 
@@ -44,10 +44,28 @@ References:
 
 ## Implementation Notes
 
-- Pre‑scan `assistant.tool_calls` in `execute_tools(...)`. If any handoff is present, select the first handoff’s call id. Do not enqueue TaskGroup tasks for other tool calls.
-- For each skipped call, create a ToolEvent with `pending=False` and `error={code:"skipped", message:"Skipped due to handoff"}`. Do not append a `ChatMessageTool` to the conversation.
-- Maintain existing `agent_handoff(...)` conversation trimming; the pre‑scan guarantees exclusivity at the executor level.
+This ADR is delivered in two phases to balance transcript visibility and executor‑level guarantees:
+
+- v1 — Approval policy enforcement (current): enforce first‑handoff exclusivity via an approval policy that approves only the first handoff call and rejects all other tool calls from the same assistant turn with explanation "Skipped due to handoff exclusivity". Also emit a local tool event (`name: handoff_exclusive`, `phase: skipped`) for observability. See `handoff_exclusive_policy()` in `src/inspect_agents/approval.py`.  
+  Rationale: centralizes the rule in the approval layer; keeps policy decisions visible in transcripts without changing the executor.  
+  References: `handoff_exclusive_policy` 〖F:src/inspect_agents/approval.py†L195-L284〗.
+
+- v2 — Optional executor pre‑scan (future): pre‑scan `assistant.tool_calls` in the executor (e.g., `execute_tools(...)`) and, if any handoff is present, select the first by order and avoid enqueuing all other calls from that turn. For each skipped call, mint a transcript ToolEvent with `pending=false` and `error={code:"skipped", message:"Skipped due to handoff"}` without appending any `ChatMessageTool` to the conversation. Ship behind an opt‑in flag (e.g., `INSPECT_EXECUTOR_PRESCAN_HANDOFF=1`) so v1 remains the default behavior.  
+  Rationale: provides stronger executor‑level guarantees and reduces scheduling overhead while preserving transcript signals.
+
 - Respect `INSPECT_DISABLE_TOOL_PARALLEL=1` to run non‑handoff calls serially even when `ToolDef.parallel` is True.
+
+### Trade‑offs: Policy Visibility vs Executor Guarantees
+
+- Policy‑first (v1):
+  - Pros: explicit per‑call decisions in transcripts; minimal code surface change; resilient across executor refactors; easy to test and audit.  
+  - Cons: executor still iterates over all calls (minor overhead); exclusivity depends on timely policy checks per call (though tools never execute when rejected).
+
+- Executor pre‑scan (v2):
+  - Pros: avoids enqueuing non‑selected calls entirely; stronger exclusivity guarantee at the scheduling boundary; lower overhead under high tool‑fan‑out.  
+  - Cons: fewer "policy" artifacts unless we also mint explicit skip events; tighter coupling to executor internals and order semantics.
+
+Recommendation: ship and keep v1 as the default (already implemented); offer v2 as an opt‑in for deployments that prioritize strict executor‑level gating or need to reduce scheduling overhead.
 
 ## Testing Plan
 
@@ -61,4 +79,3 @@ References:
 - Cleaner agent boundaries and fewer surprise side effects mid‑handoff.
 - Richer transcript for debugging without leaking coordination artifacts into the model’s context.
 - Predictable tie‑break (first handoff wins) and operational backstop via env flag.
-
