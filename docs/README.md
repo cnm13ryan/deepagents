@@ -52,3 +52,13 @@ Inspect‑AI Rewrite backlog: see `./backlog/rewrite/README.md` (index updated w
 - Prefer linking to canonical pages (e.g., Harmonized stateless/stateful guide).
 - Use relative links under `docs/`.
 - Propose file moves/renames via PR; avoid breaking URLs without stubs.
+
+### Backlog Status Conventions (governed by sweep_status.py)
+- Leaf backlog pages (e.g., `docs/backlog/rewrite/TODO-*.md`) must start with a status toggle H1:
+  - `# DONE — <feature>` or `# TODO — <feature>` (use an em‑dash between status and title).
+- Partial completion is inferred from checklists: use Markdown checkboxes (`- [x] ...`, `- [ ] ...`).
+  - If at least one box is checked and at least one is unchecked, the sweep treats the leaf as `PARTIAL`.
+- Do not introduce a `PARTIAL` H1; keep the H1 as DONE or TODO only. If you want to call it out explicitly, add a line `Status: Partial` beneath the H1 — the sweep will cross‑check but relies on checkboxes.
+- Aggregation pages (rewrite backlog index, todos index, docs Backlog section, STATUS.md) are updated by `scripts/sweep_status.py`.
+  - CI should run: `python3 scripts/sweep_status.py` (check‑only) and fail on drift.
+  - To reconcile locally, run: `python3 scripts/sweep_status.py --write` and commit the changes.
