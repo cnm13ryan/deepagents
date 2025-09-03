@@ -6,22 +6,22 @@
 
 ## 1) Resolver Debug Trace (INSPECT_MODEL_DEBUG)
 
-- [ ] Context & Motivation
-  - [ ] Add a lightweight decision trace to model resolution to help debug role→model precedence in dev/CI.
-  - [ ] Business value: faster diagnosis of misconfig; fewer support cycles.
-  - [ ] Constraints: no behavior change; no heavy imports; avoid logging secrets.
-- [ ] Implementation Guidance
-  - [ ] Files: `src/inspect_agents/model.py` (function `resolve_model`, helper `_resolve_role_mapping`).
-  - [ ] Grep: `resolve_model`, `INSPECT_EVAL_MODEL`, `INSPECT_ROLE_`, `DEEPAGENTS_MODEL_PROVIDER`.
-  - [ ] Pattern: use `logging.getLogger(__name__).info({...})` once per call when `INSPECT_MODEL_DEBUG=1`.
-  - [ ] Fields: `role`, `provider_arg`, `model_arg`, `role_env_model`, `role_env_provider`, `env_INSPECT_EVAL_MODEL`, `final`, `path`.
-  - [ ] Dependencies: stdlib `logging` only.
-- [ ] Scope Definition
-  - [ ] Emit exactly one info log when `INSPECT_MODEL_DEBUG` truthy; none otherwise.
-  - [ ] No functional changes; low overhead.
-- [ ] Success Criteria
-  - [ ] Unit tests (new): caplog asserts one record when flag set; none when unset.
-  - [ ] No regressions in existing tests.
+- [x] Context & Motivation
+  - [x] Add a lightweight decision trace to model resolution to help debug role→model precedence in dev/CI.
+  - [x] Business value: faster diagnosis of misconfig; fewer support cycles.
+  - [x] Constraints: no behavior change; no heavy imports; avoid logging secrets.
+- [x] Implementation Guidance
+  - [x] Files: `src/inspect_agents/model.py` (function `resolve_model`, helper `_resolve_role_mapping`).
+  - [x] Grep: `resolve_model`, `INSPECT_EVAL_MODEL`, `INSPECT_ROLE_`, `DEEPAGENTS_MODEL_PROVIDER`.
+  - [x] Pattern: use `logging.getLogger(__name__).info({...})` once per call when `INSPECT_MODEL_DEBUG=1`.
+  - [x] Fields: `role`, `provider_arg`, `model_arg`, `role_env_model`, `role_env_provider`, `env_INSPECT_EVAL_MODEL`, `final`, `path`.
+  - [x] Dependencies: stdlib `logging` only.
+- [x] Scope Definition
+  - [x] Emit exactly one info log when `INSPECT_MODEL_DEBUG` truthy; none otherwise.
+  - [x] No functional changes; low overhead.
+- [x] Success Criteria
+  - [x] Unit tests (new): caplog asserts one record when flag set; none when unset.
+  - [x] No regressions in existing tests.
 
 ---
 
