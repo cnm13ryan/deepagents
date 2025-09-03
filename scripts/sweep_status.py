@@ -9,9 +9,8 @@ import argparse
 import dataclasses as dc
 import difflib
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -22,7 +21,7 @@ class LeafStatus:
     path: Path
     title: str
     status: str  # DONE|PARTIAL|TODO
-    header_status: Optional[str] = None
+    header_status: str | None = None
     checked: int = 0
     total: int = 0
 
@@ -55,7 +54,7 @@ def infer_leaf_status(path: Path) -> LeafStatus:
     header_status = None
     title = path.stem
     checked = total = 0
-    status_line_hint: Optional[str] = None
+    status_line_hint: str | None = None
 
     for i, line in enumerate(text[:50]):  # examine top of file
         m = STATUS_RE.match(line.strip())
@@ -110,7 +109,7 @@ def replace_lines(text: str, replacements: dict[int, str]) -> str:
     return "\n".join(out_lines) + ("\n" if text.endswith("\n") else "")
 
 
-def reconcile_rewrite_index(leaves: dict[str, LeafStatus]) -> Optional[PlannedEdit]:
+def reconcile_rewrite_index(leaves: dict[str, LeafStatus]) -> PlannedEdit | None:
     path = DOCS / "backlog/rewrite/README.md"
     text = path.read_text(encoding="utf-8")
     repl: dict[int, str] = {}
@@ -139,7 +138,7 @@ def reconcile_rewrite_index(leaves: dict[str, LeafStatus]) -> Optional[PlannedEd
     return PlannedEdit(path=path, before=text, after=after)
 
 
-def reconcile_rewrite_todo_md(leaves: dict[str, LeafStatus]) -> Optional[PlannedEdit]:
+def reconcile_rewrite_todo_md(leaves: dict[str, LeafStatus]) -> PlannedEdit | None:
     path = DOCS / "backlog/rewrite/TODO.md"
     if not path.exists():
         return None
@@ -162,7 +161,7 @@ def reconcile_rewrite_todo_md(leaves: dict[str, LeafStatus]) -> Optional[Planned
     return PlannedEdit(path=path, before=text, after=after)
 
 
-def reconcile_todos_index() -> Optional[PlannedEdit]:
+def reconcile_todos_index() -> PlannedEdit | None:
     path = DOCS / "backlog/todos/README.md"
     if not path.exists():
         return None
@@ -191,7 +190,7 @@ def reconcile_todos_index() -> Optional[PlannedEdit]:
     return PlannedEdit(path=path, before=text, after=after)
 
 
-def reconcile_docs_readme() -> Optional[PlannedEdit]:
+def reconcile_docs_readme() -> PlannedEdit | None:
     path = DOCS / "README.md"
     if not path.exists():
         return None
@@ -224,7 +223,7 @@ def reconcile_docs_readme() -> Optional[PlannedEdit]:
     return PlannedEdit(path=path, before=text, after=after)
 
 
-def reconcile_status_md(leaves: dict[str, LeafStatus]) -> Optional[PlannedEdit]:
+def reconcile_status_md(leaves: dict[str, LeafStatus]) -> PlannedEdit | None:
     path = ROOT / "STATUS.md"
     if not path.exists():
         return None
@@ -276,7 +275,7 @@ def show_or_apply(edits: Iterable[PlannedEdit], write: bool) -> int:
     return changes
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Docs status sweep: verify or update status consistency across docs.")
     ap.add_argument("--write", action="store_true", help="Apply fixes in place (default: check only)")
     ap.add_argument("--verbose", action="store_true")
