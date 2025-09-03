@@ -34,15 +34,15 @@ See `./adr/README.md` for a compact ADR index.
 
 ## Backlog
 
-Root TODOs (top‑level files):
-- Model Roles Map — Implementation Checklists: `./backlog/TODO-model-roles-map.md`
-- Feature — Configurable Cache Policy: `./backlog/todo_feature_cache_policy.md`
-- Feature — Retry Policy Surface: `./backlog/todo_feature_retry_policy.md`
-- Feature — Retry/Cache Tests: `./backlog/todo_feature_retry_cache_tests.md`
+Root Backlog (status):
+- TODO — Model Roles Map — Implementation Checklists: `./backlog/TODO-model-roles-map.md`
+- TODO — Configurable Cache Policy: `./backlog/todo_feature_cache_policy.md`
+- TODO — Retry Policy Surface: `./backlog/todo_feature_retry_policy.md`
+- TODO — Retry/Cache Tests: `./backlog/todo_feature_retry_cache_tests.md`
 
 Todos folder (limits, sandbox, features): see `./backlog/todos/README.md`.
 
-Inspect‑AI Rewrite backlog: see `./backlog/rewrite/README.md`.
+Inspect‑AI Rewrite backlog: see `./backlog/rewrite/README.md` (index updated with DONE/TODO).
 
 ## Deprecated/Archived
 - Stateless vs Stateful Tools (Inspect Tool Support) — superseded by the Harmonized guide: `./guides/archive/stateless-vs-stateful-tools.md`
