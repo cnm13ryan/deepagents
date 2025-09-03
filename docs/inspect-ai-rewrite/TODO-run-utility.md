@@ -1,4 +1,4 @@
-# TODO — Run Utility (execution helper)
+# DONE — Run Utility (execution helper)
 
 Context & Motivation
 - Provide a simple runner to execute the supervisor agent with string or message input, optional approval, and limits.
@@ -14,9 +14,9 @@ Implementation Guidance
     - [x] Calls `init_tool_approval(approval)` if provided
     - [x] Delegates to `inspect_ai.agent._run.run(agent, input, limits=limits)`
   - [ ] Optionally provide `run_solver(solver, input)` for solver use cases
-- [ ] Tests `tests/inspect_agents/test_run.py` covering str vs. message inputs and both agent types
+- [x] Tests `tests/integration/inspect_agents/test_run.py` covering str vs. message inputs
 
 Scope — Don’t
 - Do not depend on external model endpoints in tests; use stubs/fakes
 
-- [ ] Smoke E2E test passes returning an `AgentState` with new messages and non-empty `output`
+- [x] Smoke E2E test passes returning an `AgentState` with new messages and non-empty `output`
