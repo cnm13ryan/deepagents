@@ -219,3 +219,6 @@ __marimo__/
 .venv_tests/
 logs/
 .benchmarks/
+
+# macOS
+*.DS_Store
