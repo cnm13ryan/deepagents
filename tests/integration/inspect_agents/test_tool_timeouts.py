@@ -4,6 +4,7 @@ import sys
 import types
 
 import anyio
+import pytest
 from inspect_ai.model._call_tools import execute_tools
 from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
 from inspect_ai.tool._tool import Tool, tool
@@ -172,4 +173,3 @@ def test_sandbox_text_editor_timeout_integration():
             os.environ["INSPECT_AGENTS_FS_MODE"] = original_fs_mode  
         else:
             os.environ.pop("INSPECT_AGENTS_FS_MODE", None)
-import pytest
