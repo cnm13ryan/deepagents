@@ -5,7 +5,7 @@ This folder contains self-contained, actionable TODO checklists for each feature
 Features
 - [ ] Examples Parity — see `TODO-examples-parity.md`
 - [ ] CI & Submodule Bootstrap — see `TODO-ci-submodule-bootstrap.md`
-- [ ] Canonical Tools Rework — see `TODO-canonical-tools-rework.md`
+- [x] Canonical Tools Rework — see `TODO-canonical-tools-rework.md`
 
 Additional Cross-Cutting TODOs
 - [ ] Scoring & Tasks — see `TODO-scoring-and-tasks.md`
