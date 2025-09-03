@@ -1,0 +1,22 @@
+supervisor:
+  prompt: "You are the orchestrator."
+  attempts: 1
+
+subagents:
+  - name: research-agent
+    description: Research a topic and summarize findings.
+    prompt: |
+      You are a dedicated researcher. Investigate the user's question and provide a concise, well‑sourced answer.
+    mode: handoff
+    tools: [web_search, read_file, write_file, ls]
+    context_scope: scoped  # apply scoped quarantine to the handoff input
+
+  - name: critique-agent
+    description: Critique the draft report and suggest improvements.
+    prompt: |
+      You are a detailed editor. Critique the report for clarity, completeness, and structure.
+    mode: handoff
+    tools: [web_search, read_file, write_file, ls]
+    context_scope: strict
+
+# approvals: {}   # optional; you can supply interrupt-style rules here
