@@ -10,6 +10,7 @@ nav:
   - Getting Started:
       - Inspect Agents Quickstart: getting-started/inspect_agents_quickstart.md
       - Inspect Console Cheat Sheet: getting-started/inspect_console_cheatsheet.md
+      - Research Example (Inspect‑AI): getting-started/research_example.md
   - CLI:
       - Index: cli/README.md
       - View: cli/inspect_view.md
