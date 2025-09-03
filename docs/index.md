@@ -15,7 +15,3 @@ Welcome to the unified documentation site for DeepAgents. This site collects all
 - Open Questions: [Discussion Topics](design/open-questions.md)
 
 For a fuller section-by-section map of all docs, see the in-repo index at [docs/README.md](README.md).
-
----
-
-Tip: This is a first pass with automatic navigation. We’ll refine the left‑hand nav ordering and section grouping next.
