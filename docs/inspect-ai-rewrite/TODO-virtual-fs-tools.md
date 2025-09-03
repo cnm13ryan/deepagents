@@ -15,13 +15,15 @@ Scope — Do
   - [x] `@tool() def read_file(path: str, offset: int = 0, limit: int = 2000) -> str`
   - [x] `@tool() def write_file(path: str, content: str) -> str`
   - [x] `@tool() def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str`
+  - [x] `@tool() def delete_file(path: str) -> str` (store mode; sandbox unsupported by design)
 - [x] Mirror error semantics and include stable error codes/phrases (missing file, offset > len, uniqueness advisory) without overfitting to exact strings
-- [ ] Tests `tests/inspect_agents/test_fs_tools.py` covering:
-  - [ ] `ls` lists keys
-  - [ ] `read_file` offset/limit + cat -n formatting + 2k char truncation
-  - [ ] `write_file` persists content
-  - [ ] `edit_file` uniqueness vs `replace_all=True`
-  - [ ] Optional: instance‑scoped Files model (e.g., `Files(instance='agentA')`) to prove isolation when desired
+- [x] Tests `tests/unit/inspect_agents/test_fs_tools.py` covering:
+  - [x] `ls` lists keys
+  - [x] `read_file` offset/limit + cat -n formatting + 2k char truncation
+  - [x] `write_file` persists content
+  - [x] `edit_file` uniqueness vs `replace_all=True`
+  - [x] Instance‑scoped Files model for isolation
+  - [x] `delete_file` semantics (existing, idempotent, isolation) and sandbox-mode error
 
 Scope — Don’t
 - No disk IO; Store only (host FS mode is a separate feature)
