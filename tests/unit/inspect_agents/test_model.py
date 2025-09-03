@@ -19,6 +19,9 @@ def test_default_prefers_ollama(monkeypatch):
 
 
 def test_lm_studio_env_override(monkeypatch):
+    # Ensure global overrides don't leak in from other tests (e.g., integration
+    # test sets INSPECT_EVAL_MODEL via os.environ.setdefault)
+    monkeypatch.delenv("INSPECT_EVAL_MODEL", raising=False)
     monkeypatch.setenv("DEEPAGENTS_MODEL_PROVIDER", "lm-studio")
     monkeypatch.setenv("LM_STUDIO_MODEL_NAME", "qwen/qwen3-4b-thinking-2507")
 
