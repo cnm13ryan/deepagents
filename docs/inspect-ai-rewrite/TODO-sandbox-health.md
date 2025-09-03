@@ -8,8 +8,8 @@ Implementation Guidance
 
 Scope — Do
 - [ ] Add a preflight health check that verifies sandbox service availability
-- [ ] In tests, stub or mock sandbox transport; avoid Docker requirement in CI
-- [ ] On missing sandbox, fall back to Store-backed FS with a clear warning
+- [x] In tests, stub or mock sandbox transport; avoid Docker requirement in CI
+- [x] On missing sandbox, fall back to Store-backed FS with a clear warning
 
 Scope — Don’t
 - Don’t hard-require Docker in CI examples/tests
