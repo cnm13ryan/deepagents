@@ -215,7 +215,11 @@ class FilesParams(RootModel):
 
 # Execution functions (can be used by wrapper tools)
 async def execute_ls(params: LsParams) -> list[str] | FileListResult:
-    """Execute ls command."""
+    """Execute ls command.
+    
+    Security: In sandbox mode, uses bash_session with 'ls -1' command.
+    Falls back gracefully to store-backed mode if sandbox unavailable.
+    """
     from inspect_ai.util._store_model import store_as
 
     # Import lazily to avoid circular import during module import
@@ -226,10 +230,52 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
         phase="start",
         args={"instance": params.instance},
     )
-    files = store_as(Files, instance=params.instance)
-    file_list = files.list_files()
+
+    # Sandbox FS mode: use bash_session to run ls command
+    if _use_sandbox_fs() and await _ensure_sandbox_ready("bash session"):
+        try:
+            from inspect_ai.tool._tools._bash_session import bash_session
+
+            bash = bash_session()
+            with anyio.fail_after(_default_tool_timeout()):
+                result = await bash(action="run", command="ls -1")
+                if result and hasattr(result, "stdout") and result.stdout:
+                    # Parse output into list, filtering empty lines
+                    file_list = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
+                else:
+                    file_list = []
+
+            if _use_typed_results():
+                _log_tool_event(
+                    name="files:ls",
+                    phase="end", 
+                    extra={"ok": True, "count": len(file_list)},
+                    t0=_t0,
+                )
+                return FileListResult(files=file_list)
+            _log_tool_event(
+                name="files:ls", 
+                phase="end",
+                extra={"ok": True, "count": len(file_list)},
+                t0=_t0,
+            )
+            return file_list
+        except Exception:
+            # Graceful fallback to store-backed mode
+            pass
+
+    # Store-backed mode with timeout guard
+    with anyio.fail_after(_default_tool_timeout()):
+        files = store_as(Files, instance=params.instance)
+        file_list = files.list_files()
 
     if _use_typed_results():
+        _log_tool_event(
+            name="files:ls",
+            phase="end",
+            extra={"ok": True, "count": len(file_list) if isinstance(file_list, list) else len(file_list.files)},
+            t0=_t0,
+        )
         return FileListResult(files=file_list)
     _log_tool_event(
         name="files:ls",
@@ -241,7 +287,11 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
 
 
 async def execute_read(params: ReadParams) -> str | FileReadResult:
-    """Execute read command."""
+    """Execute read command.
+    
+    Security: In sandbox mode, uses text_editor('view') for file access.
+    Path traversal protection relies on sandbox environment isolation.
+    """
     from inspect_ai.util._store_model import store_as
 
     from .tools import _log_tool_event
@@ -272,7 +322,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     empty_message = "System reminder: File exists but has empty contents"
 
     # Sandbox FS mode: call text_editor('view', ...) then format lines
-    if _use_sandbox_fs():
+    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
 
@@ -374,7 +424,11 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
 
 async def execute_write(params: WriteParams) -> str | FileWriteResult:
-    """Execute write command."""
+    """Execute write command.
+    
+    Security: In sandbox mode, uses text_editor('create') for file creation.
+    Content is passed directly without sanitization - ensure trusted input.
+    """
     from inspect_ai.util._store_model import store_as
 
     from .tools import _log_tool_event
@@ -386,7 +440,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
     )
     summary = f"Updated file {params.file_path}"
 
-    if _use_sandbox_fs():
+    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
 
@@ -415,7 +469,11 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
 
 async def execute_edit(params: EditParams) -> str | FileEditResult:
-    """Execute edit command."""
+    """Execute edit command.
+    
+    Security: In sandbox mode, uses text_editor('str_replace') for file modification.
+    String replacement occurs without validation - ensure trusted input.
+    """
     from inspect_ai.util._store_model import store_as
 
     from .tools import _log_tool_event
@@ -432,7 +490,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         },
     )
     # For sandbox mode, we can't easily determine replacement count
-    if _use_sandbox_fs():
+    if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
         try:
             from inspect_ai.tool._tools._text_editor import text_editor
 
@@ -510,7 +568,11 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
 
 async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
-    """Execute delete command."""
+    """Execute delete command.
+    
+    Security: Delete is intentionally unsupported in sandbox mode to prevent 
+    accidental deletion of host files. Only available in store-backed mode.
+    """
     from inspect_ai.util._store_model import store_as
 
     from .tools import _log_tool_event
@@ -560,6 +622,16 @@ def files_tool():  # -> Tool
     """Unified files tool using discriminated union for commands.
 
     Supports commands: ls, read, write, edit, delete
+
+    Security Notes:
+    - In sandbox mode (INSPECT_AGENTS_FS_MODE=sandbox), file operations 
+      are routed through Inspect's text_editor tool and bash_session for ls,
+      providing isolation from the host filesystem.
+    - Store-backed mode operates on an in-memory virtual filesystem that 
+      is isolated per execution context.
+    - File paths are not validated against directory traversal attacks - 
+      ensure proper sandboxing when using with untrusted input.
+    - The delete command is not supported in sandbox mode for security reasons.
     """
     # Local imports to avoid executing inspect_ai.tool __init__ during module import
     from inspect_ai.tool._tool import tool
