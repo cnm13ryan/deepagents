@@ -48,6 +48,32 @@ When sandbox mode is enabled, the tools run a quick preflight against Inspect’
 - `delete_file` is supported only in `store` mode.
 - In `sandbox` mode, delete is intentionally disabled and returns a structured error indicating it’s unsupported. The message includes guidance to switch to store mode.
 
+## Confinement, Symlinks, and Size
+- Root confinement (sandbox): file paths are validated to live under `INSPECT_AGENTS_FS_ROOT` (absolute, default `/repo`). Attempts to access paths outside the root are rejected before invoking the editor.
+- Symlink denial (sandbox): symbolic links are denied for read/write/edit as a safety measure.
+- Store mode safety: the store is in‑memory and never touches host FS, so path escape and symlink concerns do not apply.
+- Size ceiling (both modes): `INSPECT_AGENTS_FS_MAX_BYTES` caps bytes for read/write/edit. Default 5,000,000 bytes. Exceeding the cap raises `FileSizeExceeded` with actual/max sizes.
+
+### Quick Examples
+```bash
+# Enforce a 512 KiB ceiling across both modes
+export INSPECT_AGENTS_FS_MAX_BYTES=$((512*1024))
+
+# Sandbox confinement under /repo (absolute path)
+export INSPECT_AGENTS_FS_MODE=sandbox
+export INSPECT_AGENTS_FS_ROOT=/repo
+```
+
+```json
+// Read in sandbox: path outside root is rejected
+{"params": {"command": "read", "file_path": "/etc/hosts"}}
+```
+
+```bash
+# Symlink denial (sandbox): operations targeting a symlink are denied
+ln -sf /secret /repo/link
+```
+
 ## Timeouts & Size/Truncation
 - Per‑call timeout: 15 seconds by default; override with `INSPECT_AGENTS_TOOL_TIMEOUT=<seconds>`.
 - `read_file` caps each returned line to 2000 characters before numbering. Empty files return a friendly “empty contents” message.
