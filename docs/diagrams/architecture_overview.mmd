@@ -1,0 +1,31 @@
+flowchart LR
+    %% Legend: solid = control/invocation, dashed = data/outputs
+  
+    SP[[System Prompt / Config]] --> S[Supervisor]
+    MR[Model Resolver] --> S
+    S --> L[Logs / Traces]
+  
+    %% Single-shot tools
+    S -->|tool call| AP[Approvals & Policies]
+    AP --> ST[Stateless Tools]
+    AP --> SS[Stateful Tools]
+    ST -.-> S
+    SS -.-> S
+  
+    %% FS path modes (via FS Tools)
+    subgraph "FS Path Modes (MODE=store|sandbox)"
+      direction LR
+      FST[FS Tools] -->|"store (default)"|VFS["(VFS)"]
+      FST -->|sandbox| SBX[["Sandboxed Editor (no delete)"]]
+      SBX --> HFS[(Host FS)]
+    end
+    AP --> FST
+    VFS -.-> S
+    SBX -.-> S
+    HFS -.-> S
+  
+    %% Iterative handoff
+    S -->|handoff| CG[Context Gate]
+    CG <-->|iterate| SA[Sub‑Agents]
+    SA -.-> S
+
