@@ -11,16 +11,14 @@ Tools are grouped as follows:
 
 ## Built-in (Inspect Agents)
 
+- [files](files.md) — unified file operations (ls/read/write/edit/delete)
+- [ls](ls.md) — wrapper over `files`
+- [read_file](read_file.md) — wrapper over `files`
+- [write_file](write_file.md) — wrapper over `files`
+- [edit_file](edit_file.md) — wrapper over `files`
+- [delete_file](delete_file.md) — wrapper over `files`
 - [write_todos](write_todos.md)
 - [update_todo_status](update_todo_status.md)
-- [ls](ls.md)
-- [read_file](read_file.md)
-- [write_file](write_file.md)
-- [edit_file](edit_file.md)
- - [delete_file](delete_file.md)
- - [files](files.md) — unified file operations (ls/read/write/edit/delete)
-- [delete_file](delete_file.md)
-- [files](files.md)
 
 ## Standard (Optional Providers)
 
