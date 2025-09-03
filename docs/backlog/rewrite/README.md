@@ -15,7 +15,7 @@ Feature/Work Items (alphabetical)
 - DONE — Core State Models: `./TODO-core-state-models.md`
 - DONE — Dev CLI: `./TODO-dev-cli.md`
 - TODO — Env Max Tool Output Override: `./TODO-env-max-tool-output-override.md`
-- TODO — Examples Parity: `./TODO-examples-parity.md`
+- DONE — Examples Parity: `./TODO-examples-parity.md`
 - TODO — Limits and Truncation: `./TODO-limits-and-truncation.md`
 - TODO — Logging Recorders: `./TODO-logging-recorders.md`
 - TODO — Max Tool Output Default: `./TODO-max-tool-output-default.md`

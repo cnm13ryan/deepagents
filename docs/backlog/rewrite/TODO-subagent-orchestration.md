@@ -1,4 +1,4 @@
-# done — TODO — Sub-agent Orchestration (handoff/as_tool)
+# DONE — Sub-agent Orchestration (handoff/as_tool)
 
 Context & Motivation
 - Recreate deepagents’ `task` delegation using Inspect handoff tools (`transfer_to_<name>`) and optional `as_tool` variants.

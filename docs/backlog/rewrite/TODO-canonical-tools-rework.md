@@ -1,4 +1,4 @@
-# TODO — Canonical Tools Rework (Self‑Contained Implementation Prompts)
+# DONE — Canonical Tools Rework (Self‑Contained Implementation Prompts)
 
 Status: Complete
 - Completed: 1) Sandbox timeouts; 2) ToolException errors; 3) Typed results (env‑gated);
