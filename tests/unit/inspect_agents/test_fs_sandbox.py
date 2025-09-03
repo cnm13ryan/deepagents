@@ -2,7 +2,7 @@ import asyncio
 import sys
 import types
 
-from inspect_agents.tools import edit_file, read_file, write_file
+from inspect_agents.tools import edit_file, ls, read_file, write_file
 
 
 def _install_editor_stub(fs: dict[str, str]):
@@ -53,10 +53,41 @@ def _install_editor_stub(fs: dict[str, str]):
     sys.modules[mod_name] = mod
 
 
+def _install_bash_stub(fs: dict[str, str]):
+    # Provide a lightweight bash_session that lists files from the passed dict
+    mod_name = "inspect_ai.tool._tools._bash_session"
+    if mod_name in sys.modules:
+        del sys.modules[mod_name]
+
+    mod = types.ModuleType(mod_name)
+
+    from inspect_ai.tool._tool import Tool, tool
+
+    class MockResult:
+        def __init__(self, stdout: str):
+            self.stdout = stdout
+
+    @tool()
+    def bash_session() -> Tool:  # type: ignore[return-type]
+        async def execute(action: str, command: str | None = None) -> MockResult:
+            if action == "run" and command == "ls -1":
+                # Return files from the dict as a newline-separated list
+                file_list = list(fs.keys())
+                return MockResult("\n".join(file_list))
+            else:
+                return MockResult("")
+
+        return execute
+
+    mod.bash_session = bash_session
+    sys.modules[mod_name] = mod
+
+
 def test_sandbox_mode_uses_editor_stub(monkeypatch):
     monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
     fs: dict[str, str] = {}
     _install_editor_stub(fs)
+    _install_bash_stub(fs)
 
     r = read_file()
     w = write_file()
@@ -93,3 +124,20 @@ def test_sandbox_mode_graceful_fallback_without_editor(monkeypatch):
     out1, out2 = asyncio.run(roundtrip())
     assert out1.strip().endswith("beta")
     assert out2.strip().endswith("BETA")
+
+
+def test_sandbox_ls_command(monkeypatch):
+    monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
+    fs: dict[str, str] = {"file1.txt": "content1", "file2.py": "print('hello')", "README.md": "# Project"}
+    _install_editor_stub(fs)
+    _install_bash_stub(fs)
+
+    ls_tool = ls()
+
+    async def test_ls():
+        result = await ls_tool()
+        return result
+
+    file_list = asyncio.run(test_ls())
+    assert isinstance(file_list, list)
+    assert set(file_list) == {"file1.txt", "file2.py", "README.md"}
