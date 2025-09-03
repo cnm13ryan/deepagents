@@ -1,9 +1,9 @@
 # TODO — Canonical Tools Rework (Self‑Contained Implementation Prompts)
 
-Status: Partial
+Status: Complete
 - Completed: 1) Sandbox timeouts; 2) ToolException errors; 3) Typed results (env‑gated);
-  4) Unified files tool with wrappers; 5) Approval preset tightening; 6) Structured observability.
-- Pending: 7) `delete_file` command/tool; 8) Strict Pydantic input models for todos (`extra="forbid"`).
+  4) Unified files tool with wrappers; 5) Approval preset tightening; 6) Structured observability;
+  7) `delete_file` command/tool with tests; 8) Strict Pydantic input models for files and todos (`extra="forbid"`).
 
 This document contains discrete, handoff‑ready prompts for improving the canonical tools (`Todos` + virtual FS) and related approval/observability policies. Each prompt is complete and actionable for a professional SWE.
 
