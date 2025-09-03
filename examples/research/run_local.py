@@ -1,326 +1,208 @@
-#!/usr/bin/env python
-# ruff: noqa: E402, E501
+#!/usr/bin/env python3
+# ruff: noqa: E402
 """
-Local runner for the Deep Research agent using constituent components from this repo.
+Inspect‑AI runner for the research example (no external agent frameworks).
 
-Why: Avoid importing an installed `deepagents` wheel from PyPI. This script injects the
-repo's `src/` into `sys.path` so imports like `from deepagents.graph import create_deep_agent`
-use the local source tree.
+What it does
+- Loads .env files (repo root, this folder, or --env-file) without overriding
+  existing env vars.
+- Resolves a local‑first model via inspect_agents and runs a minimal supervisor
+  once with the provided prompt.
+- Prints the final completion and writes a transcript JSONL path.
 
-Usage examples
---------------
-1) Use a local Ollama model (no cloud keys):
-   - uv add langchain-ollama
-   - export DEEPAGENTS_MODEL=ollama:llama3.1:8b
-   - python examples/research/run_local.py "Write a short overview of LangGraph"
-
-2) Use default Anthropic model (requires key):
-   - export ANTHROPIC_API_KEY=...
-   - python examples/research/run_local.py "what is langgraph?"
-
-Optional: Tavily search
-   - uv add tavily-python
-   - export TAVILY_API_KEY=...
-    If not configured, the `internet_search` tool returns a disabled message instead
-    of failing, so the agent can still run fully locally.
-
-Environment loading
--------------------
-This script automatically loads environment variables from `.env` files without
-overriding already-set variables:
- - examples/research/.env (preferred)
- - repo-root/.env (fallback)
-
-Model selection
----------------
-The script automatically detects your .env configuration and uses the appropriate provider:
-- If DEEPAGENTS_MODEL_PROVIDER is set in .env, uses that provider configuration
-- If DEEPAGENTS_MODEL is set, uses explicit model specification
-- Otherwise falls back to a local default (Ollama)
-Set FORCE_REPO_DEFAULT=1 to always use the repo default model.
+Usage
+  uv run python examples/research/run_local.py "What is Inspect‑AI?"
 """
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import os
 import sys
-from typing import Literal
+from pathlib import Path
 
 # Ensure local repo sources are imported (not an installed wheel)
-CURRENT_DIR = os.path.dirname(__file__)
-REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
-SRC_DIR = os.path.join(REPO_ROOT, "src")
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-# Load .env files (do not override pre-set env vars)
-def _load_env_files():
-    # Prefer a real dotenv if available
+
+def _load_env_files() -> None:
+    """Load .env files from repo root and this example if available.
+
+    Respects INSPECT_ENV_FILE and does not override pre-existing env vars.
+    """
     try:
         from dotenv import load_dotenv  # type: ignore
 
-        load_dotenv(os.path.join(REPO_ROOT, ".env"), override=False)
-        load_dotenv(os.path.join(CURRENT_DIR, ".env"), override=False)
+        # 0) Explicit file via env var wins (highest precedence among files)
+        explicit = os.getenv("INSPECT_ENV_FILE")
+        if explicit:
+            load_dotenv(explicit, override=False)
+
+        # 1) Repo root .env
+        load_dotenv(REPO_ROOT / ".env", override=False)
+
+        # 2) Per-example .env (kept for convenience)
+        load_dotenv(Path(__file__).parent / ".env", override=False)
+
+        # 3) Centralized template as fill‑in (lowest precedence)
+        load_dotenv(REPO_ROOT / "env_templates" / "inspect.env", override=False)
         return
     except Exception:
         pass
 
-    # Minimal fallback parser
-    def _load_one(path: str):
-        if not os.path.exists(path):
+    # Minimal fallback parser if python-dotenv isn't available
+    def _load_one(path: Path) -> None:
+        if not path.exists():
             return
         try:
-            with open(path, encoding="utf-8") as f:
-                for raw in f:
-                    line = raw.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "=" not in line:
-                        continue
-                    key, val = line.split("=", 1)
-                    key = key.strip()
-                    val = val.strip().strip('"').strip("'")
-                    if key and key not in os.environ:
-                        os.environ[key] = val
+            for raw in path.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = val
         except Exception:
-            # Silently ignore malformed env files
             return
 
-    # Load root first, then example-specific (example takes precedence for new keys)
-    _load_one(os.path.join(REPO_ROOT, ".env"))
-    _load_one(os.path.join(CURRENT_DIR, ".env"))
+    _load_one(REPO_ROOT / ".env")
+    _load_one(Path(__file__).parent / ".env")
 
 
-_load_env_files()
-
-# Now we can import from the local source tree
-from deepagents.graph import create_deep_agent
-from deepagents.sub_agent import SubAgent
-
-# Model selection: prefer env-specified model (e.g., Ollama), else default
-try:
-    from langchain.chat_models import init_chat_model  # available with langchain
-except Exception:  # pragma: no cover - optional dep path
-    init_chat_model = None  # type: ignore
-
-
-KNOWN_PROVIDERS = {
-    "ollama",
-    "openai",
-    "anthropic",
-    "google",
-    "vertexai",
-    "cohere",
-    "mistralai",
-    "groq",
-    "fireworks",
-    "perplexity",
-    "together",
-    "azure",
-    "openrouter",
-    "deepseek",
-    "bedrock",
-}
-
-
-def _init_model_from_string(model_str: str):
-    if init_chat_model is None:
-        raise RuntimeError(
-            "`init_chat_model` is unavailable. Install the appropriate integration (e.g., `uv add langchain-ollama`)."
-        )
-
-    # If the string already has a known provider prefix, use as-is
-    if ":" in model_str:
-        prefix = model_str.split(":", 1)[0].lower()
-        if prefix in KNOWN_PROVIDERS:
-            return init_chat_model(model=model_str)
-
-    # Otherwise, infer or require a provider
-    provider = os.getenv("DEEPAGENTS_MODEL_PROVIDER")
-    if not provider:
-        # Heuristics: if Ollama integration/env looks present, default to ollama
-        try:
-            import langchain_ollama  # noqa: F401
-
-            provider = "ollama"
-        except Exception:
-            pass
-        if not provider and any(os.getenv(k) for k in ("OLLAMA_HOST", "OLLAMA_BASE_URL")):
-            provider = "ollama"
-
-    if not provider:
-        raise RuntimeError(
-            f"Unable to infer model provider for model='{model_str}'. Either prefix it (e.g., 'ollama:<tag>') "
-            "or set DEEPAGENTS_MODEL_PROVIDER=ollama."
-        )
-
-    return init_chat_model(model=model_str, model_provider=provider)
-
-
-def get_model():
-    """Resolve the chat model with safe defaults.
-
-    Priority:
-    1) Use explicit `DEEPAGENTS_MODEL` (provider inferred or specified).
-    2) Check if .env has provider configuration and use repo's get_default_model().
-    3) Otherwise, use local fallback (provider inferred or DEEPAGENTS_MODEL_PROVIDER).
-    4) If `FORCE_REPO_DEFAULT=1`, always use the repo's `get_default_model()`.
-    """
-    model_id = os.getenv("DEEPAGENTS_MODEL")
-    force_repo_default = os.getenv("FORCE_REPO_DEFAULT") == "1"
-
-    if model_id:
-        return _init_model_from_string(model_id)
-
-    # Check if we have .env configuration for a provider
-    provider = os.getenv("DEEPAGENTS_MODEL_PROVIDER")
-    if provider or force_repo_default:
-        # Use the repo's default model which respects .env configuration
-        from deepagents.model import get_default_model
-        return get_default_model()
-
-    # Fallback to local default to avoid accidental cloud usage
-    default_local = os.getenv("DEFAULT_LOCAL_MODEL", "ollama:llama3.1:8b")
-    return _init_model_from_string(default_local)
-
-
-# ----- Optional Tavily search tool -----
-try:
-    from tavily import TavilyClient  # type: ignore
-except Exception:  # pragma: no cover - optional dep may be missing
-    TavilyClient = None  # type: ignore
-
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-_tavily_client = None
-if TavilyClient and TAVILY_API_KEY:
-    try:
-        _tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
-    except Exception:
-        _tavily_client = None
-
-
-def internet_search(
-    query: str,
-    max_results: int = 5,
-    topic: Literal["general", "news", "finance"] = "general",
-    include_raw_content: bool = False,
-):
-    """Run a web search (optional). Returns a disabled note if not configured."""
-    if _tavily_client is None:
-        return {
-            "error": "Tavily search disabled: set TAVILY_API_KEY and install tavily-python to enable.",
-            "query": query,
-        }
-    return _tavily_client.search(
-        query,
-        max_results=max_results,
-        include_raw_content=include_raw_content,
-        topic=topic,
+async def _main() -> int:
+    from inspect_agents.agents import build_supervisor, build_subagents
+    from inspect_agents.logging import write_transcript
+    from inspect_agents.model import resolve_model
+    from inspect_agents.run import run_agent
+    from inspect_agents.approval import approval_preset, handoff_exclusive_policy
+    from inspect_agents.config import load_and_build
+    from inspect_agents.tools import (
+        edit_file,
+        ls,
+        read_file,
+        standard_tools,
+        update_todo_status,
+        write_file,
+        write_todos,
     )
 
-
-# ----- Sub-agent prompts -----
-sub_research_prompt = """You are a dedicated researcher. Your job is to conduct research based on the users questions.
-
-Conduct thorough research and then reply to the user with a detailed answer to their question.
-Only your FINAL answer will be passed on to the user. They will have NO knowledge of anything except your final message, so your final report should be your final message!"""
-
-research_sub_agent: SubAgent = {
-    "name": "research-agent",
-    "description": (
-        "Used to research more in depth questions. Only give this researcher one topic at a time. "
-        "Do not pass multiple sub questions to this researcher. Instead, break down a large topic into the necessary "
-        "components, and then call multiple research agents in parallel, one for each sub question."
-    ),
-    "prompt": sub_research_prompt,
-    "tools": ["internet_search"],
-}
-
-sub_critique_prompt = """You are a dedicated editor tasked to critique a report.
-
-You can find the report at `final_report.md`.
-You can find the question/topic for this report at `question.txt`.
-
-Respond with a detailed critique of the report, pointing out specific areas for improvement.
-You may use the search tool to validate facts, but do not write to `final_report.md` yourself.
-
-Things to check:
-- Appropriate, clear section names
-- Written in paragraph form by default (not only bullet points)
-- Comprehensive coverage and depth; identify missing or shallow sections
-- Balanced analysis that directly addresses the research topic
-- Clear structure and easy to understand
-"""
-
-critique_sub_agent: SubAgent = {
-    "name": "critique-agent",
-    "description": "Used to critique the final report.",
-    "prompt": sub_critique_prompt,
-}
-
-
-# ----- Main agent instructions -----
-research_instructions = """You are an expert researcher. Your job is to conduct thorough research, and then write a polished report.
-
-The first thing you should do is to write the original user question to `question.txt` so you have a record of it.
-
-Use the research-agent to conduct deep research. It will respond to your questions/topics with a detailed answer.
-When you think you have enough information to write a final report, write it to `final_report.md`.
-You can call the critique-agent to get a critique of the final report, iterate, and improve.
-
-Only edit a single file at a time to avoid conflicts. Use clear markdown with `#` for title, `##` for sections, and `###` for subsections.
-Include a Sources section with links. Ensure the final answer is in the same language as the user's question.
-
-You have access to a few tools.
-
-## `internet_search`
-Use this to run an internet search for a given query. You can specify the number of results, the topic, and whether raw content should be included.
-"""
-
-
-def build_agent():
-    model = get_model()
-    agent = create_deep_agent(
-        tools=[internet_search],
-        instructions=research_instructions,
-        model=model,
-        subagents=[critique_sub_agent, research_sub_agent],
-    ).with_config({"recursion_limit": int(os.getenv("RECURSION_LIMIT", "1000"))})
-    return agent
-
-
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run the local Deep Research agent.")
-    parser.add_argument("prompt", nargs="*", help="User question or task for the agent")
-    parser.add_argument("--print-files", action="store_true", help="Print any files written by the agent")
+    parser = argparse.ArgumentParser(
+        description="Run the Inspect‑AI research supervisor.",
+        epilog=(
+            "Quarantine: control handoff input filtering via INSPECT_QUARANTINE_MODE "
+            "(strict|scoped|off) and INSPECT_QUARANTINE_INHERIT=0/1."
+        ),
+    )
+    parser.add_argument("prompt", nargs="*", help="User prompt text")
+    parser.add_argument(
+        "--enable-web-search",
+        action="store_true",
+        help="Enable Inspect standard web_search tool",
+    )
+    parser.add_argument(
+        "--approval",
+        choices=["dev", "ci", "prod"],
+        help="Apply an approvals preset (dev|ci|prod)",
+    )
+    parser.add_argument(
+        "--config",
+        help="Load composition from YAML (inspect_agents.config)",
+    )
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv(
-        "PROMPT", "Write a short overview of LangGraph without web search."
+        "PROMPT", "Write a short overview of Inspect‑AI"
     )
+    if args.enable_web_search:
+        os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
 
-    agent = build_agent()
-    result = agent.invoke({"messages": [{"role": "user", "content": user_input}]})
+    # Local‑first: let resolver choose provider/model (defaults to Ollama if unset)
+    model_id = resolve_model()
 
-    # Print the final assistant message
-    messages = result.get("messages", [])
-    if messages:
-        print(messages[-1].content)
+    # If a YAML config is provided, build from config; else use the inline composition
+    yaml_agent = None
+    yaml_approvals = []
+    if args.config:
+        yaml_agent, _, yaml_approvals = load_and_build(args.config, model=model_id)
+        agent = yaml_agent
     else:
-        print("[No messages returned]")
+        # Build base tools for sub-agents (same composition as library built-ins)
+        builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
+        base_tools = builtins + standard_tools()
 
-    if args.print_files:
-        files = result.get("files") or {}
-        if files:
-            print("\n--- Files ---")
-            for name, content in files.items():
-                print(f"\n# {name}\n{content}")
+        # Sub-agent prompts (lightweight researcher and critique roles)
+        sub_research_prompt = (
+            "You are a dedicated researcher. Your job is to conduct research based on the user's question.\n\n"
+            "Conduct thorough research and then reply with a detailed answer."
+        )
+        sub_critique_prompt = (
+            "You are a dedicated editor tasked to critique a report.\n\n"
+            "The report is in `final_report.md`; the question is in `question.txt`.\n"
+            "Respond with a detailed critique and concrete improvements."
+        )
+
+        sub_configs = [
+            {
+                "name": "research-agent",
+                "description": (
+                    "Used to research more in-depth questions. Only give this researcher one topic at a time."
+                ),
+                "prompt": sub_research_prompt,
+                "tools": ["web_search", "read_file", "write_file", "ls"],
+                "mode": "handoff",
+            },
+            {
+                "name": "critique-agent",
+                "description": "Used to critique the final report.",
+                "prompt": sub_critique_prompt,
+                "tools": ["web_search", "read_file", "write_file", "ls"],
+                "mode": "handoff",
+            },
+        ]
+
+        subagent_tools = build_subagents(configs=sub_configs, base_tools=base_tools)
+
+        agent = build_supervisor(
+            prompt="You are a helpful researcher.",
+            tools=subagent_tools,
+            attempts=1,
+            model=model_id,
+        )
+    # Approval policies (optional): apply preset and handoff exclusivity in dev/prod
+    policies = list(yaml_approvals or []) or None
+    if args.approval:
+        extra = list(approval_preset(args.approval))
+        if args.approval in {"dev", "prod"}:
+            extra.extend(handoff_exclusive_policy())
+        policies = (policies or []) + extra
+    result = await run_agent(agent, user_input, approval=policies)
+
+    # Print the final assistant completion and transcript log path
+    completion = getattr(result.output, "completion", None)
+    print(completion or "[No completion]")
+    print("Transcript:", write_transcript())
+    return 0
 
 
-# Expose a global `agent` for LangGraph Studio integration
-agent = build_agent()
+def main() -> None:
+    # Optional lightweight pre-parse of --env-file to point at a specific env
+    try:
+        mini = argparse.ArgumentParser(add_help=False)
+        mini.add_argument("--env-file")
+        known, _ = mini.parse_known_args()
+        if known.env_file:
+            os.environ["INSPECT_ENV_FILE"] = known.env_file
+    except Exception:
+        pass
+
+    _load_env_files()
+    raise SystemExit(asyncio.run(_main()))
 
 
 if __name__ == "__main__":

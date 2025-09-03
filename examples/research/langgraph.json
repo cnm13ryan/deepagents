@@ -1,7 +1,0 @@
-{
-  "dependencies": ["."],
-  "graphs": {
-    "research": "./run_local.py:agent"
-  },
-  "env": ".env"
-}
