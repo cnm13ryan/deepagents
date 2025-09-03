@@ -74,11 +74,21 @@ def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
                 return Approval(decision="approve", explanation=explanation)
 
         # Attach registry info so Inspect can log without error
+        info = RegistryInfo(type="approver", name=f"inline/{tool}")
+        # Primary: attach registry info using Inspect's helper
         registry_tag(
             lambda: None,  # signature template without required args
             _approve,
-            RegistryInfo(type="approver", name=f"inline/{tool}"),
+            info,
         )
+        # Fallback: also set the well-known attribute directly so environments
+        # with partially stubbed approval modules still recognize the approver
+        # Try multiple well-known attribute names used by Inspect versions
+        for attr in ("__registry_info__", "REGISTRY_INFO"):
+            try:
+                setattr(_approve, attr, info)
+            except Exception:
+                pass
 
         policies.append(ApprovalPolicy(approver=_approve, tools=tool))
 
