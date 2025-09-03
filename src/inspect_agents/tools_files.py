@@ -160,8 +160,9 @@ async def _deny_symlink(path: str) -> None:
         if not await _ensure_sandbox_ready("bash session"):
             return
 
-        from inspect_ai.tool._tools._bash_session import bash_session
         import shlex
+
+        from inspect_ai.tool._tools._bash_session import bash_session
 
         bash = bash_session()
         # Properly escape the path for shell execution
@@ -356,8 +357,9 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
             # Use the configured FS root for ls operation
             root = _fs_root()
 
-            from inspect_ai.tool._tools._bash_session import bash_session
             import shlex
+
+            from inspect_ai.tool._tools._bash_session import bash_session
 
             bash = bash_session()
             # Properly escape the root path for shell execution
@@ -464,8 +466,9 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
             # If bash isn't available (common in unit tests), gracefully skip.
             file_bytes: int | None = None
             try:
-                from inspect_ai.tool._tools._bash_session import bash_session
                 import shlex
+
+                from inspect_ai.tool._tools._bash_session import bash_session
 
                 bash = bash_session()
                 escaped_path = shlex.quote(validated_path)
@@ -737,8 +740,9 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             # isn't available (common in unit tests), skip estimation.
             current_bytes: int | None = None
             try:
-                from inspect_ai.tool._tools._bash_session import bash_session
                 import shlex
+
+                from inspect_ai.tool._tools._bash_session import bash_session
 
                 bash = bash_session()
                 escaped_path = shlex.quote(validated_path)
