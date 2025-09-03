@@ -308,7 +308,7 @@ grep -R "status" src/inspect_agents/tools.py
 - [x] Add an Inspect tool `update_todo_status(todo_index: int, status: str, allow_direct_complete: bool = false)` or modify `write_todos` to support updating existing items by index.
 - [x] Update `Todos` model with a method `update_status(index, status, allow_direct_complete=False)` that validates transitions and logs a warning when `pending → completed` occurs with `allow_direct_complete=True`.
 - [x] Warning sink: log via Python `logging` and include a structured payload/log entry when a direct completion occurs (hybrid approach), documented for consistency across tools.
-- [ ] Write unit tests for valid and invalid transitions (e.g., cannot move directly from pending to completed without in_progress).
+- [x] Write unit tests for valid and invalid transitions (e.g., cannot move directly from pending to completed without in_progress).
 
 **Out of Scope:**
 - [ ] UI or CLI changes to display status progress.
@@ -334,15 +334,15 @@ pytest --cov=inspect_agents --cov-report=term-missing
 
 #### Edge Cases
 
-- [ ] Invalid index; should raise an error.
-- [ ] Invalid status value; should be rejected.
+- [x] Invalid index; should raise an error.
+- [x] Invalid status value; should be rejected.
 - [ ] Concurrent updates from multiple sub-agents.
-- [ ] Direct `pending → completed` only allowed when `allow_direct_complete=True`; ensure a warning is logged.
+- [x] Direct `pending → completed` only allowed when `allow_direct_complete=True`; ensure a warning is logged.
 
 ### Success Criteria
 
-- [ ] New tests pass; todo statuses can be updated correctly.
-- [ ] No regression in existing tests.
+- [x] New tests pass; todo statuses can be updated correctly.
+- [x] No regression in existing tests.
 - [ ] Documentation and examples updated.
 
 ### Quick Start
