@@ -13,13 +13,13 @@ Scope — Do
 - [x] Choose default recorder(s) and output directory (e.g., `.inspect/logs/`) — transcript writer defaults added
 - [ ] Initialize recorder at run start; ensure it is active for agent.run
 - [x] Add docs: where logs live; how to open transcripts/bundles — quickstart updated with `write_transcript()`
-- [ ] Tests assert presence of `StoreEvent` after state changes and `ToolEvent` after tool calls
- - [x] Define a redaction policy for sensitive fields (API keys, tokens, file paths) and apply it consistently to viewer content and logs
+- [x] Tests assert presence of `ToolEvent` after tool calls and verify redaction
+- [x] Define a redaction policy for sensitive fields (API keys, tokens, file paths) and apply it consistently to viewer content and logs
 
 Scope — Don’t
 - Don’t reimplement Inspect logging; configure and document usage
 
 Success Criteria
 - [ ] Running examples generate transcript + file bundle
-- [ ] Tests parse recent bundle and find StoreEvent + ToolEvent entries
- - [ ] Sensitive fields are redacted in viewer output and transcript bundle
+- [ ] Tests parse recent bundle and find StoreEvent entries (ToolEvent already covered)
+- [x] Sensitive fields are redacted in viewer output and transcript bundle
