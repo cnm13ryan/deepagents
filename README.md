@@ -24,8 +24,6 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ **Safe by default**: Approvals, quarantine filters, and sandbox file operations
 - ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
 
- 
-
 ## Installation
 
 ### Prerequisites
@@ -202,6 +200,11 @@ Fallback: `docs/diagrams/architecture_overview.png`
 - **Status**: Beta
 - **Python**: 3.11+ (tested on 3.12)
 - **Roadmap**: [GitHub Milestones](https://github.com/cnm13ryan/deepagents/milestones) | [Projects](https://github.com/cnm13ryan/deepagents/projects)
+
+### Coming Soon
+- CI workflows (tests, lint, coverage) and release automation
+- Expanded examples for web_browser and sandboxed exec
+- Additional sub-agent templates (researcher, coder, editor)
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
