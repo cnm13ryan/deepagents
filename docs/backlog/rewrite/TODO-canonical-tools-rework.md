@@ -11,7 +11,7 @@ References
 - Tools code: `src/inspect_agents/tools.py`
 - State models: `src/inspect_agents/state.py`
 - Approvals: `src/inspect_agents/approval.py`
-- Umbrella & design docs: `docs/tool-umbrellas.md`, `docs/stateless-vs-stateful-tools-harmonized.md`
+- Umbrella & design docs: `docs/guides/tool-umbrellas.md`, `docs/guides/stateless-vs-stateful-tools-harmonized.md`
 
 ---
 

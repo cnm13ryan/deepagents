@@ -144,7 +144,7 @@ Last Updated: 2025-09-03 (sync checkboxes with current code/tests)
   - [ ] Make safety posture obvious in entry-point docs and tool docstrings.
 
 - Implementation Guidance
-  - Files: `docs/inspect_agents_quickstart.md`, `docs/tool-umbrellas.md`, `src/inspect_agents/tools_files.py`
+  - Files: `docs/getting-started/inspect_agents_quickstart.md`, `docs/guides/tool-umbrellas.md`, `src/inspect_agents/tools_files.py`
   - Grep: `INSPECT_AGENTS_FS_MODE`, `Security Notes:`
   - Tasks
     - [ ] Link ADR-0004 from Quickstart and Tool Umbrellas.
