@@ -259,6 +259,119 @@ Decision needed by: 2025‑09‑10.
 
 - Guidance:
   - Keep `INSPECT_DISABLE_TOOL_PARALLEL=1` as the single control for serialism; it is orthogonal to handoff exclusivity (gating) which remains enforced in both v1 and v2.
+
+---
+
+# Open Questions — Inspect Research Example Migration
+
+This page tracks open decisions that surfaced while migrating the Research example to the Inspect‑AI path (Features 1–8). Each item includes context, current behavior, options, and a lightweight recommendation to help converge quickly.
+
+## 1) Web‑Search UX: CLI flags vs env‑only
+- Context: Feature 2/3 added sub‑agents and switched to Inspect `web_search`. We exposed a minimal `--enable-web-search` flag, while other toggles remain env‑driven.
+- Current Behavior: `examples/research/run_local.py` supports `--enable-web-search` (sets `INSPECT_ENABLE_WEB_SEARCH=1`), other toggles (exec, browser, text editor) are env‑only.
+- Options:
+  - A) Keep only `--enable-web-search`; leave other toggles to env (simple CLI).
+  - B) Add parity flags (`--enable-exec`, `--enable-web-browser`, `--enable-text-editor-tool`) mirroring `examples/inspect/run.py`.
+- Considerations: simplicity vs. parity; support burden; discoverability of power features.
+- Tentative Recommendation: Start with A (current), revisit parity after first user feedback.
+
+## 2) Supervisor Prompt Guidance for Handoffs
+- Context: Feature 2 introduced `transfer_to_<name>` tools. Prompt could nudge delegation explicitly.
+- Current Behavior: Simple prompt "You are a helpful researcher." (inline path) or YAML prompt in `examples/research/inspect.yaml`.
+- Options:
+  - A) Keep minimal; rely on tool descriptions.
+  - B) Add a short guidance block encouraging use of `transfer_to_research-agent` and `transfer_to_critique-agent`.
+- Considerations: Too much specificity may overfit; minimal works with most models.
+- Tentative Recommendation: B, add a one‑sentence nudge once sub‑agent prompts settle.
+
+## 3) Quarantine Convenience Flag
+- Context: Quarantine is env‑controlled (`INSPECT_QUARANTINE_MODE`, `INSPECT_QUARANTINE_INHERIT`).
+- Current Behavior: Documented in runner help epilog; no CLI flag.
+- Options:
+  - A) Add `--quarantine-mode strict|scoped|off` to export env before build.
+  - B) Keep env‑only to avoid CLI sprawl.
+- Considerations: Tests/docs already reference env; flag is sugar.
+- Tentative Recommendation: A (small, non‑breaking UX improvement).
+
+## 4) Handoff Exclusivity in CI
+- Context: Feature 4 appends `handoff_exclusive_policy()` for dev/prod approvals presets.
+- Current Behavior: Applied for `--approval dev|prod`, not for `ci`.
+- Options:
+  - A) Apply in CI too (ensures deterministic single‑handoff behavior in automation).
+  - B) Leave CI permissive (fast, fewer rejections).
+- Considerations: CI flakes vs. debugging friction.
+- Tentative Recommendation: A, enable in CI as well.
+
+## 5) Top‑Level README Callout
+- Context: Research example is now Inspect‑native.
+- Current Behavior: No explicit snippet in the repo root README.
+- Options:
+  - A) Add a short "Research Example" run command (with link to docs page).
+  - B) Rely on MkDocs navigation only.
+- Considerations: Many readers scan the README first.
+- Tentative Recommendation: A, add a 3‑line snippet.
+
+## 6) Makefile Convenience Target
+- Context: Users often benefit from a one‑shot target for examples.
+- Current Behavior: No Makefile target.
+- Options:
+  - A) Add `make research` → `uv run python examples/research/run_local.py "..."`.
+  - B) Skip to avoid Makefile drift.
+- Considerations: Optional; low cost.
+- Tentative Recommendation: A, add minimal target with overridable `PROMPT`.
+
+## 7) Test That Triggers a Handoff
+- Context: Feature 6 smoke test uses a toy submit model; it doesn’t exercise `handoff()` end‑to‑end.
+- Current Behavior: New test asserts completion + transcript only.
+- Options:
+  - A) Add a toy model that first calls `transfer_to_research-agent`, then `submit` (assert quarantine filtering via store keys).
+  - B) Keep current minimal smoke.
+- Considerations: Extra coverage for filters; modest complexity.
+- Tentative Recommendation: A, add a second test.
+
+## 8) Transcript Directory Policy in Tests
+- Context: Feature 6 writes transcripts to `tmp_path` via `INSPECT_LOG_DIR`.
+- Current Behavior: Always sets a temp dir in the test.
+- Options:
+  - A) Keep forcing temp dir (hermetic).
+  - B) Use default `.inspect/logs` (matches docs).
+- Considerations: Hermetic tests preferred.
+- Tentative Recommendation: A (keep hermetic).
+
+## 9) Docs Depth: "Handoffs in Action" and Troubleshooting
+- Context: Feature 7 adds a Getting Started page for the example.
+- Current Behavior: No explicit handoff transcript walkthrough; troubleshooting is brief.
+- Options:
+  - A) Add a short transcript excerpt showing a `transfer_to_research-agent` call and outcomes.
+  - B) Add a Troubleshooting box (missing Ollama/LM‑Studio; provider envs; transcript path).
+  - C) Keep minimal.
+- Considerations: Support burden vs. page length.
+- Tentative Recommendation: A+B in a collapsible details block.
+
+## 10) YAML Approvals Example
+- Context: Feature 8 adds `inspect.yaml` but no approvals block.
+- Current Behavior: Presets are passed via `--approval`; YAML left empty for simplicity.
+- Options:
+  - A) Include a commented example that gates `bash`/`python`.
+  - B) Provide a separate `inspect.approvals.yaml` sample.
+  - C) Leave as‑is.
+- Considerations: Avoid confusion between CLI presets and inline rules.
+- Tentative Recommendation: A (commented example inline).
+
+## 11) Provider/Model Flags Parity
+- Context: Runner currently relies on resolver defaults; the Inspect example runner exposes `--provider/--model`.
+- Current Behavior: No provider/model flags in `examples/research/run_local.py`.
+- Options:
+  - A) Add `--provider` and `--model` (pass to `resolve_model`).
+  - B) Keep implicit/local‑first.
+- Considerations: Parity vs. simplicity; many users appreciate explicit control.
+- Tentative Recommendation: A, add flags mirroring `examples/inspect/run.py`.
+
+---
+
+Owner: Inspect‑AI migration maintainers  
+Last updated: YYYY‑MM‑DD  
+Status: Open — accepting comments and PRs.
   - If both `INSPECT_DISABLE_TOOL_PARALLEL=1` and `INSPECT_EXECUTOR_PRESCAN_HANDOFF=1` are set: executor runs serially and also pre‑scans to avoid enqueuing skipped calls; transcript should still include standardized "skipped" ToolEvents as above.
   - For stricter governance, pair with an approval preset that gates broad tool usage (e.g., prod gate). 〖F:src/inspect_agents/approval.py†L180-L189〗
 
