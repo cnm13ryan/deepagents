@@ -1,7 +1,7 @@
 # deepagents
-> Inspect‑AI–native, CLI‑first agents with typed state, tools, and rich traces.
+> Inspect-AI-native, CLI-first agents with typed state, tools, and rich traces.
 
-![TODO: Project Logo or 10s Demo GIF — capture a terminal session running the one‑line CLI quickstart below; crop to 1280×720; show the command, a short model completion, and the printed transcript path](TODO: add link)
+![TODO: Project Logo or 10s Demo GIF – capture a terminal session running the one-line CLI quickstart below; crop to 1280×720; show the command, a short model completion, and the printed transcript path](TODO: add link)
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/cnm13ryan/deepagents/ci.yml?branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/actions)
 [![Tests](https://img.shields.io/github/actions/workflow/status/cnm13ryan/deepagents/tests.yml?label=tests&branch=inspect-ai-rewrite)](https://github.com/cnm13ryan/deepagents/actions)
