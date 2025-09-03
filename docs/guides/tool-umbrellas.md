@@ -1,11 +1,11 @@
 # Canonical and Standard Tools — Stateless vs Stateful Umbrellas
 
-This page maps the tools exposed by the Inspect‑AI path in this repo into two umbrellas, following the definitions and guidance in `docs/stateless-vs-stateful-tools.md`:
+This page maps the tools exposed by the Inspect‑AI path in this repo into two umbrellas, following the definitions and guidance in `./stateless-vs-stateful-tools-harmonized.md`:
 
 - Stateless: no retained in‑memory/process state between calls; each invocation is self‑contained.
 - Stateful: maintains per‑session state (e.g., long‑lived processes or browser contexts) addressed by a session id.
 
-Refer to `docs/stateless-vs-stateful-tools.md` for full design/ops guidance.
+Refer to `./stateless-vs-stateful-tools-harmonized.md` for full design/ops guidance.
 
 ## Stateless Umbrella
 
@@ -39,4 +39,3 @@ Standard tools:
 ## FS Mode and Safety
 
 - By default, file tools (`ls`, `read_file`, `write_file`, `edit_file`) use the in‑memory `Files` StoreModel (stateless per call). When `INSPECT_AGENTS_FS_MODE=sandbox`, these tools proxy to `text_editor(...)` against a host‑mounted sandbox. This does not introduce per‑session browser/shell state; treat them as stateless for categorization here.
-

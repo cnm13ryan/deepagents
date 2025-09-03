@@ -106,11 +106,10 @@
   - [ ] Provide clear, copy-pasteable examples for role mapping via env and pyproject.
   - [ ] Value: faster onboarding; fewer support questions.
 - [ ] Implementation Guidance
-  - [ ] Files: `README.md`, `docs/decisions/0002-model-roles-map.md`, `env_templates/inspect.env`.
+  - [ ] Files: `README.md`, `docs/adr/0002-model-roles-map.md`, `env_templates/inspect.env`.
   - [ ] Grep: `INSPECT_ROLE_`, `roles`, `pyproject`.
   - [ ] Content: env examples (`INSPECT_ROLE_RESEARCHER_MODEL=ollama/llama3.1`), split form (`..._PROVIDER` + `..._MODEL`), pyproject snippet under `[tool.inspect_agents.roles]`, precedence bullets, optional flags (`INSPECT_MODEL_DEBUG`, `INSPECT_ROLES_STRICT`, `INSPECT_ROLES_WARN_UNMAPPED`).
 - [ ] Scope Definition
   - [ ] Docs-only changes; ensure examples match actual behavior.
 - [ ] Success Criteria
   - [ ] Reviewed examples; markdown checks pass; template entries present in `env_templates/inspect.env`.
-

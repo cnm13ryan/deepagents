@@ -1,6 +1,8 @@
 # What is the difference between stateless and stateful tools?
 
-Note: A canonical, harmonized guide is available at [Stateless vs Stateful Tools — Harmonized](./stateless-vs-stateful-tools-harmonized.md), which unifies Inspect AI patterns with structured API/session templates and checklists.
+> Note: Superseded by the canonical Harmonized guide at `../stateless-vs-stateful-tools-harmonized.md`. Prefer the Harmonized page for current guidance; this document is kept for background notes and earlier phrasing.
+
+Note: A canonical, harmonized guide is available at [Stateless vs Stateful Tools — Harmonized](../stateless-vs-stateful-tools-harmonized.md), which unifies Inspect AI patterns with structured API/session templates and checklists.
 
 The difference between stateless and stateful tools in inspect_ai relates to whether tools maintain state across multiple invocations during an evaluation. <cite/>
 
@@ -76,5 +78,3 @@ The choice between stateless and stateful design significantly impacts tool comp
 
 Wiki pages you might want to explore:
 - [Model System (UKGovernmentBEIS/inspect_ai)](/wiki/UKGovernmentBEIS/inspect_ai#3)
-
-
