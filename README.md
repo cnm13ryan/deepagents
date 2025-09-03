@@ -64,75 +64,36 @@ invokes tools through optional Approvals & Policies, and coordinates iterative h
 are routed by INSPECT_AGENTS_FS_MODE to VFS (default “store”) or, in “sandbox”, through a sandboxed editor bridge to the Host FS (deletes disabled); results return to
 the Supervisor. Solid lines denote control/invocation; dashed lines denote data/outputs.
 
-## Table of Contents
-- [Quick Start / Installation](#quick-start--installation)
-- [Usage Examples](#usage-examples)
-- [Features / Key Selling Points](#features--key-selling-points)
-- [Project Status & Roadmap](#project-status--roadmap)
-- [Contributing](#contributing)
-- [Community & Support](#community--support)
-- [License & Acknowledgments](#license--acknowledgments)
+## Installation
 
-## Quick Start / Installation
+### Prerequisites
+- **Python**: 3.11 or later (tested on 3.12)
+- **OS**: macOS or Linux
 
-#### Prerequisites
+### Using uv (Recommended)
+```bash
+# Set cache directory (avoids re-downloading in restricted environments)
+export UV_CACHE_DIR=.uv-cache
 
-* Python: Require Python 3.11 or later (tested on 3.12).
-* Operating system: The current workflow targets macOS or Linux.
+# Install dependencies
+uv sync
 
-#### Option A – Use uv (recommended)
+# Verify installation
+uv run python -c "import inspect_agents; print('deepagents OK')"
+```
 
-1. Set up uv cache
-   Choose a local cache directory to avoid re‑downloading packages in restricted environments:
+### Using pip/venv
+```bash
+# Create and activate virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate
 
-   ```bash
-   export UV_CACHE_DIR=.uv-cache
-   ```
+# Install in editable mode
+pip install -e .
 
-2. Synchronise dependencies
-   Run uv’s sync command. This resolves dependencies based on your `pyproject.toml`/`uv.lock` and installs them into an isolated environment:
-
-   ```bash
-   uv sync
-   ```
-
-   According to uv’s documentation, `uv sync` may be called explicitly when you need your editor to have the latest dependencies; it will install your project and workspace members as editable packages by default.
-
-3. Run a sanity check
-   Use uv to execute a short Python snippet that imports the package and prints a confirmation:
-
-   ```bash
-   uv run python -c "import inspect_agents; print('deepagents OK')"
-   ```
-
-   The `uv run` wrapper automatically ensures that the lockfile is current and that the environment is synced, so you don’t need to activate a virtual environment manually.
-
-This option provides reproducible environments and minimises command overhead by relying on uv to manage dependency resolution and execution.
-
-#### Option B – Use traditional pip/venv
-
-If you cannot use uv, you can fall back to a conventional Python virtual environment:
-
-1. Create and activate a virtual environment
-
-   ```bash
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-2. Install the package in editable mode
-
-   ```bash
-   pip install -e .
-   ```
-
-3. Verify the installation
-
-   ```bash
-   python -c "import inspect_agents; print('deepagents OK')"
-   ```
-
-This method mirrors the uv workflow but requires you to manage the environment and dependencies yourself.
+# Verify installation
+python -c "import inspect_agents; print('deepagents OK')"
+```
 
 #### Optional offline test
 
