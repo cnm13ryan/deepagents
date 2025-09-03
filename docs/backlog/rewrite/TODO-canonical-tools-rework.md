@@ -170,7 +170,7 @@ References
 **Implementation Guidance**
 - Preferred: Add a `delete` command to the unified files tool (`tools_files.py`).
 - Shim: Add `def delete_file()` in `src/inspect_agents/tools.py` mirroring others (for back‑compat), calling store path only.
-- Sandbox mode: raise `ToolException("delete unsupported in sandbox mode")` until editor supports it.
+- Sandbox mode: raise `ToolException("delete is disabled in sandbox mode; set INSPECT_AGENTS_FS_MODE=store to delete from the in-memory Files store")` until editor supports it.
 
 **Scope Definition**
 - Implement delete for store mode; clear error in sandbox mode.
