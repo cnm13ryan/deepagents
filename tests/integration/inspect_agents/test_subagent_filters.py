@@ -1,7 +1,5 @@
 # test(subagents): verify input/output filtering for handoffs
 
-import os
-from typing import List
 
 import pytest
 
@@ -74,7 +72,7 @@ async def test_subagent_input_and_supervisor_output_filters(monkeypatch):
 
     # Build a supervisor-side conversation that includes system + tool chatter
     # followed by a handoff call to the writer sub-agent
-    messages: List[ChatMessageUser | ChatMessageAssistant | ChatMessageSystem | ChatMessageTool] = [
+    messages: list[ChatMessageUser | ChatMessageAssistant | ChatMessageSystem | ChatMessageTool] = [
         ChatMessageSystem(content="supervisor system instructions"),
         ChatMessageUser(content="Please delegate to writer."),
         ChatMessageTool(content="earlier tool output", tool_call_id="prev", function="read_file"),
