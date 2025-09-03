@@ -21,7 +21,13 @@ owner: docs
 - echo: string
 
 ## Timeouts & Limits
-- Execution timeout: TBD. Max length: TBD.
+- Defaults are defined by Inspect’s standard `think` tool; this repo does not override them. See Inspect documentation for authoritative limits.
+
+## Enablement
+- Enabled by default unless `INSPECT_ENABLE_THINK` is explicitly set to a falsy value (e.g., `0`, `false`).
+
+## Notes
+- Our repo’s `INSPECT_TOOL_OBS_TRUNCATE` controls truncation of arguments in our built‑in tool logs; it does not change `think` behavior.
 
 ## Examples
 ```
@@ -37,4 +43,3 @@ Record intent before taking a risky action.
 ## Source of Truth
 - Code: src/inspect_agents/tools.py
 - Guides: ../guides/tool-umbrellas.md
-

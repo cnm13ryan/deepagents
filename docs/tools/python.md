@@ -22,7 +22,10 @@ owner: docs
 - exit_code: int
 
 ## Timeouts & Limits
-- Execution timeout: TBD. Output truncation caps: TBD.
+- Defaults are defined by Inspect’s standard `python` tool; this repo does not override them. See Inspect documentation for authoritative limits and output policies.
+
+## Enablement
+- Disabled by default. Set `INSPECT_ENABLE_EXEC=1` to enable `python` (and `bash`).
 
 ## Examples
 ```
@@ -37,4 +40,3 @@ Compute a quick result and print JSON to stdout.
 
 ## Source of Truth
 - Code: src/inspect_agents/tools.py
-

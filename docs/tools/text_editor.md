@@ -22,7 +22,10 @@ owner: docs
 - errors: list[str]
 
 ## Timeouts & Limits
-- Execution timeout: TBD. File size caps: TBD.
+- Defaults are defined by Inspect’s standard `text_editor` tools; this repo does not override them. See Inspect documentation for authoritative limits.
+
+## Enablement
+- Disabled by default. Set `INSPECT_ENABLE_TEXT_EDITOR_TOOL=1` and use `INSPECT_AGENTS_FS_MODE=sandbox` for meaningful host‑FS interactions.
 
 ## Examples
 ```
@@ -38,4 +41,3 @@ Preview the first 200 lines of a file.
 ## Source of Truth
 - Code: src/inspect_agents/tools.py
 - FS proxy: src/inspect_agents/tools_files.py
-

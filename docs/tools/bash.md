@@ -22,7 +22,13 @@ owner: docs
 - exit_code: int
 
 ## Timeouts & Limits
-- Execution timeout: TBD. Output truncation caps: TBD.
+- Defaults are defined by Inspect’s standard `bash` tool; this repo does not override them. See Inspect documentation for authoritative limits and output policies.
+
+## Enablement
+- Disabled by default. Set `INSPECT_ENABLE_EXEC=1` to enable `bash` (and `python`).
+
+## Notes
+- This repo does not alter sandbox constraints for `bash`; follow upstream security guidelines.
 
 ## Examples
 ```
@@ -37,4 +43,3 @@ Run a simple build command and capture logs.
 
 ## Source of Truth
 - Code: src/inspect_agents/tools.py
-
