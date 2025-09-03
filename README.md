@@ -61,7 +61,7 @@ python -c "import inspect_agents; print('deepagents OK')"
 Create and run a toy agent to verify your setup:
 
 ```python
-# quickstart_toy.py
+# scripts/quickstart_toy.py
 import asyncio
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
