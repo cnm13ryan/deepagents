@@ -24,45 +24,7 @@ Setting up practical LLM agents is slow: you fight glue code, logging, state, an
 - ✅ **Safe by default**: Approvals, quarantine filters, and sandbox file operations
 - ✅ **Works offline**: Guaranteed "toy" example to validate setup in seconds
 
-## High-level Architecture
-
-```mermaid
-flowchart LR
-    %% Legend: solid = control/invocation, dashed = data/outputs
-  
-    SP[[System Prompt / Config]] --> S[Supervisor]
-    MR[Model Resolver] --> S
-    S --> L[Logs / Traces]
-  
-    %% Single-shot tools
-    S -->|tool call| AP[Approvals & Policies]
-    AP --> ST[Stateless Tools]
-    AP --> SS[Stateful Tools]
-    ST -.-> S
-    SS -.-> S
-  
-    %% FS path modes (via FS Tools)
-    subgraph "FS Path Modes (MODE=store|sandbox)"
-      direction LR
-      FST[FS Tools] -->|"store (default)"|VFS["(VFS)"]
-      FST -->|sandbox| SBX[["Sandboxed Editor (no delete)"]]
-      SBX --> HFS[(Host FS)]
-    end
-    AP --> FST
-    VFS -.-> S
-    SBX -.-> S
-    HFS -.-> S
-  
-    %% Iterative handoff
-    S -->|handoff| CG[Context Gate]
-    CG <-->|iterate| SA[Sub‑Agents]
-    SA -.-> S
-```
-Fallbacks: see `docs/diagrams/architecture_overview.png` and source `docs/diagrams/architecture_overview.mmd`.
-Figure: DeepAgents control and data flow with filesystem routing. Read left‑to‑right: System Prompt/Config and Model Resolver steer the Supervisor, which logs outputs,
-invokes tools through optional Approvals & Policies, and coordinates iterative handoffs via a Context Gate to Sub‑Agents. File operations travel through FS Tools and
-are routed by INSPECT_AGENTS_FS_MODE to VFS (default “store”) or, in “sandbox”, through a sandboxed editor bridge to the Host FS (deletes disabled); results return to
-the Supervisor. Solid lines denote control/invocation; dashed lines denote data/outputs.
+ 
 
 ## Installation
 
@@ -162,35 +124,28 @@ uv run python examples/inspect/run.py --provider ollama --model llama3.1:8b "You
 uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "Your prompt"
 ```
 
-### Advanced example (sub‑agents: handoff vs tool)
-Declare sub‑agents in YAML and build them programmatically:
+## Advanced Usage
+
+### Sub-agents Configuration
+Define sub-agents in YAML and load programmatically:
 ```yaml
 # inspect.yaml
 supervisor:
   prompt: |
-    You are a helpful supervisor. Use sub‑agents when appropriate.
+    You are a helpful supervisor. Use sub-agents when appropriate.
 subagents:
   - name: researcher
     description: Focused web researcher that plans and cites sources
-    prompt: |
-      Research the user’s query. Plan, browse, then draft findings.
+    prompt: Research the user's query. Plan, browse, then draft findings.
     mode: handoff
     tools: [web_search, write_todos, read_file, write_file]
     limits:
-      - type: time     # 60s max
+      - type: time
         seconds: 60
-      - type: messages # cap message turns
+      - type: messages
         max: 8
-      - type: tokens   # cap tokens
-        max: 6000
-    context_scope: scoped          # quarantine: strict|scoped
-    include_state_summary: true    # JSON summary of todos/files
-  - name: summarizer
-    description: Five concise bullets from provided text
-    prompt: |
-      Summarize the given content in exactly five bullets.
-    mode: tool
-    tools: []
+    context_scope: scoped
+    include_state_summary: true
 ```
 
 ```python
@@ -204,23 +159,43 @@ result = asyncio.run(run_agent(agent, "start", approval=approvals))
 print(getattr(result.output, "completion", "[no completion]"))
 ```
 
-Read the Sub‑agent Recipes guide for patterns and quarantine tips: `docs/guides/subagents.md`.
+## Architecture
 
-Alternative: convenience runner with provider flags and transcript output:
-```bash
-# LM Studio
-uv run python examples/inspect/run.py --provider lm-studio --model "${LM_STUDIO_MODEL_NAME:-local-model}" "Write a short overview of LangGraph"
-
-# Ollama
-export OLLAMA_MODEL_NAME=llama3.1:8b
-uv run python examples/inspect/run.py --provider ollama --model "$OLLAMA_MODEL_NAME" "..."
-
-# OpenAI (requires key)
-export OPENAI_API_KEY=...
-uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "..."
+```mermaid
+flowchart LR
+    SP[[System Prompt / Config]] --> S[Supervisor]
+    MR[Model Resolver] --> S
+    S --> L[Logs / Traces]
+    S -->|tool call| AP[Approvals & Policies]
+    AP --> ST[Stateless Tools]
+    AP --> SS[Stateful Tools]
+    ST -.-> S
+    SS -.-> S
+    
+    subgraph "FS Path Modes (MODE=store|sandbox)"
+      direction LR
+      FST[FS Tools] -->|"store (default)"|VFS["(VFS)"]
+      FST -->|sandbox| SBX[["Sandboxed Editor (no delete)"]]
+      SBX --> HFS[(Host FS)]
+    end
+    AP --> FST
+    VFS -.-> S
+    SBX -.-> S
+    HFS -.-> S
+    
+    S -->|handoff| CG[Context Gate]
+    CG <-->|iterate| SA[Sub-Agents]
+    SA -.-> S
 ```
 
-![TODO: Screenshot of transcript viewer or printed transcript path in terminal; 1280×720, show command and “Transcript: …/logs/inspect_ai/trace.log”](TODO: add link)
+Fallback: `docs/diagrams/architecture_overview.png`
+
+## Documentation
+- **Getting Started**: `docs/getting-started/inspect_agents_quickstart.md`
+- **Tools Reference**: `docs/tools/README.md`
+- **Sub-agent Patterns**: `docs/guides/subagents.md`
+- **Examples**: `examples/inspect/`
+- **Open Questions**: `docs/open-questions.md`
 
 ## Features / Key Selling Points
 - ✅ CLI‑first: one command to run an agent or eval with Inspect.
