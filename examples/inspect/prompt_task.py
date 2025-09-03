@@ -34,7 +34,7 @@ from inspect_agents.tools import (
 
 @task
 def prompt_task(
-    prompt: str = "Write a concise overview of LangGraph",
+    prompt: str = "Find the latest publication from Quantinuum in arxiv",
     attempts: int = 1,
 ):
     """Single-sample prompt task using Inspect agents + tools."""
@@ -42,7 +42,7 @@ def prompt_task(
     return Task(
         dataset=[Sample(input=prompt)],
         solver=react(
-            prompt="You are helpful.",
+            prompt="",
             tools=tools,
             attempts=attempts,
             submit=True,
