@@ -210,7 +210,7 @@ def test_delete_file_sandbox_mode_error():
 
         asyncio.run(_test_sandbox())
 
-    assert "delete unsupported in sandbox mode" in str(exc_info.value.message)
+    assert "delete is disabled in sandbox mode" in str(exc_info.value.message)
 
 
 def test_delete_file_instance_isolation():
