@@ -12,6 +12,13 @@ This is the entry point for the DeepAgents documentation. It organizes all exist
 - Sub‑agent Recipes: `./guides/subagents.md`
 - Supervisor Limits & Observability — Practical Guide: `./guides/supervisor-limits.md`
 - Retries & Cache — Design, Config, and Defaults: `./guides/retries_cache.md`
+- Approvals & Policies — How‑To: `./how-to/approvals.md`
+- Filesystem Tools — Store vs Sandbox: `./how-to/filesystem.md`
+- Operations: Logging & Tracing: `./how-to/operations_logging_tracing.md`
+
+## Reference
+- Environment Variables: `./reference/environment.md`
+- Tools Reference Index: `./tools/README.md`
 
 ## Design Notes
 - DeepAgents Implementation Prompts: `./design/deepagents_implementation_prompts.md`
