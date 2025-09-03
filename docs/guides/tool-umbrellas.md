@@ -39,3 +39,11 @@ Standard tools:
 ## FS Mode and Safety
 
 - By default, file tools (`ls`, `read_file`, `write_file`, `edit_file`) use the in‑memory `Files` StoreModel (stateless per call). When `INSPECT_AGENTS_FS_MODE=sandbox`, these tools proxy to `text_editor(...)` against a host‑mounted sandbox. This does not introduce per‑session browser/shell state; treat them as stateless for categorization here.
+
+### Unified Files Tool (Preferred)
+
+- Prefer the unified `files` tool for file operations; it exposes a discriminated union over commands: `ls`, `read`, `write`, `edit`, `delete`. Wrapper tools (`ls`, `read_file`, `write_file`, `edit_file`, `delete_file`) remain for backward compatibility, but new agents should call `files` directly for consistent validation and typed results. See: ../tools/files.md.
+
+### Deletion Safety (Sandbox vs Store)
+
+- Deleting files is disabled in sandbox FS mode for safety. Use store mode (`INSPECT_AGENTS_FS_MODE=store`) to enable deletions against the in‑memory `Files` store. Calls to `delete_file` or `files{command:"delete"}` in sandbox mode raise a `ToolException` with a clear error message. See: ../tools/delete_file.md and ../tools/files.md.

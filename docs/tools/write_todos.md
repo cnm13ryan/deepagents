@@ -9,37 +9,39 @@ owner: docs
 # write_todos
 
 ## Overview
-- Writes the complete TODO list to the shared in-memory Todos store for this run.
-- Use to capture or refresh the backlog of next actions.
-- Classification: stateless (no retained process/session state between calls).
+- Writes the complete TODO list to the shared in‑memory Todos store.
+- Accepts structured items and performs light coercion for convenience.
+- Classification: stateless.
 
 ## Parameters
-- todos: list[str] — Items to set or add (see code for exact behavior). Required.
+- todos: list[TodoItem] — Required. Each item is `{ content: string, status: "pending" | "in_progress" | "completed" }`.
+  - Permissive coercion: string‑like inputs are accepted and stored as `{ content: <string>, status: "pending" }`.
 
 ## Result Schema
-- items: list[str] — Current TODO list after write.
-- errors: list[str] — Validation messages if present.
+- Default: string — Summary message (e.g., “Updated todo list to [...]”).
+- Typed (when `INSPECT_AGENTS_TYPED_RESULTS=1`): `{ count: int, summary: string }` (`TodoWriteResult`).
 
 ## Timeouts & Limits
-- Execution timeout: TBD.
-- Size limits: TBD (see implementation for truncation behavior).
+- Execution timeout: 15s by default; configurable via `INSPECT_AGENTS_TOOL_TIMEOUT` (seconds).
 
 ## Examples
-### Agent prompt snippet
 ```
-Use write_todos to record: ["Draft web_search prompts", "Prep bash compile command"].
-```
+# Minimal strings are coerced to TodoItem with pending status
+write_todos(todos=["Draft web_search prompts", "Prep bash compile command"]) 
 
-### Failure case
-> Symptom: item too long (>500 chars)
-> Fix: shorten or split into multiple items.
+# Structured items with explicit statuses
+write_todos(todos=[
+  {"content": "Write API tests", "status": "in_progress"},
+  {"content": "Ship docs", "status": "completed"}
+])
+```
 
 ## Safety & Best Practices
 - Keep items concise; prefer imperative phrasing.
 
 ## Troubleshooting
-- Message: invalid payload — Ensure `todos` is a JSON array of strings.
+- Invalid payload — Ensure `todos` is a JSON array of strings or structured `TodoItem` objects.
 
 ## Source of Truth
-- Code: src/inspect_agents/tools.py (builtin helpers)
-- Guides: ../guides/tool-umbrellas.md
+- Code: src/inspect_agents/tools.py (`write_todos`)
+- Types: src/inspect_agents/tool_types.py (`TodoItem`, `WriteTodosParams`)

@@ -9,34 +9,38 @@ owner: docs
 # update_todo_status
 
 ## Overview
-- Updates the status of a single TODO item with validated transitions; returns JSON payload.
-- Use to mark items as todo/in-progress/done or similar states.
-- Classification: stateless (no retained process/session state between calls).
+- Updates the status of a single TODO item with validated transitions; returns a summary string or a typed payload.
+- Allowed transitions: `pending -> in_progress -> completed`. Direct `pending -> completed` requires an explicit flag (see parameters).
+- Classification: stateless.
 
 ## Parameters
-- item: string — The TODO text or id. Required.
-- status: string — Target status. Required.
+- todo_index: int — Index of the todo to update (0‑based). Required.
+- status: "pending" | "in_progress" | "completed" — Target status. Required.
+- allow_direct_complete: bool — Permit `pending -> completed` directly; logs a warning when used (default: false).
 
 ## Result Schema
-- item: string — The affected item.
-- status: string — The resulting status.
-- errors: list[str] — Validation errors if transition not allowed.
+- Default: string — JSON text with `ok: true` and `message`, and optional `meta.warning` when direct completion is allowed.
+- Typed (when `INSPECT_AGENTS_TYPED_RESULTS=1`): `{ index: int, status: string, warning: string | null, summary: string }` (`TodoStatusResult`).
 
 ## Timeouts & Limits
-- Execution timeout: TBD.
+- Execution timeout: 15s.
 
 ## Examples
 ```
-Use update_todo_status to set "Draft web_search prompts" to done.
+# Mark the second item in progress
+update_todo_status(todo_index=1, status="in_progress")
+
+# Directly complete the first item (logs a warning)
+update_todo_status(todo_index=0, status="completed", allow_direct_complete=true)
 ```
 
 ## Safety & Best Practices
-- Prefer id-based addressing when available to avoid accidental mismatches.
+- Indices are 0‑based; validate the current TODO list before updating.
 
 ## Troubleshooting
-- Message: invalid status — Use a supported value.
+- Invalid status — Use one of: `pending`, `in_progress`, `completed`.
+- Index error — Ensure `todo_index` is within range of the current list.
 
 ## Source of Truth
-- Code: src/inspect_agents/tools.py
-- Guides: ../guides/tool-umbrellas.md
-
+- Code: src/inspect_agents/tools.py (`update_todo_status`)
+- Types: src/inspect_agents/tool_types.py (`UpdateTodoStatusParams`)

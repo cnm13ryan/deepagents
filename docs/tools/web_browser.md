@@ -23,7 +23,10 @@ owner: docs
 - errors: list[str]
 
 ## Timeouts & Limits
-- Navigation/interaction timeouts: TBD. Session lifetime and parallelism limits: TBD.
+- Defaults are defined by Inspect’s standard web browser tools; this repo does not override them. See Inspect documentation for authoritative navigation/interaction timeouts, session handling, and parallelism.
+
+## Enablement
+- Disabled by default. Set `INSPECT_ENABLE_WEB_BROWSER=1` to enable the browser tool family.
 
 ## Examples
 ```
@@ -39,4 +42,3 @@ Open a page, click a link, capture content.
 ## Source of Truth
 - Code: src/inspect_agents/tools.py
 - Guides: ../guides/tool-umbrellas.md
-
