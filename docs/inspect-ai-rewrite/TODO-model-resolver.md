@@ -11,14 +11,14 @@ Implementation Guidance
  - Scope — Do
 - [x] Add `src/inspect_agents/model.py` with:
   - [x] `def resolve_model(provider: str|None=None, model: str|None=None, role: str|None=None) -> str` returning either an explicit model name or an Inspect role string (e.g., `"inspect/<role>"`) to pass directly to `react(model=...)`.
-- [ ] Tests in `tests/inspect_agents/test_model.py` for env precedence and defaults
+- [x] Tests in `tests/unit/inspect_agents/test_model.py` for env precedence and defaults
 
 Scope — Don’t
 - No LangChain imports; do not modify Inspect submodule
 
 Success Criteria
 - [x] Agents configured with resolver run without errors
-- [ ] Unit tests cover env overrides and defaults
+- [x] Unit tests cover env overrides and defaults
 
 Recommended Defaults
 - Prefer local (Ollama) models when available; otherwise require explicit env configuration (e.g., `OPENAI_API_KEY` + `OPENAI_MODEL`) and fail fast with a clear error and guidance.
