@@ -76,12 +76,12 @@ def _load_env_files() -> None:
 
 
 async def _main() -> int:
-    from inspect_agents.agents import build_supervisor, build_subagents
+    from inspect_agents.agents import build_subagents, build_supervisor
+    from inspect_agents.approval import approval_preset, handoff_exclusive_policy
+    from inspect_agents.config import load_and_build
     from inspect_agents.logging import write_transcript
     from inspect_agents.model import resolve_model
     from inspect_agents.run import run_agent
-    from inspect_agents.approval import approval_preset, handoff_exclusive_policy
-    from inspect_agents.config import load_and_build
     from inspect_agents.tools import (
         edit_file,
         ls,
