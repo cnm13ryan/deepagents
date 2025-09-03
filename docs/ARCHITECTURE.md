@@ -4,7 +4,11 @@ title: Detailed Architecture
 
 # Architecture (Detailed)
 
-This expands on the high‑level picture in `README.md` with tool modes, state, and filesystem behavior. Rendered by GitHub or any Markdown renderer with Mermaid enabled.
+This expands on the high‑level picture in `README.md` with tool modes, state, and filesystem behavior.
+
+If Mermaid isn’t rendered in your viewer, use the PNG fallback and source:
+- PNG: `docs/diagrams/architecture.png`
+- Source: `docs/diagrams/architecture.mmd`
 
 ```mermaid
 flowchart LR
