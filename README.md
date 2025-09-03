@@ -197,54 +197,34 @@ Fallback: `docs/diagrams/architecture_overview.png`
 - **Examples**: `examples/inspect/`
 - **Open Questions**: `docs/open-questions.md`
 
-## Features / Key Selling Points
-- ✅ CLI‑first: one command to run an agent or eval with Inspect.
-- ✅ Inspect‑native tools: todos + virtual filesystem (store or sandbox).
-- ✅ Optional standard tools: think, web_search, bash/python, web_browser, text_editor.
-- ✅ Typed state: simple, explicit models backed by Inspect Store.
-- ✅ Sub‑agents: choose “handoff” (iterative control‑flow) or “tool” (single‑shot).
-- ✅ Traces & transcripts: rich logs and JSONL artifacts out of the box.
-- ✅ Safe by default: approvals, quarantine filters, and sandbox file operations.
-- ✅ Works offline: guaranteed “toy” example to validate setup in seconds.
-
-## Project Status & Roadmap
-- Current version: repo 0.0.4; latest on PyPI: 0.0.5. Status: Beta.
-- Milestones and planning: see GitHub Milestones and Projects.
-  - Milestones: https://github.com/cnm13ryan/deepagents/milestones
-  - Projects: https://github.com/cnm13ryan/deepagents/projects
-- What’s next (high‑level):
-  - CI workflows (tests, lint, coverage) and release automation
-  - Expanded examples for web_browser and sandboxed exec
-  - Additional sub‑agent templates (researcher, coder, editor)
-- Compatibility notes:
-  - Python 3.11+ (tested on 3.12)
-  - For local Inspect‑AI source dev/tests, set `PYTHONPATH=src:external/inspect_ai/src`
-
-Open Questions (tracked in docs): `docs/open-questions.md`
+## Project Status
+- **Version**: 0.0.4 (repo) / 0.0.5 (PyPI)
+- **Status**: Beta
+- **Python**: 3.11+ (tested on 3.12)
+- **Roadmap**: [GitHub Milestones](https://github.com/cnm13ryan/deepagents/milestones) | [Projects](https://github.com/cnm13ryan/deepagents/projects)
 
 ## Contributing
-- Start here: CONTRIBUTING.md (see repository root).
-- Code of Conduct: CODE_OF_CONDUCT.md (add if missing).
-- Quick start for contributors:
-  ```bash
-  # venv
-  python3.11 -m venv .venv && source .venv/bin/activate
-  pip install -e '.[dev,testing,utilities]'
-  # ensure local Inspect‑AI src is visible for tests
-  export PYTHONPATH=src:external/inspect_ai/src
-  pytest -q tests/unit/inspect_agents
-  ruff check && ruff format
-  ```
-- Bugs & features: open an Issue with repro steps or a focused proposal.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## Community & Support
-- Questions and ideas: GitHub Discussions (enable if not active)  
-  https://github.com/cnm13ryan/deepagents/discussions
-- Getting started guide: docs/getting-started/inspect_agents_quickstart.md
-- Examples: examples/inspect/
-- Maintainers: open an Issue if you need to reach us privately.
+### Quick Setup for Contributors
+```bash
+# Install with dev dependencies
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev,testing,utilities]'
+
+# Run tests (ensure local Inspect-AI src is visible)
+export PYTHONPATH=src:external/inspect_ai/src
+pytest -q tests/unit/inspect_agents
+
+# Lint and format
+ruff check && ruff format
+```
+
+## Support
+- **Questions**: [GitHub Discussions](https://github.com/cnm13ryan/deepagents/discussions)
+- **Bugs & Features**: Open an [Issue](https://github.com/cnm13ryan/deepagents/issues) with repro steps
 
 ## License & Acknowledgments
-- Licensed under MIT. See LICENSE.
-- Thanks to the Inspect‑AI project and ecosystem for the agent runtime, tools, and logging model.
-- Inspiration: CLI‑first DX from projects like Bun and Supabase; awesome‑readme best practices.
+- Licensed under [MIT](LICENSE)
+- Thanks to the Inspect-AI project and ecosystem
+- Inspired by CLI-first DX from projects like Bun and Supabase
