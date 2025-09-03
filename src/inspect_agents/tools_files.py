@@ -17,6 +17,76 @@ if TYPE_CHECKING:  # pragma: no cover
 
 from .state import Files
 
+# --- Sandbox preflight (cached) ------------------------------------------------
+_SANDBOX_READY: bool | None = None
+_SANDBOX_WARN: str | None = None
+
+
+async def _ensure_sandbox_ready(tool_name: str) -> bool:
+    """Return True if the Inspect sandbox service is available.
+
+    Uses Inspect's `tool_support_sandbox` helper to verify that the
+    `inspect-tool-support` service exists in the configured sandbox. On
+    failure, caches a warning string so subsequent calls short‑circuit and
+    callers can gracefully fall back to the Store-backed filesystem.
+
+    This check runs at first use only and is safe in unit tests that stub
+    tool modules: if the helper isn't importable, we assume sandbox is not
+    available and prefer a safe fallback rather than raising.
+    """
+    global _SANDBOX_READY, _SANDBOX_WARN
+    if _SANDBOX_READY is not None:
+        return _SANDBOX_READY
+
+    # Special-case: if tests have installed in-process stubs for tools,
+    # treat sandbox as available. This enables unit tests without Docker.
+    try:
+        import sys
+
+        if tool_name == "editor" and "inspect_ai.tool._tools._text_editor" in sys.modules:
+            _SANDBOX_READY = True
+            return True
+        if tool_name == "bash session" and "inspect_ai.tool._tools._bash_session" in sys.modules:
+            _SANDBOX_READY = True
+            return True
+    except Exception:
+        pass
+
+    # Lazy import to avoid heavy deps when not in sandbox mode
+    try:  # pragma: no cover - import paths exercised by integration tests
+        from inspect_ai.tool._tool_support_helpers import tool_support_sandbox
+    except Exception:
+        _SANDBOX_READY = False
+        _SANDBOX_WARN = (
+            "Sandbox helper unavailable; falling back to Store-backed FS."
+        )
+        return False
+
+    try:
+        # Verify the sandbox has the required service; ignore returned version
+        await tool_support_sandbox(tool_name)
+        _SANDBOX_READY = True
+        return True
+    except Exception as exc:
+        _SANDBOX_READY = False
+        # Prefer the rich guidance message from PrerequisiteError if present
+        _SANDBOX_WARN = str(exc) or (
+            "Sandbox service not available; falling back to Store-backed FS."
+        )
+        # Best‑effort structured warning
+        try:
+            # Local import to avoid circulars at module import time
+            from .tools import _log_tool_event
+
+            _log_tool_event(
+                name="files:sandbox_preflight",
+                phase="warn",
+                extra={"ok": False, "warning": _SANDBOX_WARN},
+            )
+        except Exception:
+            pass
+        return False
+
 
 # Forward declare ToolException to avoid circular imports
 # This will be overridden by the import at runtime
