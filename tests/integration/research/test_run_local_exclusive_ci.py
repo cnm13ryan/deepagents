@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 def _load_run_local_module():
-    path = Path(__file__).resolve().parents[2] / "examples" / "research" / "run_local.py"
+    # tests/integration/research/ → parents[3] is repo root
+    path = Path(__file__).resolve().parents[3] / "examples" / "research" / "run_local.py"
     spec = importlib.util.spec_from_file_location("run_local_ci", str(path))
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
