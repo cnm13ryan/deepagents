@@ -21,3 +21,22 @@ Covers the repo’s file tools (read/write/edit/ls/delete) in store vs sandbox m
 
 ## Timeouts
 - Simulate slow editors and assert fallback to store mode or errors as appropriate (see tool timeouts tests).
+
+## Examples
+- Store‑mode write/read/edit round‑trip:
+  ```python
+  import asyncio
+  from inspect_agents.tools import write_file, read_file, edit_file
+
+  async def _round_trip():
+      w = write_file(); r = read_file(); e = edit_file()
+      await w(file_path="notes.txt", content="hello")
+      text = await r(file_path="notes.txt")
+      assert "hello" in text
+      await e(file_path="notes.txt", old_string="hello", new_string="hi")
+      text2 = await r(file_path="notes.txt")
+      assert "hi" in text2
+
+  def test_store_fs_round_trip():
+      asyncio.run(_round_trip())
+  ```

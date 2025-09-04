@@ -39,5 +39,20 @@ This repo uses pytest as the primary test runner. Tests live under `tests/` and 
 - Assertions: single, specific invariant per test; multiple related asserts are fine.
 - Keep helpers small; promote shared helpers to fixtures when reused ≥3 times.
 
+## Examples
+- Parametrize and simple fixture:
+  ```python
+  import pytest
+
+  @pytest.fixture
+  def greeter():
+      return lambda name: f"hi {name}"
+
+  @pytest.mark.parametrize("name,expected", [("a","hi a"), ("b","hi b")])
+  def test_greeter_parametrized(greeter, name, expected):
+      assert greeter(name) == expected
+  ```
+- Selecting subsets during isolation: `uv run pytest -q -k handoff`.
+
 ## References
 - Pytest docs: fixtures, parametrization, markers.
