@@ -85,6 +85,14 @@ export LM_STUDIO_MODEL_NAME=local-model
 export LM_STUDIO_API_KEY=lm-studio
 ```
 
+Resolver helpers
+- Python API: `from inspect_agents.model import resolve_model`
+  - Returns the final Inspect model string or `inspect/<role>`.
+- Diagnostics: `resolve_model_explain(provider=None, model=None, role=None)`
+  - Returns `(model_id, explain)` where `explain` contains `path`, inputs, and
+    the effective envs used (e.g., `env_inspect_eval_model`). Useful for tests
+    and debugging without scraping logs.
+
 
 ## Tool Toggles (When to Use)
 
