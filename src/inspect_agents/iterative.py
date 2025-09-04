@@ -22,11 +22,12 @@ by `inspect_agents.tools.standard_tools()` (e.g., INSPECT_ENABLE_EXEC=1).
 from __future__ import annotations
 
 import asyncio
-import os
 import copy
-import time
 import logging
-from typing import Any, Sequence
+import os
+import time
+from collections.abc import Sequence
+from typing import Any
 
 from inspect_ai.agent._agent import AgentState
 
@@ -106,11 +107,10 @@ def build_iterative_agent(
 
     # Local imports to avoid heavy imports at module import time in tests
     from inspect_ai.agent._agent import agent
-    from inspect_ai.model._call_tools import call_tools
+    from inspect_ai.model._call_tools import execute_tools
     from inspect_ai.model._chat_message import (
         ChatMessageAssistant,
         ChatMessageSystem,
-        ChatMessageTool,
         ChatMessageUser,
     )
     from inspect_ai.model._generate_config import GenerateConfig
@@ -203,10 +203,10 @@ def build_iterative_agent(
             def _prune_history(messages: list[Any]) -> list[Any]:
                 try:
                     from inspect_ai.model._chat_message import (
-                        ChatMessageAssistant as _A,
-                        ChatMessageSystem as _S,
-                        ChatMessageTool as _T,
-                        ChatMessageUser as _U,
+                        ChatMessageAssistant,
+                        ChatMessageSystem,
+                        ChatMessageTool,
+                        ChatMessageUser,
                     )
                 except Exception:
                     return messages
@@ -221,8 +221,8 @@ def build_iterative_agent(
                     tail_window = max(0, 2 * int(max_turns))
 
                 # Keep first system and first user messages (if present)
-                first_sys_idx = next((i for i, m in enumerate(messages) if isinstance(m, _S)), None)
-                first_user_idx = next((i for i, m in enumerate(messages) if isinstance(m, _U)), None)
+                first_sys_idx = next((i for i, m in enumerate(messages) if isinstance(m, ChatMessageSystem)), None)
+                first_user_idx = next((i for i, m in enumerate(messages) if isinstance(m, ChatMessageUser)), None)
 
                 prefix_idxs: list[int] = []
                 if isinstance(first_sys_idx, int):
@@ -241,10 +241,10 @@ def build_iterative_agent(
                 filtered_tail: list[Any] = []
                 last_was_assistant = False
                 for m in tail:
-                    if isinstance(m, _A):
+                    if isinstance(m, ChatMessageAssistant):
                         filtered_tail.append(m)
                         last_was_assistant = True
-                    elif isinstance(m, _T):
+                    elif isinstance(m, ChatMessageTool):
                         if last_was_assistant:
                             filtered_tail.append(m)
                         # tools do not change assistant/user state
@@ -381,20 +381,20 @@ def build_iterative_agent(
                     try:
                         if timeout_ctx is not None:
                             async with asyncio.timeout(timeout_ctx):
-                                results = await call_tools(msg, active_tools)
+                                exec_res = await execute_tools(state.messages, active_tools)
                         else:
-                            results = await call_tools(msg, active_tools)
-                    except asyncio.TimeoutError:
+                            exec_res = await execute_tools(state.messages, active_tools)
+                    except TimeoutError:
                         state.messages.append(
                             ChatMessageUser(content="Timeout: The tool call timed out.")
                         )
                         break
 
-                    # Persist tool results
-                    if isinstance(results, list):
-                        for r in results:
-                            if isinstance(r, ChatMessageTool):
-                                state.messages.append(r)
+                    # Persist tool execution results (messages + possible output)
+                    for m in getattr(exec_res, "messages", []) or []:
+                        state.messages.append(m)
+                    if getattr(exec_res, "output", None) is not None:
+                        state.output = exec_res.output
                     # Continue to the next step
                 else:
                     # No tool used; encourage the model to take an action
