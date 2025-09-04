@@ -79,7 +79,7 @@ def _policy_names(policies):
     return [n for n in names if n]
 
 
-def test_presets_include_exclusivity_marker():
+def test_presets_include_exclusivity_marker(approval_modules_guard):
     _install_minimal_stubs()
     mod = _load_module_via_exec()
 
@@ -92,7 +92,7 @@ def test_presets_include_exclusivity_marker():
     assert 'policy/handoff_exclusive' not in ci_names
 
 
-def test_exclusivity_policy_effect_is_present_in_presets():
+def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard):
     """Find the exclusivity approver in dev/prod and validate behavior.
 
     We call the approver directly (not via policy_approver) to isolate its
@@ -129,3 +129,5 @@ def test_exclusivity_policy_effect_is_present_in_presets():
         res2 = asyncio.run(exclusivity(msg, non_handoff, None, history))
         assert getattr(res2, 'decision', None) == 'reject'
         assert 'exclusivity' in (getattr(res2, 'explanation', '') or '')
+
+# Cleanup handled by approval_modules_guard fixture
