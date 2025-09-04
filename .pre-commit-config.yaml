@@ -1,0 +1,12 @@
+repos:
+  - repo: local
+    hooks:
+      - id: conventional-commit-path-guard
+        name: Conventional Commit Path Guard
+        entry: python3 scripts/commit_guard.py
+        args: ["--commit-msg-file"]
+        language: system
+        stages: [commit-msg]
+        pass_filenames: true
+        types: [text]
+
