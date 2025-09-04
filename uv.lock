@@ -453,7 +453,7 @@ utilities = [
 requires-dist = [
     { name = "coverage", extras = ["toml"], marker = "extra == 'testing'" },
     { name = "hypothesis", marker = "extra == 'testing'", specifier = "==6.131.10" },
-    { name = "inspect-ai", specifier = ">=0.3.127" },
+    { name = "inspect-ai", specifier = ">=0.3.129" },
     { name = "interrogate", marker = "extra == 'docs'" },
     { name = "jsonlines", specifier = ">=4.0.0" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5" },
@@ -773,7 +773,7 @@ wheels = [
 
 [[package]]
 name = "inspect-ai"
-version = "0.3.127"
+version = "0.3.129"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aioboto3", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version >= '3.12' and sys_platform == 'linux')" },
@@ -809,9 +809,9 @@ dependencies = [
     { name = "typing-extensions", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version >= '3.12' and sys_platform == 'linux')" },
     { name = "zipp", marker = "(python_full_version >= '3.12' and sys_platform == 'darwin') or (python_full_version >= '3.12' and sys_platform == 'linux')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/b8/9d60a8824d38c582bb6cddacab8440ec8d1ec8591fe6d21bebc8452ab6f3/inspect_ai-0.3.127.tar.gz", hash = "sha256:f09f6ee7cdf1c73ceef08e3d91812823f99e650c7b727a383c106731e8508518", size = 11940828, upload-time = "2025-09-01T21:19:12.711Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/de/b11cdb2c3afd4e0d36507ea686e489ad5866ee1a2f814f8c75cb03bf59f7/inspect_ai-0.3.129.tar.gz", hash = "sha256:ab7f8c0a97ba28acd4843aed325715a00e45c12aacdd81461d3a4f6da76c3307", size = 11970812, upload-time = "2025-09-03T15:37:24.439Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/1b/f91c59617431966cfb8796fed75ddbc9d8793281d65274ad7f7921fbe945/inspect_ai-0.3.127-py3-none-any.whl", hash = "sha256:d6f3bacd2cef11e8f4f6d0b4f5233f29725f9ff0560f321b6df6d7e6b810af6d", size = 3331377, upload-time = "2025-09-01T21:19:08.454Z" },
+    { url = "https://files.pythonhosted.org/packages/89/59/5aa4d1cca0b85f42f3fdd0f380598de1a450587118e002a5930a8ce6b051/inspect_ai-0.3.129-py3-none-any.whl", hash = "sha256:68d68a320cab06e24315d8355d0b91e88fde0a945c6b92846f8b775482c804e9", size = 3356612, upload-time = "2025-09-03T15:37:20.71Z" },
 ]
 
 [[package]]

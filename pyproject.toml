@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "inspect-ai>=0.3.127",
+    "inspect-ai>=0.3.129",
     "jsonlines>=4.0.0",
     "openai>=1.104.1",
     "requests>=2.32.5",
