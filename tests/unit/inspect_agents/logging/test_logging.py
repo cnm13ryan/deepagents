@@ -34,3 +34,4 @@ def test_file_recorder_writes_events_and_redacts(tmp_path, monkeypatch):
     redacted_line = next((ln for ln in lines if '"api_key"' in ln or '"file_text"' in ln), None)
     assert redacted_line is not None
     assert "[REDACTED]" in redacted_line
+
