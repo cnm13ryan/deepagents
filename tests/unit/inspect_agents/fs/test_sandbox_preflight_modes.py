@@ -140,3 +140,4 @@ def test_preflight_logs_context_when_enabled(monkeypatch, caplog):
     assert "\"ok\": false" in joined or "\"ok\": False" in joined
     assert "\"fs_root\": \"/repo\"" in joined
     assert "\"sandbox_tool\": \"editor\"" in joined  # context field
+

@@ -145,3 +145,4 @@ def test_sandbox_ls_command(monkeypatch):
     file_list = asyncio.run(test_ls())
     assert isinstance(file_list, list)
     assert set(file_list) == {"file1.txt", "file2.py", "README.md"}
+

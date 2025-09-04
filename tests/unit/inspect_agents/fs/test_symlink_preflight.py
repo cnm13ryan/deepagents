@@ -93,3 +93,4 @@ def test_sandbox_symlink_denied(monkeypatch, op: str):
     with pytest.raises(Exception) as exc:
         asyncio.run(run_case())
     assert "symbolic link" in str(exc.value)
+
