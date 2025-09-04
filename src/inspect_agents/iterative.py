@@ -28,6 +28,8 @@ import time
 import logging
 from typing import Any, Sequence
 
+from inspect_ai.agent._agent import AgentState
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,7 +105,7 @@ def build_iterative_agent(
     """
 
     # Local imports to avoid heavy imports at module import time in tests
-    from inspect_ai.agent._agent import AgentState, agent
+    from inspect_ai.agent._agent import agent
     from inspect_ai.model._call_tools import call_tools
     from inspect_ai.model._chat_message import (
         ChatMessageAssistant,
