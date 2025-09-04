@@ -83,7 +83,14 @@ docs = [
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-# Note: ".venv" and "venv" are excluded by default; no need to extend-exclude.
+# Note: ".venv" and "venv" are excluded by default. Extend exclusions to avoid
+# linting vendored projects, large logs, and notebooks in this repo.
+extend-exclude = [
+    "external/**",
+    "**/*.ipynb",
+    ".inspect/**",
+    "logs/**",
+]
 
 [tool.ruff.lint]
 # Keep core errors, Pyflakes, import sorting, naming, and pyupgrade:

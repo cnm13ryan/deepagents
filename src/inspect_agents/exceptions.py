@@ -16,7 +16,7 @@ try:  # Prefer the canonical implementation from Inspect Tool Support
         ToolException as _ToolException,
     )
 except Exception:  # Fallback to a simple local definition for test stubs
-    class _ToolException(Exception):  # type: ignore[no-redef]
+    class _ToolException(Exception):  # type: ignore[no-redef]  # noqa: N818
         """Raised when a tool encounters an error."""
 
         def __init__(self, message: str):
@@ -27,4 +27,3 @@ except Exception:  # Fallback to a simple local definition for test stubs
 ToolException = _ToolException
 
 __all__ = ["ToolException"]
-

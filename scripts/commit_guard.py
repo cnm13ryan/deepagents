@@ -29,13 +29,11 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
-import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence, Tuple
-
 
 CONVENTIONAL_RE = re.compile(r"^(?P<type>\w+)(?:\([^)]*\))?:\s*")
 BYPASS_PATTERNS = (
@@ -45,18 +43,18 @@ BYPASS_PATTERNS = (
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> str:
-    res = subprocess.run(cmd, cwd=cwd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    res = subprocess.run(cmd, cwd=cwd, check=False, capture_output=True, text=True)
     if res.returncode != 0:
         raise RuntimeError(f"Command failed ({res.returncode}): {' '.join(cmd)}\n{res.stderr}")
     return res.stdout
 
 
-def staged_files() -> List[str]:
+def staged_files() -> list[str]:
     out = run(["git", "diff", "--name-only", "--cached"]).strip()
     return [p for p in out.splitlines() if p]
 
 
-def commit_files(commit: str) -> List[str]:
+def commit_files(commit: str) -> list[str]:
     out = run(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit]).strip()
     return [p for p in out.splitlines() if p]
 
@@ -84,10 +82,10 @@ def is_merge_or_revert(subject: str) -> bool:
 @dataclass
 class Rule:
     type_name: str
-    allowed: Tuple[str, ...]
+    allowed: tuple[str, ...]
 
-    def violations(self, paths: Iterable[str]) -> List[str]:
-        bad: List[str] = []
+    def violations(self, paths: Iterable[str]) -> list[str]:
+        bad: list[str] = []
         for p in paths:
             if any(fnmatch.fnmatch(p, pat) for pat in self.allowed):
                 continue
@@ -149,7 +147,7 @@ RULES: dict[str, Rule] = {
 }
 
 
-def check_one(subject: str, files: Sequence[str]) -> Tuple[bool, str]:
+def check_one(subject: str, files: Sequence[str]) -> tuple[bool, str]:
     """Return (ok, message)."""
     if has_bypass(subject) or is_merge_or_revert(subject):
         return True, "bypass/merge/revert"
@@ -175,7 +173,7 @@ def check_one(subject: str, files: Sequence[str]) -> Tuple[bool, str]:
 
 
 def mode_commit_msg_file(msg_file: str) -> int:
-    with open(msg_file, "r", encoding="utf-8") as f:
+    with open(msg_file, encoding="utf-8") as f:
         message = f.read()
     subject = message.splitlines()[0] if message else ""
     files = staged_files()
