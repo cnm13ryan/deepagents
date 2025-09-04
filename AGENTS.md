@@ -90,3 +90,70 @@ Default step for bots/automation: if tests are discoverable, run the test comman
 - Tools reference: `docs/tools/README.md`
 - Environment: `docs/reference/environment.md`
 - Architecture & ADRs: `docs/ARCHITECTURE.md`, `docs/adr/README.md`
+
+
+## Test Isolation & Global State Management
+
+**Critical**: Inspect + inspect_agents use module-level registries (approvals), env‑driven toggles, and optional tool stubs. Leaked state between tests is a common source of flakiness. Use these patterns to keep tests isolated and deterministic:
+
+* **Reset approval registries explicitly** — Clear any registered tool approver between tests to avoid cross‑test influence.
+  ```python
+  # Clear any globally registered approver before a case runs
+  try:
+      from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+      init_tool_approval(None)
+  except Exception:
+      pass  # tests may stub _apply
+  ```
+
+* **Scope configuration via env, never globals** — Prefer `monkeypatch.setenv/delenv` for `INSPECT_*` knobs (e.g., iterative limits, model selection) so state is automatically undone at test end.
+  ```python
+  # Iterative agent limits
+  monkeypatch.setenv("INSPECT_ITERATIVE_MAX_STEPS", "3")
+  monkeypatch.delenv("INSPECT_ITERATIVE_TIME_LIMIT", raising=False)
+  
+  # Model resolution / debug logging
+  monkeypatch.setenv("INSPECT_MODEL_DEBUG", "1")
+  monkeypatch.delenv("DEEPAGENTS_MODEL_PROVIDER", raising=False)
+  ```
+
+* **Avoid `importlib.reload` on `inspect_ai.*` / `inspect_agents.*`** — Reloading can invalidate stubs and cached imports (e.g., approval modules), causing order‑dependent failures. Prefer targeted monkeypatching or controlled stubs.
+
+* **Stub tool modules via `sys.modules` when needed** — For sandbox/file‑tool tests, install minimal in‑process stubs and always remove/replace any existing module entry first to prevent leakage across tests.
+  ```python
+  # text_editor stub
+  import sys, types
+  mod_name = "inspect_ai.tool._tools._text_editor"
+  sys.modules.pop(mod_name, None)
+  mod = types.ModuleType(mod_name)
+  from inspect_ai.tool._tool import tool
+  @tool()
+  def text_editor():
+      async def execute(**_: object) -> str:
+          return "OK"
+      return execute
+  mod.text_editor = text_editor
+  sys.modules[mod_name] = mod
+  ```
+
+* **Capture logs with the right logger name** — Use `caplog` against repo loggers (e.g., `inspect_agents.iterative`, `inspect_agents.model`) to make assertions on warnings and debug output.
+  ```python
+  caplog.set_level("WARNING", logger="inspect_agents.iterative")
+  ```
+
+* **Filesystem sandbox toggles are per‑test** — Use env flags to switch behavior and assert preflight denials. Remember: delete operations are intentionally disabled in sandbox mode.
+  ```python
+  # Enable sandbox routing; assert symlink denial or read‑only behavior
+  monkeypatch.setenv("INSPECT_AGENTS_FS_MODE", "sandbox")
+  ```
+
+* **Triage isolation failures with subsets** — When a failure only reproduces in the full suite, bisect with deterministic subsets or `-k` filters to locate the polluting test.
+  ```bash
+  # Grow subsets alphabetically to isolate pollution
+  uv run pytest -q tests/inspect_agents -k iterative
+  uv run pytest -q tests/inspect_agents/test_[a-f]*
+  ```
+
+* **Design resilient tests** — Always set/clear required env state explicitly; avoid relying on process defaults. Prefer minimal stubs over heavy integration paths.
+
+**Key insight**: Most isolation bugs combine (1) lingering approval registrations, (2) env leakage, and (3) module stub drift. Address all three systematically rather than fixing symptoms in one place.
