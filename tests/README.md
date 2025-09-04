@@ -16,6 +16,10 @@ Central index of testing guides for this repository. Tests default to offline, f
   - `inspect_agents/migration`: legacy→deep agent migration path.
 - integration: end-to-end and script-driven tests (`tests/integration/**`).
   - `examples/`, `research/` consolidated here.
+  - Offline-hardening fixture scope: an autouse fixture that clears approvals,
+    disables optional tools, and defaults to `NO_NETWORK=1` lives in
+    `tests/integration/inspect_agents/conftest.py`. Unit tests are unaffected
+    by this fixture unless they opt in.
 - fixtures: shared helpers and test data (`tests/fixtures/**`).
 - docs: local testing guides (this directory, `TESTING_*.md`).
 - benchmarks: opt-in perf/benchmark suites (`tests/benchmarks/**`).
