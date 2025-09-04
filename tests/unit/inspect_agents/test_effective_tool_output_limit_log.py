@@ -7,8 +7,9 @@ import pytest
 @pytest.mark.asyncio
 async def test_effective_limit_log_with_env(caplog, monkeypatch):
     # Ensure fresh state for one-time logger and active config
-    import inspect_agents.tools as tmod
     from inspect_ai.model._generate_config import GenerateConfig, set_active_generate_config
+
+    import inspect_agents.tools as tmod
 
     monkeypatch.setattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
     set_active_generate_config(GenerateConfig())
@@ -46,12 +47,13 @@ async def test_effective_limit_log_with_env(caplog, monkeypatch):
 @pytest.mark.asyncio
 async def test_effective_limit_log_default_when_no_env(caplog, monkeypatch):
     # Ensure fresh state for one-time logger and active config
-    import inspect_agents.tools as tmod
     from inspect_ai.model._generate_config import (
         GenerateConfig,
         active_generate_config,
         set_active_generate_config,
     )
+
+    import inspect_agents.tools as tmod
 
     monkeypatch.setattr(tmod, "_EFFECTIVE_LIMIT_LOGGED", False, raising=False)
     set_active_generate_config(GenerateConfig())

@@ -7,7 +7,6 @@ subsequent tools are rejected, with standardized transcript events emitted.
 """
 
 import asyncio
-import os
 import sys
 import types
 
@@ -69,13 +68,13 @@ def test_kill_switch_only_first_tool_executes(monkeypatch):
     # Enable kill-switch via canonical backlog env var
     monkeypatch.setenv("INSPECT_DISABLE_TOOL_PARALLEL", "1")
 
+    from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
     from inspect_ai.model._call_tools import execute_tools
     from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageTool, ChatMessageUser
     from inspect_ai.tool._tool import Tool
     from inspect_ai.tool._tool_call import ToolCall
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
-    from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
 
     from inspect_agents.approval import parallel_kill_switch_policy
 

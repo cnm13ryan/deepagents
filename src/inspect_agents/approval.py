@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
-import os
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
