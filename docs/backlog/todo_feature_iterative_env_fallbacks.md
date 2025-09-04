@@ -1,5 +1,10 @@
 # TODO: Iterative Agent — Env Fallbacks for Time/Steps
 
+Status: DONE (2025-09-04)
+- Implemented: when constructor args are None, the agent reads `INSPECT_ITERATIVE_TIME_LIMIT` and `INSPECT_ITERATIVE_MAX_STEPS` with sane normalization.
+  - Code: `src/inspect_agents/iterative.py` (env fallback parsing).
+- Tests: `tests/unit/inspect_agents/iterative/test_iterative_limits.py` includes env fallback cases.
+
 ## Context & Motivation
 - Purpose: allow environments to set default budgets without code changes.
 - Problem: builder doesn’t read env; only runners set flags.

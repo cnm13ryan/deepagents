@@ -31,6 +31,20 @@ We welcome contributions of all kinds — bug fixes, docs, tests, and new exampl
   pytest --cov=src --cov-report=term-missing -q tests/unit/inspect_agents
   ```
 
+## Testing Guides
+
+- Start here for test conventions, examples, and markers: `tests/README.md`.
+- CI prints links to relevant guides on failures. Locally, opt in with:
+  ```bash
+  export DEEPAGENTS_SHOW_TEST_GUIDES=1
+  pytest -q
+  ```
+- Useful markers: `approvals`, `handoff`, `filters`, `kill_switch`, `timeout`, `truncation`, `parallel`, `model_flags`, `benchmark`.
+  ```bash
+  pytest -q -m handoff     # run handoff-related tests
+  pytest -q -m benchmark   # run microbenchmarks (opt-in)
+  ```
+
 ## Commit Style
 
 - Use Conventional Commits for clarity and changelogs, e.g.:

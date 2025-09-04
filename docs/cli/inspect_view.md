@@ -56,6 +56,7 @@ Notes
 - By default, `inspect view` and `inspect log` read from `INSPECT_LOG_DIR` (defaults to `./logs`). Pass `--log-dir` to override.
 - `inspect log dump` always emits JSON, regardless of underlying storage format.
 - `inspect view bundle` creates a self‑contained site at `./logs-www/` with `index.html`, assets, and a `logs/` folder you can publish.
+ - For scripted examples (e.g., exporting a single log to JSON), see `scripts/README.md`.
 
 ## Implementation Notes (for contributors)
 

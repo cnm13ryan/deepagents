@@ -209,8 +209,10 @@ Fallback: `docs/diagrams/architecture_overview.png`
 - **Getting Started**: `docs/getting-started/inspect_agents_quickstart.md`
 - **Tools Reference**: `docs/tools/README.md`
 - **Sub-agent Patterns**: `docs/guides/subagents.md`
+- **Sandboxing Profiles (AISI-aligned)**: `docs/guides/sandbox_profiles.md`
 - **Examples**: `examples/inspect/`
 - **Open Questions**: `docs/design/open-questions.md`
+ - **Testing Guides (repo)**: `tests/README.md`
 
 ### Docs (MkDocs)
 Preview the documentation site locally with MkDocs.
@@ -255,6 +257,9 @@ pytest -q tests/unit/inspect_agents
 
 # Lint and format
 ruff check && ruff format
+
+# Explore testing guides (markers, examples, CI surfacing)
+echo "See tests/README.md; locally opt-in to CI-style guide links: export DEEPAGENTS_SHOW_TEST_GUIDES=1"
 ```
 
 ## Support

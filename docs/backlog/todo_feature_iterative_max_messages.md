@@ -1,5 +1,10 @@
 # TODO: Iterative Agent — Add `max_messages`
 
+Status: DONE (2025-09-04)
+- Implemented: `max_messages` parameter controls retained tail after preserving system + first user and tool pairings.
+  - Code: `src/inspect_agents/iterative.py` (param and `_prune_history`).
+- Tests: `tests/unit/inspect_agents/iterative/test_iterative_limits.py` covers precedence over `max_turns` and tail size.
+
 ## Context & Motivation
 - Purpose: expose a hard cap by messages in addition to `max_turns`.
 - Problem: current heuristic keeps ~`2*max_turns` messages; users may prefer explicit cap.
