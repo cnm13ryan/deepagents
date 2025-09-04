@@ -144,6 +144,64 @@ Next Steps (updated)
 
 ---
 
+# Testing Strategy — Inspect-AI Source of Truth (Open Questions)
+
+Date: 2025-09-04
+
+Context
+
+- Tests must target the installed site‑packages `inspect_ai`, not the vendored
+  copy under `external/inspect_ai/`. This policy is documented in `tests/README.md`.
+- `tests/conftest.py` adds only `src/` to `sys.path` and prints where `inspect_ai`
+  resolves from in the pytest header to aid debugging.
+- A shared fixture `approval_modules_guard` now snapshots originals of
+  `inspect_ai.approval._apply|_policy|_approval` and restores them after a test
+  that stubs those modules, preventing cross‑test contamination.
+
+Why this matters
+
+- Mixing vendored and installed `inspect_ai` introduces subtle type/schema
+  mismatches (e.g., Pydantic models, dataclasses) and flaky behavior. Central
+  cleanup of stubs avoids order‑dependent failures.
+
+Questions
+
+1) Make `approval_modules_guard` autouse?
+   - Pros: Eliminates opt‑in burden; hardens against leaks everywhere.
+   - Cons: Slight overhead; could mask intentionally long‑lived shims in rare
+     integration tests.
+   - Option: Enable autouse only for `tests/unit/inspect_agents/` where stubs
+     are common; keep opt‑in elsewhere.
+
+2) CI enforcement of installed‑only policy?
+   - Proposal: Add a CI‑only assertion that fails the run if
+     `inspect_ai.__file__` contains `/external/inspect_ai/`.
+   - Alternative: Keep as a visible header warning only.
+
+3) Pre‑commit/static checks?
+   - Proposal: Add a simple grep‑based pre‑commit to forbid
+     `external/inspect_ai/` imports in tests and to flag `teardown_module`
+     patterns that delete `inspect_ai.approval*` without using the shared
+     fixture.
+
+4) Transcript ToolEvent for exclusivity skips — required vs optional?
+   - Today: tests always assert the repo‑local logger event; transcript event
+     assertion is optional (assert if present).
+   - Option A: Keep optional until we pin an Inspect version that guarantees
+     skip‑event semantics.
+   - Option B: Make transcript assertion required in CI once a minimum Inspect
+     version is pinned.
+
+Open Items — Needs Decision
+
+- Autouse scope for `approval_modules_guard` (package‑wide vs per‑directory).
+- Whether to hard‑fail CI on vendor resolution vs warn only.
+- Whether to introduce pre‑commit rules for vendor imports and global teardown
+  patterns.
+- When to promote transcript skip event assertion from optional → required.
+
+---
+
 # YAML Limits Schema — Open Questions
 
 Date: 2025-09-04
