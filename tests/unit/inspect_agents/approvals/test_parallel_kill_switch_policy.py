@@ -69,3 +69,4 @@ def test_kill_switch_allows_only_first_non_handoff(monkeypatch):
 
     # Cleanup env
     monkeypatch.delenv("INSPECT_DISABLE_TOOL_PARALLEL", raising=False)
+

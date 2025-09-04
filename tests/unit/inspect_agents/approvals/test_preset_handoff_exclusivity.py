@@ -131,3 +131,4 @@ def test_exclusivity_policy_effect_is_present_in_presets(approval_modules_guard)
         assert 'exclusivity' in (getattr(res2, 'explanation', '') or '')
 
 # Cleanup handled by approval_modules_guard fixture
+
