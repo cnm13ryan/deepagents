@@ -79,3 +79,4 @@ def test_delete_sandbox_readonly_raises_and_logs(caplog):
     err = next((e for e in events if e.get("tool") == "files:delete" and e.get("phase") == "error"), None)
     assert err is not None
     assert err.get("error") == "SandboxReadOnly"
+

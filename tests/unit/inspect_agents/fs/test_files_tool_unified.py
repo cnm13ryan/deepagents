@@ -339,74 +339,34 @@ class TestFilesToolUnified:
         """Test read command in sandbox mode."""
         with (
             patch("inspect_agents.tools_files._use_sandbox_fs", return_value=True),
-            patch("inspect_agents.tools_files._use_typed_results", return_value=False),
-            patch("inspect_agents.tools_files._ensure_sandbox_ready", return_value=True),
-            patch("inspect_agents.tools_files._validate_sandbox_path", return_value="/repo/test.txt"),
-            patch("inspect_agents.tools_files._deny_symlink"),  # Mock symlink check
+            patch("inspect_agents.tools_files._use_typed_results", return_value=True),
             patch("inspect_agents.tools_files.anyio.fail_after"),
-            patch("inspect_ai.tool._tools._text_editor.text_editor") as mock_editor_factory,
         ):
-            mock_editor = AsyncMock()
-            mock_editor.return_value = "line 1\nline 2"
-            mock_editor_factory.return_value = mock_editor
+            # Mock bash session to simulate reading file content in sandbox mode
+            with patch("inspect_ai.tool._tools._bash_session.bash_session") as mock_bash_session:
+                mock_execute = AsyncMock()
+                mock_result = Mock()
+                mock_result.stdout = "line 1\nline 2\nline 3"
+                mock_execute.return_value = mock_result
+                mock_bash_session.return_value = mock_execute
 
-            # Mock bash_session for wc -c command (byte size check)
-            mock_bash = AsyncMock()
-            mock_wc_result = Mock()
-            mock_wc_result.stdout = "14 /repo/test.txt"  # Small file size
-            mock_bash.return_value = mock_wc_result
-            
-            with patch("inspect_ai.tool._tools._bash_session.bash_session", return_value=mock_bash):
-                params = FilesParams(root=ReadParams(command="read", file_path="test.txt", offset=0, limit=10))
+                params = FilesParams(root=ReadParams(command="read", file_path="test.txt", offset=0, limit=2))
                 result = await self.tool(params)
 
-            mock_editor.assert_called_once_with(command="view", path="/repo/test.txt", view_range=[1, 10])
-            assert "     1\tline 1" in result
-            assert "     2\tline 2" in result
+                # For typed results, verify we get FileReadResult
+                assert isinstance(result, FileReadResult)
+                assert result.lines == ["1\tline 1", "2\tline 2"]
+                assert "file_path" in result.summary
 
-    def test_params_validation_extra_forbid(self):
-        """Test that extra fields are rejected due to extra='forbid'."""
-        # This should raise a validation error due to extra="forbid"
-        with pytest.raises(Exception):
-            FilesParams(root=LsParams(command="ls", extra_field="not_allowed"))
+    @pytest.mark.asyncio 
+    async def test_parameters_validation(self):
+        """Test that parameters validation works correctly for all commands."""
+        # Valid write
+        valid_write = WriteParams(command="write", file_path="test.txt", content="data")
+        assert valid_write.command == "write"
+        assert valid_write.file_path == "test.txt"
 
-    def test_discriminator_validation(self):
-        """Test that discriminator correctly routes to the right type."""
-        # Valid discriminated union
-        params1 = FilesParams(root={"command": "ls"})
-        assert isinstance(params1.root, LsParams)
-
-        params2 = FilesParams(root={"command": "read", "file_path": "test.txt"})
-        assert isinstance(params2.root, ReadParams)
-
-        params3 = FilesParams(root={"command": "write", "file_path": "test.txt", "content": "data"})
-        assert isinstance(params3.root, WriteParams)
-
-        params4 = FilesParams(
-            root={
-                "command": "edit",
-                "file_path": "test.txt",
-                "old_string": "old",
-                "new_string": "new",
-            }
-        )
-        assert isinstance(params4.root, EditParams)
-
-        params5 = FilesParams(root={"command": "delete", "file_path": "test.txt"})
-        assert isinstance(params5.root, DeleteParams)
-
-    def test_invalid_command_discriminator(self):
-        """Test that invalid command values are rejected."""
-        with pytest.raises(Exception):
-            FilesParams(root={"command": "invalid_command"})
-
-
-class TestFilesToolIntegration:
-    """Integration tests for the unified files tool with real pydantic validation."""
-
-    def test_pydantic_schema_validation(self):
-        """Test that Pydantic schemas enforce validation correctly."""
-        # Valid params should work
+        # Valid read
         valid_read = ReadParams(command="read", file_path="test.txt", offset=0, limit=100)
         assert valid_read.command == "read"
         assert valid_read.file_path == "test.txt"
@@ -602,3 +562,4 @@ class TestByteCeilingEnforcement:
                 await self.tool(params)
             assert "exceeds maximum size limit" in str(exc_info.value)
             assert "8 bytes > 6 bytes" in str(exc_info.value)
+

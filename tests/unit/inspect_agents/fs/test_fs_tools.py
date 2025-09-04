@@ -242,5 +242,6 @@ def test_delete_file_instance_isolation():
 
     result, list_a_after, list_b_after = asyncio.run(_delete_from_a())
     assert "Deleted file shared_name.txt" in result
-    assert "shared_name.txt" not in list_a_after  # Deleted from A
-    assert "shared_name.txt" in list_b_after  # Still exists in B
+    assert "shared_name.txt" not in list_a_after
+    assert "shared_name.txt" in list_b_after
+
