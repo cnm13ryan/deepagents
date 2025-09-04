@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 # Ensure tests import local packages first:
 # - project library: src/
 # Use installed inspect_ai instead of external submodule to ensure dependencies are available
@@ -44,3 +46,43 @@ except Exception:  # pragma: no cover
 
     stub.Reader = _Reader  # type: ignore[attr-defined]
     sys.modules["jsonlines"] = stub
+
+
+# ---- Shared fixtures ----
+
+@pytest.fixture
+def approval_modules_guard():
+    """Guard and restore inspect_ai.approval* sys.modules entries.
+
+    Use in tests that stub any of:
+      - inspect_ai.approval._apply
+      - inspect_ai.approval._policy
+      - inspect_ai.approval._approval
+
+    Behavior:
+    - Snapshot originals on entry.
+    - On exit, restore originals if they existed.
+    - If there was no original and a stub (module without __file__) was added,
+      remove that stub entry; leave real imports intact.
+    """
+
+    keys = (
+        "inspect_ai.approval._apply",
+        "inspect_ai.approval._policy",
+        "inspect_ai.approval._approval",
+    )
+
+    originals: dict[str, object | None] = {k: sys.modules.get(k) for k in keys}
+
+    try:
+        yield
+    finally:
+        for k, orig in originals.items():
+            cur = sys.modules.get(k)
+            if orig is not None:
+                # Restore the exact original module object
+                sys.modules[k] = orig
+            else:
+                # No original existed; remove only obvious stubs (no __file__)
+                if cur is not None and getattr(cur, "__file__", None) is None:
+                    sys.modules.pop(k, None)
