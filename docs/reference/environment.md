@@ -126,6 +126,15 @@ See: ../guides/tool-umbrellas.md and ../getting-started/inspect_agents_quickstar
 - `INSPECT_AGENTS_TOOL_TIMEOUT` — per‑call tool timeout in seconds (default 15).
 - `INSPECT_AGENTS_TYPED_RESULTS` — `1/true` to return typed objects from tools
   instead of strings/lists (default off).
+- `INSPECT_AGENTS_FS_READ_ONLY` — `1/true` enables audited read‑only mode in
+  sandbox. When `INSPECT_AGENTS_FS_MODE=sandbox` and this flag is truthy,
+  write/edit/delete operations are blocked: the files tool raises a
+  `ToolException("SandboxReadOnly")` and emits a `tool_event` with
+  `phase="error"` and `error="SandboxReadOnly"`. Listing and reading remain
+  allowed. Has no effect in `store` mode.
+
+See also
+- Design discussion and pending decisions: ../design/open-questions.md#filesystem-sandbox-%E2%80%94-read-only-mode-new
 
 Safety notes
 - In sandbox mode, delete is intentionally disabled in the file tool to avoid
@@ -136,6 +145,7 @@ Safety notes
 Examples
 ```bash
 export INSPECT_AGENTS_FS_MODE=sandbox
+export INSPECT_AGENTS_FS_READ_ONLY=1   # block write/edit/delete; allow ls/read
 export INSPECT_AGENTS_TOOL_TIMEOUT=20
 export INSPECT_AGENTS_TYPED_RESULTS=1
 ```
@@ -223,4 +233,3 @@ Examples
 uv run python examples/inspect/run.py --env-file env_templates/inspect.env "..."
 export INSPECT_ENV_FILE=env_templates/inspect.env
 ```
-

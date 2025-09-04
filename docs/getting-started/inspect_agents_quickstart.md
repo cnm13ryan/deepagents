@@ -134,6 +134,10 @@ Built‑ins exposed to agents:
 - `ls`, `read_file`, `write_file`, `edit_file`: operate on a virtual in‑memory FS (`Files`) by default
   - Set `INSPECT_AGENTS_FS_MODE=sandbox` to use the host FS via Inspect’s text editor tool (ensure a safe sandbox)
 
+Note
+- For audited demos and regulated workflows, enable sandbox read‑only mode to block writes: set `INSPECT_AGENTS_FS_READ_ONLY=1` (ls/read allowed; write/edit/delete raise `SandboxReadOnly`). See the environment flags for details.
+
+
 ## Logging
 
 Call `inspect_agents.logging.write_transcript()` to persist JSONL events. Default directory is `.inspect/logs` or override with `INSPECT_LOG_DIR`.

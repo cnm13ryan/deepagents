@@ -114,6 +114,13 @@ def _use_typed_results() -> bool:
     return env_val.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _truthy(env_val: str | None) -> bool:
+    """Return True for common truthy string values."""
+    if env_val is None:
+        return False
+    return env_val.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _fs_root() -> str:
     """Get filesystem root path for sandbox mode confinement.
 
@@ -645,6 +652,15 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
         args={"file_path": params.file_path, "content_len": len(params.content), "instance": params.instance},
     )
 
+    # Read-only guard in sandbox mode
+    if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
+        try:
+            from inspect_tool_support._util.common_types import ToolException as _ToolException
+        except ImportError:
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(name="files:write", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
+        raise _ToolException("SandboxReadOnly")
+
     # Enforce byte ceiling to prevent OOM and long stalls
     content_bytes = len(params.content.encode("utf-8"))
     max_bytes = _max_bytes()
@@ -727,6 +743,14 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
             "instance": params.instance,
         },
     )
+    # Read-only guard in sandbox mode
+    if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
+        try:
+            from inspect_tool_support._util.common_types import ToolException as _ToolException
+        except ImportError:
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(name="files:edit", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
+        raise _ToolException("SandboxReadOnly")
     # For sandbox mode, we need to preflight check file size before edit
     if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
         # Validate path is within configured root first (before try block to prevent fallback)
@@ -895,6 +919,15 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
         phase="start",
         args={"file_path": params.file_path, "instance": params.instance},
     )
+
+    # Sandbox mode: disabled for safety; if read-only flag is set, return specific error
+    if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
+        try:
+            from inspect_tool_support._util.common_types import ToolException as _ToolException
+        except ImportError:
+            _ToolException = ToolException  # noqa: N806
+        _log_tool_event(name="files:delete", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
+        raise _ToolException("SandboxReadOnly")
 
     # Sandbox mode: disabled for safety
     if _use_sandbox_fs():
