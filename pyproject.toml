@@ -114,6 +114,17 @@ filterwarnings = [
     # Target the specific unknown config option
     "ignore:Unknown config option.*asyncio_default_fixture_loop_scope.*:pytest.PytestConfigWarning",
 ]
+markers = [
+    "approvals: tests for approval policies and chains",
+    "handoff: tests for subagent handoffs and boundaries",
+    "filters: tests for input/output filtering around handoffs",
+    "kill_switch: tests for parallel execution kill-switch policy",
+    "timeout: tests for tool timeouts and fallbacks",
+    "truncation: tests for tool-output truncation envelopes",
+    "parallel: tests for parallel execution semantics",
+    "model_flags: tests for model resolution flags and runners",
+    "benchmark: performance microbenchmarks (opt-in in CI)",
+]
 
 # --- Coverage ---
 [tool.coverage.run]
