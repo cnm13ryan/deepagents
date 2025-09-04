@@ -11,6 +11,12 @@
 - Focus on behavior, not line count; prefer meaningful assertions over chasing 100%.
 - Exclude slow/external paths unless explicitly needed.
 
+## Examples
+- Run with coverage in CI-style command:
+  ```bash
+  CI=1 NO_NETWORK=1 uv run pytest -q --cov=src --cov-report=term
+  ```
+
 ## References
 - pytest-cov docs (options and reports).
 - coverage.py configuration reference.

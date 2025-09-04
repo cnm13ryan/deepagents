@@ -29,5 +29,17 @@ Use `pytest-asyncio` for native async tests and event-loop fixtures.
 - Avoid sharing async clients/resources across tests without explicit fixture scoping.
 - Don’t block the loop with CPU-bound work; offload to threads if necessary.
 
+## Examples
+- Minimal async test mirroring patterns used in integration tests:
+  ```python
+  import pytest, anyio
+
+  @pytest.mark.asyncio
+  async def test_async_timeout_guard():
+      with anyio.move_on_after(0.01) as scope:
+          await anyio.sleep(0.1)
+      assert scope.cancel_called is True
+  ```
+
 ## References
 - pytest-asyncio usage and markers.

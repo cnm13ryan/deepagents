@@ -15,5 +15,14 @@ Use `pytest-xdist` to parallelize where safe, and avoid shared global state.
 - Tests that rely on process-global mocks shims without isolation.
 - Tests that intentionally serialize heavy resources.
 
+## Examples
+- Safe tmp isolation with `tmp_path`:
+  ```python
+  def test_parallel_safe_tmp(tmp_path):
+      p = tmp_path / "out.txt"
+      p.write_text("ok", encoding="utf-8")
+      assert p.read_text(encoding="utf-8") == "ok"
+  ```
+
 ## References
 - pytest-xdist docs (overview and usage).

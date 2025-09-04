@@ -19,5 +19,31 @@ Covers Inspect-AI approvals (policies) and repo policies: handoff exclusivity an
 ## Redaction
 - Use `approval_preset("prod")` to assert redacted payloads contain `[REDACTED]` and do not leak raw secrets.
 
+## Examples
+- Handoff exclusivity approval (policy-only) similar to end‑to‑end tests:
+  ```python
+  import asyncio
+  from inspect_ai.approval._policy import policy_approver
+  from inspect_ai.model._chat_message import ChatMessageAssistant
+  from inspect_ai.tool._tool_call import ToolCall
+  from inspect_agents.approval import handoff_exclusive_policy
+
+  def test_handoff_first_only():
+      policies = handoff_exclusive_policy()
+      approver = policy_approver(policies)
+
+      calls = [
+          ToolCall(id="1", function="transfer_to_reader", arguments={}),
+          ToolCall(id="2", function="echo_b", arguments={}),
+      ]
+      msg = ChatMessageAssistant(content="", tool_calls=calls)
+
+      ok1 = asyncio.run(approver(msg, calls[0], None, [msg]))
+      ok2 = asyncio.run(approver(msg, calls[1], None, [msg]))
+
+      assert getattr(ok1, "decision", None) == "approve"
+      assert getattr(ok2, "decision", None) == "reject"
+  ```
+
 ## References
 - Approvals/policy usage (pytest integration is standard).
