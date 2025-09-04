@@ -21,7 +21,7 @@ def test_ci_appends_handoff_exclusive_policy(monkeypatch, tmp_path):
     # Capture approvals passed to run_agent
     captured: dict[str, object] = {}
 
-    async def fake_run_agent(agent, user_input, approval=None):  # noqa: ANN001, D401
+    async def fake_run_agent(agent, user_input, approval=None, limits=None, **kwargs):  # noqa: ANN001, D401
         captured["approval"] = approval
         # Minimal result-like object with .output.completion
         class _Out:
