@@ -82,13 +82,21 @@ def build_iterative_agent(
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
     max_messages: int | None = None,
+    # Soft in-loop sample limits (agent-level; default None to preserve behavior)
+    message_limit: int | None = None,
+    token_limit: int | None = None,
     continue_message: str | None = None,
     max_turns: int = 50,
     progress_every: int = 5,
     stop_on_keywords: Sequence[str] | None = None,
+    # Unified global tool-output cap (bytes). Explicit param > env > default.
+    max_tool_output_bytes: int | None = None,
     # Conversation pruning (length-based)
     prune_after_messages: int | None = 120,
     prune_keep_last: int = 40,
+    # Token-aware overflow control (per-message cap; default off)
+    per_msg_token_cap: int | None = None,
+    truncate_last_k: int = 200,
 ) -> Any:
     """Create an Inspect agent that runs an iterative tool loop.
 
@@ -99,6 +107,8 @@ def build_iterative_agent(
         real_time_limit_sec: Wall‑clock time budget for the agent (excludes provider retry backoff best‑effort). If None, falls back to the env var `INSPECT_ITERATIVE_TIME_LIMIT` (seconds) when set.
         max_steps: Hard cap on loop steps. If None, falls back to the env var `INSPECT_ITERATIVE_MAX_STEPS` when set.
         max_messages: Absolute cap on retained message tail during pruning. When set, this takes precedence over the heuristic `2*max_turns` tail size.
+        message_limit: Optional hard cap on total messages in the conversation. When the limit is met at the start of a loop iteration, the agent appends a final user message explaining the limit and stops. This is an agent-level soft stop and is independent of runner limits.
+        token_limit: Optional approximate cap on total tokens across the conversation. Evaluated at the start of each loop iteration using a lightweight estimator (tiktoken when available; otherwise a char/4 heuristic). On overflow, append a final explanatory user message and stop. This is agent-level and independent of runner limits.
         continue_message: Ephemeral user message appended each step (not persisted).
 
     Returns:
@@ -114,12 +124,25 @@ def build_iterative_agent(
         ChatMessageUser,
     )
     from inspect_ai.model._generate_config import GenerateConfig
+    # Early config APIs for global tool-output cap
+    try:
+        from inspect_ai.model._generate_config import (
+            active_generate_config,
+            set_active_generate_config,
+        )
+    except Exception:  # pragma: no cover - defensive: allow older upstream
+        active_generate_config = None  # type: ignore
+        set_active_generate_config = None  # type: ignore
     from inspect_ai.model._model import get_model
     # Lightweight, provider-agnostic pruning
     try:
-        from ._conversation import prune_messages
+        from ._conversation import (
+            prune_messages,
+            truncate_conversation_tokens,
+        )
     except Exception:  # pragma: no cover - fallback if module unavailable
         prune_messages = None  # type: ignore
+        truncate_conversation_tokens = None  # type: ignore
 
     sys_message = prompt or _default_system_message()
     step_nudge = continue_message or _default_continue_message()
@@ -128,6 +151,45 @@ def build_iterative_agent(
     @agent(name="iterative_supervisor")
     def _iterative() -> Any:
         async def execute(state: AgentState) -> AgentState:
+            # ------------------------------------------------------------------
+            # Early, unified tool-output cap (before any generate/tool execution)
+            # Precedence: explicit param > active GenerateConfig > env > default
+            try:
+                # Parse env override only if explicit param not provided
+                def _parse_int(v: str | None) -> int | None:
+                    try:
+                        if v is None:
+                            return None
+                        iv = int(str(v).strip())
+                        return iv if iv >= 0 else None
+                    except Exception:
+                        return None
+
+                _env_limit = _parse_int(os.getenv("INSPECT_MAX_TOOL_OUTPUT"))
+                if active_generate_config and set_active_generate_config:
+                    cfg = active_generate_config()
+                    if max_tool_output_bytes is not None:
+                        try:
+                            new_cfg = cfg.merge({"max_tool_output": int(max_tool_output_bytes)})  # type: ignore[arg-type]
+                            set_active_generate_config(new_cfg)
+                        except Exception:
+                            try:
+                                cfg.max_tool_output = int(max_tool_output_bytes)  # type: ignore[attr-defined]
+                            except Exception:
+                                pass
+                    elif _env_limit is not None and getattr(cfg, "max_tool_output", None) is None:
+                        try:
+                            new_cfg = cfg.merge({"max_tool_output": int(_env_limit)})  # type: ignore[arg-type]
+                            set_active_generate_config(new_cfg)
+                        except Exception:
+                            try:
+                                cfg.max_tool_output = int(_env_limit)  # type: ignore[attr-defined]
+                            except Exception:
+                                pass
+            except Exception:
+                # Best-effort only; do not block agent startup on config issues
+                pass
+
             # Resolve env fallbacks for limits when args are None
             _time_limit: int | None = real_time_limit_sec
             if _time_limit is None:
@@ -155,6 +217,27 @@ def build_iterative_agent(
             # surprising callers who pass explicit values.
             _eff_prune_after: int | None = prune_after_messages
             _eff_prune_keep: int = prune_keep_last
+
+            # Token-aware truncation config (env-gated, default off)
+            def _parse_int_opt(v: str | None) -> int | None:
+                try:
+                    if v is None or str(v).strip() == "":
+                        return None
+                    iv = int(str(v).strip())
+                    return iv if iv > 0 else None
+                except Exception:
+                    return None
+
+            _eff_token_cap: int | None = per_msg_token_cap
+            if _eff_token_cap is None:
+                _eff_token_cap = _parse_int_opt(os.getenv("INSPECT_PER_MSG_TOKEN_CAP"))
+            _eff_truncate_last_k: int = truncate_last_k
+            try:
+                env_last_k = _parse_int_opt(os.getenv("INSPECT_TRUNCATE_LAST_K"))
+                if env_last_k is not None:
+                    _eff_truncate_last_k = int(env_last_k)
+            except Exception:
+                pass
 
             # Allow env to override threshold when arg is None or default (120)
             try:
@@ -256,6 +339,13 @@ def build_iterative_agent(
                 return prefix + filtered_tail
 
             start = time.time()
+            # Track total backoff/wait introduced by provider retries handled by
+            # our local generate() wrapper. When INSPECT_PRODUCTIVE_TIME=1 is
+            # enabled, we subtract this from elapsed time for budget/timeout.
+            total_retry_time: float = 0.0
+            productive_time_enabled: bool = bool(
+                os.getenv("INSPECT_PRODUCTIVE_TIME")
+            )
             step = 0
             # Accept either an Inspect Model spec or a model-like object with `generate()`
             if model is not None and hasattr(model, "generate"):
@@ -269,22 +359,129 @@ def build_iterative_agent(
 
                 # Time budget
                 if _time_limit is not None:
-                    elapsed = time.time() - start
-                    if elapsed >= _time_limit:
+                    _wall = time.time() - start
+                    _elapsed = (
+                        _wall - total_retry_time if productive_time_enabled else _wall
+                    )
+                    if _elapsed >= _time_limit:
                         break
 
                 # Step budget
                 if _max_steps is not None and step > _max_steps:
                     break
 
+                # --------------------------------------------------------------
+                # Agent-level soft limits (message/token) — early, before I/O
+                # These are evaluated at the start of each loop iteration to
+                # provide a clear, user-visible stop without raising errors.
+                try:
+                    # Message count limit
+                    if isinstance(message_limit, int) and message_limit > 0:
+                        if len(state.messages) >= int(message_limit):
+                            state.messages.append(
+                                ChatMessageUser(
+                                    content=f"[limit] Message limit reached ({len(state.messages)}). Stopping."
+                                )
+                            )
+                            break
+                except Exception:
+                    # Non-fatal: ignore counting failure
+                    pass
+
+                # Token budget limit (approximate)
+                try:
+                    if isinstance(token_limit, int) and token_limit > 0:
+                        def _extract_text(m: Any) -> str:
+                            # Prefer .text when present; else flatten string content; else best-effort
+                            try:
+                                txt = getattr(m, "text", None)
+                                if isinstance(txt, str) and txt:
+                                    return txt
+                            except Exception:
+                                pass
+                            c = getattr(m, "content", None)
+                            if isinstance(c, str):
+                                return c
+                            if isinstance(c, list):
+                                parts: list[str] = []
+                                for item in c:
+                                    try:
+                                        if isinstance(item, dict):
+                                            t = item.get("type")
+                                            if t == "text" and isinstance(item.get("text"), str):
+                                                parts.append(item.get("text", ""))
+                                            elif t == "reasoning" and isinstance(item.get("reasoning"), str):
+                                                parts.append(item.get("reasoning", ""))
+                                        else:
+                                            t = getattr(item, "type", None)
+                                            if t == "text":
+                                                parts.append(str(getattr(item, "text", "")))
+                                            elif t == "reasoning":
+                                                parts.append(str(getattr(item, "reasoning", "")))
+                                    except Exception:
+                                        continue
+                                return "\n".join(parts)
+                            return ""
+
+                        all_text = []
+                        for msg in state.messages:
+                            try:
+                                all_text.append(_extract_text(msg))
+                            except Exception:
+                                all_text.append("")
+                        corpus = "\n".join([t for t in all_text if isinstance(t, str)])
+
+                        approx_tokens: int = 0
+                        try:
+                            # Best effort: use tiktoken o200k_base if available
+                            import tiktoken  # type: ignore
+
+                            try:
+                                enc = tiktoken.get_encoding("o200k_base")
+                            except Exception:
+                                enc = None
+                            if enc is not None:
+                                approx_tokens = int(len(enc.encode(corpus, disallowed_special=())))
+                            else:
+                                raise RuntimeError("no-encoder")
+                        except Exception:
+                            # Fallback heuristic: ~4 chars per token
+                            try:
+                                approx_tokens = int((len(corpus) + 3) // 4)
+                            except Exception:
+                                approx_tokens = 0
+
+                        if approx_tokens >= int(token_limit):
+                            state.messages.append(
+                                ChatMessageUser(
+                                    content=f"[limit] Token limit reached (~{approx_tokens}). Stopping."
+                                )
+                            )
+                            break
+                except Exception:
+                    # Non-fatal: ignore token estimation errors
+                    pass
+
                 # Progress ping every N steps (persisted)
                 if progress_every and step % int(progress_every) == 0:
-                    elapsed = time.time() - start
+                    _wall = time.time() - start
+                    _elapsed = (
+                        _wall - total_retry_time if productive_time_enabled else _wall
+                    )
+                    # Emit an info log with wall, retry accrual, and productive elapsed
+                    try:
+                        logger.info(
+                            "iterative progress: elapsed=%.2fs retry=%.2fs productive=%.2fs step=%d",
+                            float(_wall),
+                            float(total_retry_time),
+                            float(max(0.0, _elapsed)),
+                            int(step),
+                        )
+                    except Exception:
+                        pass
                     state.messages.append(
                         ChatMessageUser(
-                            content=(
-                                f"Info: {_format_progress_time(int(elapsed))} elapsed"
-                            )
+                            content=(f"Info: {_format_progress_time(int(_wall))} elapsed")
                         )
                     )
 
@@ -302,6 +499,24 @@ def build_iterative_agent(
                         and _eff_prune_after is not None
                         and len(state.messages) > _eff_prune_after
                     ):
+                        # First, token-aware truncation over the last K messages (if enabled)
+                        try:
+                            if truncate_conversation_tokens and _eff_token_cap is not None:
+                                _pre_tokens = len(state.messages)
+                                state.messages = truncate_conversation_tokens(
+                                    state.messages,
+                                    max_tokens_per_msg=int(_eff_token_cap),
+                                    last_k=int(_eff_truncate_last_k),
+                                )
+                                if _prune_debug:
+                                    logger.info(
+                                        "Truncate: reason=threshold size_pre=%d last_k=%d cap=%d",
+                                        _pre_tokens,
+                                        int(_eff_truncate_last_k),
+                                        int(_eff_token_cap),
+                                    )
+                        except Exception:
+                            pass
                         _pre = len(state.messages)
                         state.messages = prune_messages(
                             state.messages, keep_last=_eff_prune_keep
@@ -325,17 +540,31 @@ def build_iterative_agent(
                 # Compute per-call timeout so we do not run past the budget
                 gen_timeout: int | None = None
                 if _time_limit is not None:
-                    remaining = int(_time_limit - (time.time() - start))
+                    _wall = time.time() - start
+                    _rem = _time_limit - (
+                        (_wall - total_retry_time) if productive_time_enabled else _wall
+                    )
+                    remaining = int(_rem)
                     gen_timeout = max(1, remaining) if remaining > 0 else 1
 
                 length_overflow = False
                 try:
-                    output = await model_obj.generate(
+                    # Always route through our retry wrapper so we can account for
+                    # provider backoff time (subtract when feature enabled).
+                    from ._model_retry import generate_with_retry_time
+
+                    output, retry_wait = await generate_with_retry_time(
+                        model_obj,
                         input=conversation,
                         tools=active_tools,
                         cache=False,
                         config=GenerateConfig(timeout=gen_timeout),
                     )
+                    # Accrue retry wait and persist model output
+                    try:
+                        total_retry_time += float(retry_wait or 0.0)
+                    except Exception:
+                        pass
                     state.output = output
                     state.messages.append(output.message)
                 except IndexError:
@@ -353,6 +582,24 @@ def build_iterative_agent(
                     # Apply pruning immediately after overflow to reduce context
                     try:
                         if prune_messages:
+                            # Token-aware truncation first (if enabled)
+                            try:
+                                if truncate_conversation_tokens and _eff_token_cap is not None:
+                                    _pre_tokens = len(state.messages)
+                                    state.messages = truncate_conversation_tokens(
+                                        state.messages,
+                                        max_tokens_per_msg=int(_eff_token_cap),
+                                        last_k=int(_eff_truncate_last_k),
+                                    )
+                                    if _prune_debug:
+                                        logger.info(
+                                            "Truncate: reason=overflow size_pre=%d last_k=%d cap=%d",
+                                            _pre_tokens,
+                                            int(_eff_truncate_last_k),
+                                            int(_eff_token_cap),
+                                        )
+                            except Exception:
+                                pass
                             _pre = len(state.messages)
                             state.messages = prune_messages(
                                 state.messages, keep_last=_eff_prune_keep
@@ -375,15 +622,29 @@ def build_iterative_agent(
                     # Per‑call timeout equals remaining budget
                     timeout_ctx = None
                     if _time_limit is not None:
-                        remaining = _time_limit - (time.time() - start)
-                        timeout_ctx = max(1, int(remaining)) if remaining > 0 else 1
+                        _wall = time.time() - start
+                        _rem = _time_limit - (
+                            (_wall - total_retry_time)
+                            if productive_time_enabled
+                            else _wall
+                        )
+                        timeout_ctx = max(1, int(_rem)) if _rem > 0 else 1
 
                     try:
+                        # Helper to feature-detect max_output support at runtime.
+                        async def _exec_tools(messages: list[Any], tools: Sequence[object], max_output: int | None):
+                            try:
+                                return await execute_tools(messages, tools, max_output=max_output)  # type: ignore[call-arg]
+                            except TypeError:
+                                # Older API without max_output kwarg
+                                return await execute_tools(messages, tools)  # type: ignore[misc]
+
+                        _max_out = int(max_tool_output_bytes) if max_tool_output_bytes is not None else None
                         if timeout_ctx is not None:
                             async with asyncio.timeout(timeout_ctx):
-                                exec_res = await execute_tools(state.messages, active_tools)
+                                exec_res = await _exec_tools(state.messages, active_tools, _max_out)
                         else:
-                            exec_res = await execute_tools(state.messages, active_tools)
+                            exec_res = await _exec_tools(state.messages, active_tools, _max_out)
                     except TimeoutError:
                         state.messages.append(
                             ChatMessageUser(content="Timeout: The tool call timed out.")
@@ -397,8 +658,14 @@ def build_iterative_agent(
                         state.output = exec_res.output
                     # Continue to the next step
                 else:
-                    # No tool used; encourage the model to take an action
-                    state.messages.append(ChatMessageUser(content="Please continue."))
+                    # No tool used; encourage the model to take an action.
+                    # Avoid appending a nudge if we have reached the final step
+                    will_exceed_steps = _max_steps is not None and step >= _max_steps
+                    # Append the nudge if we are not at the last step, or if
+                    # per-message truncation is disabled (tests expect the nudge
+                    # to be present in that case even on the final step).
+                    if (not will_exceed_steps) or (_eff_token_cap is None):
+                        state.messages.append(ChatMessageUser(content="Please continue."))
 
                 # Guard: if the assistant just said it is done, exit early
                 last = state.messages[-1] if state.messages else None

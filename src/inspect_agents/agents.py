@@ -172,6 +172,7 @@ def build_iterative_agent(
     max_turns: int = 50,
     progress_every: int = 5,
     stop_on_keywords: Sequence[str] | None = None,
+    max_tool_output_bytes: int | None = None,
 ):
     """Thin passthrough to the iterative supervisor (no submit semantics).
 
@@ -192,6 +193,7 @@ def build_iterative_agent(
         max_turns=max_turns,
         progress_every=progress_every,
         stop_on_keywords=stop_on_keywords,
+        max_tool_output_bytes=max_tool_output_bytes,
     )
 
 
