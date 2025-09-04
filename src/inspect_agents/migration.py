@@ -19,6 +19,71 @@ def _resolve_builtin_tools(names: list[str] | None) -> list[object]:
     return [name_to_ctor[n]() for n in selected if n in name_to_ctor]
 
 
+async def _apply_side_effect_calls(messages: list[Any], tools: Sequence[object]) -> None:
+    """Apply side-effecting tool calls when `submit` appears in same turn.
+
+    Mirrors the inline logic previously embedded in `create_deep_agent`.
+    - Finds the most recent assistant message with tool calls.
+    - Filters out `submit`.
+    - Replays via `execute_tools`.
+    - Applies defensive Store fallbacks for `write_file` / `write_todos`.
+    """
+    try:
+        # Find the most recent assistant message with tool calls
+        idx = next(
+            (i for i in range(len(messages) - 1, -1, -1) if getattr(messages[i], "tool_calls", None)),
+            None,
+        )
+        if idx is not None:
+            last = messages[idx]
+            calls = [c for c in (last.tool_calls or []) if getattr(c, "function", "") != "submit"]
+            if calls:
+                # Build a synthetic conversation ending at the tool-call message
+                # so execute_tools sees it as the last assistant message.
+                msgs = list(messages[: idx + 1])
+                # Create a shallow copy with filtered calls (pydantic model_copy)
+                try:
+                    last_filtered = last.model_copy(update={"tool_calls": calls})
+                except Exception:
+                    last.tool_calls = calls  # fallback in case model_copy unavailable
+                    last_filtered = last
+                msgs[-1] = last_filtered
+                try:
+                    from inspect_ai.model._call_tools import execute_tools
+
+                    await execute_tools(msgs, list(tools))
+                except Exception:
+                    pass
+                # Defensive fallback: if tools didn't execute (e.g., due to
+                # stubbed environments), apply side-effects for common calls.
+                try:
+                    from inspect_ai.util._store_model import store_as
+
+                    from inspect_agents.state import Files, Todo, Todos
+
+                    for c in calls:
+                        fn = getattr(c, "function", "")
+                        args = getattr(c, "arguments", {}) or {}
+                        if fn == "write_file" and "file_path" in args and "content" in args:
+                            files = store_as(Files)
+                            files.put_file(args["file_path"], args["content"])
+                        elif fn == "write_todos" and "todos" in args:
+                            todos = store_as(Todos)
+                            items = []
+                            for t in args["todos"]:
+                                try:
+                                    items.append(Todo(**t))
+                                except Exception:
+                                    pass
+                            if items:
+                                todos.set_todos(items)
+                except Exception:
+                    pass
+    except Exception:
+        # Best-effort; continue even if inspection/execution fails
+        pass
+
+
 def create_deep_agent(
     tools: Sequence[object] | None,
     instructions: str,
@@ -38,7 +103,6 @@ def create_deep_agent(
     """
     from inspect_ai.agent._agent import agent as as_agent
     from inspect_ai.agent._react import react
-    from inspect_ai.model._call_tools import execute_tools
 
     from inspect_agents.agents import BASE_PROMPT, build_subagents
 
@@ -67,58 +131,7 @@ def create_deep_agent(
     def agent():
         async def execute(state):
             out = await base_agent(state)
-            try:
-                # Find the most recent assistant message with tool calls
-                idx = next(
-                    (i for i in range(len(out.messages) - 1, -1, -1)
-                     if getattr(out.messages[i], "tool_calls", None)),
-                    None,
-                )
-                if idx is not None:
-                    last = out.messages[idx]
-                    calls = [c for c in (last.tool_calls or []) if getattr(c, "function", "") != "submit"]
-                    if calls:
-                        # Build a synthetic conversation ending at the tool-call message
-                        # so execute_tools sees it as the last assistant message.
-                        msgs = list(out.messages[: idx + 1])
-                        # Create a shallow copy with filtered calls (pydantic model_copy)
-                        try:
-                            last_filtered = last.model_copy(update={"tool_calls": calls})
-                        except Exception:
-                            last.tool_calls = calls  # fallback in case model_copy unavailable
-                            last_filtered = last
-                        msgs[-1] = last_filtered
-                        try:
-                            await execute_tools(msgs, base_tools + extra_tools)
-                        except Exception:
-                            pass
-                        # Defensive fallback: if tools didn't execute (e.g., due to
-                        # stubbed environments), apply side-effects for common calls.
-                        try:
-                            from inspect_ai.util._store_model import store_as
-
-                            from inspect_agents.state import Files, Todo, Todos
-                            for c in calls:
-                                fn = getattr(c, "function", "")
-                                args = getattr(c, "arguments", {}) or {}
-                                if fn == "write_file" and "file_path" in args and "content" in args:
-                                    files = store_as(Files)
-                                    files.put_file(args["file_path"], args["content"])
-                                elif fn == "write_todos" and "todos" in args:
-                                    todos = store_as(Todos)
-                                    items = []
-                                    for t in args["todos"]:
-                                        try:
-                                            items.append(Todo(**t))
-                                        except Exception:
-                                            pass
-                                    if items:
-                                        todos.set_todos(items)
-                        except Exception:
-                            pass
-            except Exception:
-                # Best-effort; continue even if inspection/execution fails
-                pass
+            await _apply_side_effect_calls(out.messages, base_tools + extra_tools)
             return out
 
         return execute
