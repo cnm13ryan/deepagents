@@ -117,6 +117,26 @@ export INSPECT_ENABLE_TEXT_EDITOR_TOOL=1
 See: ../guides/tool-umbrellas.md and ../getting-started/inspect_agents_quickstart.md
 
 
+## Parallel Tool Execution (Kill‑Switch)
+
+- `INSPECT_DISABLE_TOOL_PARALLEL` — truthy values (`1/true/yes/on`) force
+  serial approval for non‑handoff tools within a single assistant turn. When the
+  model emits multiple `tool_calls` and no handoff is present, only the first
+  non‑handoff tool is approved; subsequent non‑handoff calls are rejected. A
+  standardized transcript ToolEvent is emitted with
+  `metadata.source="policy/parallel_kill_switch"` for skipped calls.
+  Effective only when approval policies are active (the `dev`/`prod` presets
+  include this policy; `ci` does not). Handoff tools remain serial and are
+  governed by the handoff‑exclusivity policy.
+- `INSPECT_TOOL_PARALLELISM_DISABLE` — legacy alias; supported for backward
+  compatibility, but prefer `INSPECT_DISABLE_TOOL_PARALLEL`.
+
+Examples
+```bash
+export INSPECT_DISABLE_TOOL_PARALLEL=1   # allow only the first non‑handoff tool per turn
+```
+
+
 ## Filesystem & Sandbox (Mode, Safety, Limits)
 
 - `INSPECT_AGENTS_FS_MODE` — `store` (default) | `sandbox`

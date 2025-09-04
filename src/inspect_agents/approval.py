@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+import os
 
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
@@ -174,14 +175,18 @@ def approval_preset(preset: str) -> list[Any]:
             # CI stays permissive for flexibility (no exclusivity policy by default)
             return [ApprovalPolicy(approver=approve_all, tools="*")]
         case "dev":
-            # Development: escalate sensitive tools and enforce handoff exclusivity by default
-            return [
+            # Development: enforce handoff exclusivity BEFORE permissive/reject gates
+            # so that a handoff in the batch short-circuits other tool calls.
+            # Non-handoff cases should continue to subsequent gates.
+            return handoff_exclusive_policy() + parallel_kill_switch_policy() + [
                 ApprovalPolicy(approver=dev_gate, tools="*"),
                 ApprovalPolicy(approver=reject_all, tools="*"),
-            ] + handoff_exclusive_policy()
+            ]
         case "prod":
-            # Production: terminate sensitive tools and enforce handoff exclusivity by default
-            return [ApprovalPolicy(approver=prod_gate, tools="*")] + handoff_exclusive_policy()
+            # Production: enforce handoff exclusivity BEFORE termination gate
+            return handoff_exclusive_policy() + parallel_kill_switch_policy() + [
+                ApprovalPolicy(approver=prod_gate, tools="*")
+            ]
         case _:
             raise ValueError(f"Unknown approval preset: {preset}")
 
@@ -192,6 +197,7 @@ __all__ = [
     "approval_preset",
     "redact_arguments",
     "handoff_exclusive_policy",
+    "parallel_kill_switch_policy",
 ]
 
 
@@ -249,12 +255,13 @@ def handoff_exclusive_policy() -> list[Any]:
         # Identify the source assistant message for this batch of tool calls
         source = _last_assistant_with_calls(message, history)
         if source is None:
-            return Approval(decision="approve")
+            # No batch context; allow subsequent presets/gates to decide
+            return Approval(decision="escalate")
 
         selected = _first_handoff_from_message(source)
         if selected is None:
-            # No handoff present: no exclusivity needed
-            return Approval(decision="approve")
+            # No handoff present: no exclusivity needed; continue to other policies
+            return Approval(decision="escalate")
 
         selected_id = _get(selected, "id")
         current_is_handoff = isinstance(call.function, str) and call.function.startswith("transfer_to_")
@@ -309,5 +316,136 @@ def handoff_exclusive_policy() -> list[Any]:
 
     # Tag for Inspect logging/registry
     registry_tag(lambda: None, approver, RegistryInfo(type="approver", name="policy/handoff_exclusive"))
+
+    return [ApprovalPolicy(approver=approver, tools="*")]
+
+
+def parallel_kill_switch_policy() -> list[Any]:
+    """Global kill-switch to disable parallel tool execution for non-handoff tools.
+
+    When either `INSPECT_TOOL_PARALLELISM_DISABLE` or `INSPECT_DISABLE_TOOL_PARALLEL`
+    is truthy and the most recent assistant message contains more than one
+    tool call, approve only the first non-handoff tool call and reject the rest.
+
+    Notes:
+    - Handoff tools (name starts with "transfer_to_") are handled by
+      `handoff_exclusive_policy()` and are not gated here; if a handoff is present
+      in the batch, this policy escalates so the exclusivity policy decides.
+    - Truthy values: {"1", "true", "yes", "on"} (case-insensitive).
+    """
+    from inspect_ai.approval._approval import Approval  # type: ignore
+    try:
+        from inspect_ai.approval._policy import ApprovalPolicy  # type: ignore
+    except Exception:
+        class ApprovalPolicy:  # type: ignore
+            def __init__(self, approver, tools):
+                self.approver = approver
+                self.tools = tools
+    from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
+    from inspect_ai.tool._tool_call import ToolCall  # type: ignore
+
+    def _truthy(val: str | None) -> bool:
+        if val is None:
+            return False
+        return val.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _get(obj: Any, name: str, default: Any = None) -> Any:
+        try:
+            return getattr(obj, name)
+        except Exception:
+            try:
+                return obj.get(name, default)  # type: ignore[attr-defined]
+            except Exception:
+                return default
+
+    def _last_assistant_with_calls(message: Any, history: list[Any]) -> Any | None:
+        tcs = _get(message, "tool_calls") if message is not None else None
+        if isinstance(tcs, (list, tuple)) and len(tcs) > 0:
+            return message
+        for msg in reversed(list(history or [])):
+            tcs = _get(msg, "tool_calls")
+            if isinstance(tcs, (list, tuple)) and len(tcs) > 0:
+                return msg
+        return None
+
+    def _first_handoff_from_message(msg: Any) -> ToolCall | None:  # type: ignore[valid-type]
+        for tc in _get(msg, "tool_calls") or []:
+            fn = _get(tc, "function", "")
+            if isinstance(fn, str) and fn.startswith("transfer_to_"):
+                return tc  # type: ignore[return-value]
+        return None
+
+    def _first_non_handoff_id(msg: Any) -> Any:
+        for tc in _get(msg, "tool_calls") or []:
+            fn = _get(tc, "function", "")
+            if not (isinstance(fn, str) and fn.startswith("transfer_to_")):
+                return _get(tc, "id")
+        return None
+
+    async def approver(message, call: ToolCall, view, history):  # type: ignore[no-redef]
+        # Short-circuit unless kill-switch is enabled
+        if not (_truthy(os.getenv("INSPECT_TOOL_PARALLELISM_DISABLE")) or _truthy(os.getenv("INSPECT_DISABLE_TOOL_PARALLEL"))):
+            return Approval(decision="escalate")
+
+        source = _last_assistant_with_calls(message, history)
+        if source is None:
+            return Approval(decision="escalate")
+
+        tool_calls = _get(source, "tool_calls") or []
+        if not isinstance(tool_calls, (list, tuple)) or len(tool_calls) <= 1:
+            # Nothing parallel to gate
+            return Approval(decision="escalate")
+
+        # If a handoff exists in this batch, defer to exclusivity policy
+        if _first_handoff_from_message(source) is not None:
+            return Approval(decision="escalate")
+
+        first_allowed = _first_non_handoff_id(source)
+        if first_allowed is None:
+            # Only handoffs present or unable to resolve; let other policies decide
+            return Approval(decision="escalate")
+
+        if call.id == first_allowed:
+            return Approval(decision="approve")
+
+        # Reject subsequent non-handoff tool calls in the same batch
+        try:
+            from .tools import _log_tool_event  # local import for logging
+
+            _log_tool_event(
+                name="parallel_kill_switch",
+                phase="skipped",
+                extra={
+                    "first_allowed_id": first_allowed,
+                    "skipped_function": call.function,
+                },
+            )
+        except Exception:
+            pass
+
+        # Emit standardized transcript ToolEvent for the skip
+        try:
+            from inspect_ai.log._transcript import ToolEvent, transcript  # type: ignore
+            from inspect_ai.tool._tool_call import ToolCallError  # type: ignore
+
+            ev = ToolEvent(
+                id=str(call.id),
+                function=str(call.function),
+                arguments=dict(call.arguments or {}),
+                pending=False,
+                error=ToolCallError("approval", "Parallel disabled: only first tool approved"),
+                metadata={
+                    "first_allowed_id": first_allowed,
+                    "skipped_function": call.function,
+                    "source": "policy/parallel_kill_switch",
+                },
+            )
+            transcript()._event(ev)
+        except Exception:
+            pass
+
+        return Approval(decision="reject", explanation="Parallel disabled: only first tool approved")
+
+    registry_tag(lambda: None, approver, RegistryInfo(type="approver", name="policy/parallel_kill_switch"))
 
     return [ApprovalPolicy(approver=approver, tools="*")]
