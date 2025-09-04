@@ -46,6 +46,93 @@ from .tools_files import (
 # Structured observability configuration
 _OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
 
+# One-time observability: effective tool-output limit log
+_EFFECTIVE_LIMIT_LOGGED = False
+
+def _parse_int(env_val: str | None) -> int | None:
+    try:
+        if env_val is None:
+            return None
+        val = int(env_val.strip())
+        if val < 0:
+            return None
+        return val
+    except Exception:
+        return None
+
+
+def _maybe_emit_effective_tool_output_limit_log() -> None:
+    """Emit a single structured log with the effective tool-output limit.
+
+    - Reads optional env override `INSPECT_MAX_TOOL_OUTPUT` (bytes).
+    - If set and upstream GenerateConfig has no explicit limit, set it once
+      to keep precedence: explicit arg > GenerateConfig > env > fallback 16 KiB.
+    - Logs a one-time `tool_event` with fields:
+        { tool: "observability", phase: "info",
+          effective_tool_output_limit: <int>, source: "env"|"default" }
+    """
+    global _EFFECTIVE_LIMIT_LOGGED
+    if _EFFECTIVE_LIMIT_LOGGED:
+        return
+
+    # Determine env override, validate as non-negative integer (0 disables)
+    env_raw = os.getenv("INSPECT_MAX_TOOL_OUTPUT")
+    env_limit = _parse_int(env_raw)
+
+    # Attempt to apply env to active GenerateConfig only if not already set
+    source = "default"
+    effective = 16 * 1024
+    try:
+        from inspect_ai.model._generate_config import (
+            active_generate_config,
+            set_active_generate_config,
+        )
+
+        cfg = active_generate_config()
+        # If env is provided and config has no explicit limit, adopt env
+        if env_limit is not None and getattr(cfg, "max_tool_output", None) is None:
+            try:
+                # Prefer merge to avoid mutating the existing instance in-place
+                new_cfg = cfg.merge({"max_tool_output": env_limit})  # type: ignore[arg-type]
+                set_active_generate_config(new_cfg)
+            except Exception:
+                # Fallback: best-effort in-place set (may be a no-op in some contexts)
+                try:
+                    cfg.max_tool_output = env_limit  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+
+        # Resolve effective limit from active config if present; otherwise default
+        cfg_limit = getattr(active_generate_config(), "max_tool_output", None)
+        if cfg_limit is not None:
+            effective = int(cfg_limit)
+        elif env_limit is not None:
+            # No config, but env provided: reflect that as effective value
+            effective = env_limit
+        # Decide source label (env vs default). We intentionally collapse
+        # explicit config/arg into "default" to keep payload minimal here.
+        source = "env" if env_limit is not None else "default"
+    except Exception:
+        # If upstream APIs aren't available, fall back to env/default only
+        if env_limit is not None:
+            effective = env_limit
+            source = "env"
+
+    # Emit one-time structured log
+    logger = logging.getLogger(__name__)
+    try:
+        payload = {
+            "tool": "observability",
+            "phase": "info",
+            "effective_tool_output_limit": effective,
+            "source": source,
+        }
+        logger.info("tool_event %s", json.dumps(payload, ensure_ascii=False))
+    except Exception:
+        pass
+
+    _EFFECTIVE_LIMIT_LOGGED = True
+
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
     """Redact sensitive keys and truncate large string fields.
@@ -88,6 +175,9 @@ def _log_tool_event(
     Returns a perf counter when phase == "start" so callers can pass it back
     on "end"/"error" to compute a duration.
     """
+    # Emit one-time effective limit log on the very first tool event
+    _maybe_emit_effective_tool_output_limit_log()
+
     logger = logging.getLogger(__name__)
     now = time.perf_counter()
     data: dict[str, Any] = {
