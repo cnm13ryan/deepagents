@@ -1,8 +1,8 @@
 # test(retry): cover fallback path and non-retryable behavior
 
-import os
-import types
 import importlib
+import types
+
 import pytest
 
 
