@@ -9,7 +9,7 @@ via the default `submit()` tool provided by Inspect.
 """
 
 from collections.abc import Sequence
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, Sequence, TypedDict
 
 # Base prompt modeled after deepagents.base_prompt
 BASE_PROMPT_HEADER = (
@@ -135,6 +135,61 @@ def build_supervisor(
         attempts=attempts,
         submit=True,
         truncation=truncation,  # pass-through; no custom limits for now
+    )
+
+
+def build_basic_submit_agent(
+    *,
+    prompt: str,
+    tools: Sequence[object] | None = None,
+    attempts: int = 1,
+    model: object | None = None,
+    truncation: str = "disabled",
+):
+    """Alias for the basic submit-style supervisor for naming parity.
+
+    Mirrors `build_supervisor`; exported to make imports clearer alongside
+    `build_iterative_agent` when contrasting agent styles in docs/examples.
+    """
+    return build_supervisor(
+        prompt=prompt,
+        tools=tools,
+        attempts=attempts,
+        model=model,
+        truncation=truncation,
+    )
+
+
+def build_iterative_agent(
+    *,
+    prompt: str | None = None,
+    tools: Sequence[object] | None = None,
+    model: Any | None = None,
+    real_time_limit_sec: int | None = None,
+    max_steps: int | None = None,
+    continue_message: str | None = None,
+    max_turns: int = 50,
+    progress_every: int = 5,
+    stop_on_keywords: Sequence[str] | None = None,
+):
+    """Thin passthrough to the iterative supervisor (no submit semantics).
+
+    Exposed here for a consistent surface alongside `build_supervisor()`.
+    See `inspect_agents.iterative.build_iterative_agent` for parameter docs.
+    """
+    # Import locally to avoid heavy imports at module load
+    from inspect_agents.iterative import build_iterative_agent as _impl
+
+    return _impl(
+        prompt=prompt,
+        tools=tools,
+        model=model,
+        real_time_limit_sec=real_time_limit_sec,
+        max_steps=max_steps,
+        continue_message=continue_message,
+        max_turns=max_turns,
+        progress_every=progress_every,
+        stop_on_keywords=stop_on_keywords,
     )
 
 
