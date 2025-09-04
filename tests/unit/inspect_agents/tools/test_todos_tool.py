@@ -71,3 +71,4 @@ def test_update_todo_status_error_handling():
     # Now validation happens at the Pydantic level, so error message is different
     assert ("Invalid todo status parameters" in str(exc_info.value.message) or 
             "Invalid todo operation" in str(exc_info.value.message))
+
