@@ -146,6 +146,12 @@ export INSPECT_DISABLE_TOOL_PARALLEL=1   # allow only the first non‑handoff to
 - `INSPECT_AGENTS_TOOL_TIMEOUT` — per‑call tool timeout in seconds (default 15).
 - `INSPECT_AGENTS_TYPED_RESULTS` — `1/true` to return typed objects from tools
   instead of strings/lists (default off).
+- `INSPECT_SANDBOX_PREFLIGHT` — `auto` (default) | `skip` | `force`
+  - `auto`: perform preflight; on failure, log a one‑time `files:sandbox_preflight` warning and fall back to store.
+  - `skip`: return `False` from the preflight without logging; callers fall back deterministically.
+  - `force`: perform preflight and raise on failure (no fallback). Intended for operator workflows where sandbox is mandatory.
+- `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` — cache TTL in seconds for the preflight result (default `300`). Set `0` to disable caching and recheck each call.
+- `INSPECT_SANDBOX_LOG_PATHS` — `1/true` to enrich the `files:sandbox_preflight` warning with contextual fields like `fs_root` and `tool`.
 - `INSPECT_AGENTS_FS_READ_ONLY` — `1/true` enables audited read‑only mode in
   sandbox. When `INSPECT_AGENTS_FS_MODE=sandbox` and this flag is truthy,
   write/edit/delete operations are blocked: the files tool raises a
@@ -165,6 +171,9 @@ Safety notes
 Examples
 ```bash
 export INSPECT_AGENTS_FS_MODE=sandbox
+export INSPECT_SANDBOX_PREFLIGHT=auto
+export INSPECT_SANDBOX_PREFLIGHT_TTL_SEC=300
+export INSPECT_SANDBOX_LOG_PATHS=1
 export INSPECT_AGENTS_FS_READ_ONLY=1   # block write/edit/delete; allow ls/read
 export INSPECT_AGENTS_TOOL_TIMEOUT=20
 export INSPECT_AGENTS_TYPED_RESULTS=1
