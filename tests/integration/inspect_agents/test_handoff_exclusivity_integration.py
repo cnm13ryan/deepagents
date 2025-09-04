@@ -12,6 +12,9 @@ dev/prod preset gates) to validate core semantics with the real policy engine.
 import asyncio
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.handoff
 
 def _ensure_vendor_on_path():
     # Prefer vendored Inspect-AI over any site-packages version
@@ -64,4 +67,3 @@ def test_policy_approver_enforces_exclusivity_on_mixed_batch():
     ok3 = asyncio.run(approver('', calls[2], None, history))
     assert getattr(ok3, 'decision', None) == 'reject'
     assert 'exclusivity' in (getattr(ok3, 'explanation', '') or '')
-
