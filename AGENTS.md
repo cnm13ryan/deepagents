@@ -56,6 +56,71 @@ Default step for bots/automation: if tests are discoverable, run the test comman
 - Keep commits atomic and logically independent; include rationale in body when useful.
 - PRs: concise description, linked issues, reproduction (if bug), test updates, and example CLI output or logs when relevant.
 
+## Git: Safe, Path‑Restricted Commits (Multi‑Agent)
+
+**Never use (forbidden):**
+- `git add .`
+- `git commit -a`
+- `git add -A` or `git add -u` without a pathspec
+- `git diff --no-index`
+- `git apply` with hand‑edited patches
+
+**Allowed + recommended:**
+- Show changes for specific paths: `git diff -- <path ...>`
+- Pre‑index new files so diffs show hunks: `git add -N -- <newfile ...>`
+- Stage only intended hunks: `git add -p -- <path ...>`
+- Unstage surgically if needed: `git reset -p -- <path>`
+- Commit only selected paths: `git commit -m "<type>(<scope>): <desc>" -- <path ...>`
+- Isolate unrelated work during commit: `git stash --keep-index -u -m "temp: <desc>"` then `git stash pop`
+
+**Session workflow**
+1. Declare session files you edited (paths + brief summary).
+2. Review diffs for just those paths:
+   ```bash
+   git diff -- <path1> <path2> ...
+   git add -N -- <newfile1> <newfile2>  # if needed
+   git diff -- <newfile1> <newfile2>
+   ```
+
+3. Group changes into logical commits (atomic units).
+4. Stage only the intended hunks:
+
+   ```bash
+   git add -p -- <path1> <path2> ...
+   git diff --cached --name-only
+   git diff --cached -- <path1> <path2> ...
+   ```
+5. Isolate and commit those paths only:
+
+   ```bash
+   git stash --keep-index -u -m "temp: <commit n>"
+   git commit -m "type(scope): short description" -- <path1> <path2> ...
+   git stash pop
+   git show --name-only --stat -1
+   ```
+
+**Conventional Commits**
+
+```
+<type>[optional scope]: <description>
+
+[optional body – what/why, wrap at 72]
+[optional footer – BREAKING CHANGE:, Refs #id]
+```
+
+Types: feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
+
+**Safety checks**
+
+* `git diff --cached --name-only` shows only the intended paths.
+* `git diff` shows leftover, uncommitted work you deliberately didn’t stage.
+* If something unrelated slipped in: `git restore --staged -- <path>` or `git reset -p -- <path>` and restage correctly.
+
+**Quick examples**
+
+* ✅ Do: `git add -p -- src/api/user.ts && git commit -m "fix(api): handle 401" -- src/api/user.ts`
+* ❌ Don’t: `git add .` / `git commit -a` / `git diff --no-index` / manual `git apply`
+
 ## Security & Configuration Tips
 - Never commit secrets; load from `.env` or `env_templates/inspect.env` (override with `INSPECT_ENV_FILE`).
 - Filesystem mode: `INSPECT_AGENTS_FS_MODE=store|sandbox`.
