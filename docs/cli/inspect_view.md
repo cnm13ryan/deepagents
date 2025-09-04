@@ -33,7 +33,30 @@ Common options:
 
 Open your browser to http://127.0.0.1:7575 (or your chosen host/port).
 
+## Export and Share Logs
+
+Use these CLI commands to export exactly what you’re viewing:
+
+```bash
+# 1) Locate the log you saw in the History panel
+#    (or list programmatically)
+uv run inspect log list --json --absolute
+
+# 2) Export one log to JSON (works for .eval or .json sources)
+uv run inspect log dump /abs/path/to/log.eval > eval.json
+
+# Optional: convert many logs to JSON into a new directory
+uv run inspect log convert ./logs --to json --output-dir ./logs-json --overwrite
+
+# 3) Bundle a shareable static viewer + logs (zip or host anywhere)
+uv run inspect view bundle --output-dir ./logs-www
+```
+
+Notes
+- By default, `inspect view` and `inspect log` read from `INSPECT_LOG_DIR` (defaults to `./logs`). Pass `--log-dir` to override.
+- `inspect log dump` always emits JSON, regardless of underlying storage format.
+- `inspect view bundle` creates a self‑contained site at `./logs-www/` with `index.html`, assets, and a `logs/` folder you can publish.
+
 ## Implementation Notes (for contributors)
 
 - The CLI `view` group delegates to `start`, which calls `inspect_ai._view.view()`. That initializes logging, acquires the port (terminating any stale viewer on the same port), and starts the aiohttp server that serves the UI and log APIs.
-

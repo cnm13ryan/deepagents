@@ -29,6 +29,22 @@ uv run inspect log dump logs/run.eval --header-only
 uv run inspect log convert ./logs --to json --output-dir ./logs-json --overwrite
 ```
 
+## Export Recipes (from Inspect View)
+
+```bash
+# Find the log you saw in the viewer
+uv run inspect log list --json --absolute | jq '.[0].name'  # pick the right one
+
+# Export that single log to JSON
+uv run inspect log dump /abs/path/to/log.eval > eval.json
+
+# Convert an entire log directory to JSON (non‑destructive)
+uv run inspect log convert ./logs --to json --output-dir ./logs-json --overwrite
+
+# Create a static viewer bundle + logs (zip or host)
+uv run inspect view bundle --output-dir ./logs-www
+```
+
 Notes
 - Inspect supports two physical formats: compact binary `eval` and `json`. The CLI reads either and emits JSON for analysis.
 
