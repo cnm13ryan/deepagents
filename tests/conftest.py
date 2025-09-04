@@ -15,6 +15,7 @@ Behavior:
 
 from __future__ import annotations
 
+import importlib.util as _importlib_util
 import os
 import sys
 from collections.abc import Iterable
@@ -138,21 +139,41 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):  # pragma: no
 # Optional plugin shims
 # ----------------------------------------------------------------------
 
-# Provide a minimal no-op 'benchmark' fixture when pytest-benchmark is absent.
-# This keeps benchmark tests runnable in environments that don't install the
-# optional plugin, treating them as functional smoke checks.
-try:  # pragma: no cover - exercised only when plugin missing
-    pass  # type: ignore
-except Exception:  # pragma: no cover - simple shim
+"""Optional plugin shims.
+
+Provide a minimal no-op 'benchmark' fixture when pytest-benchmark is absent.
+This keeps benchmark tests runnable in environments that don't install the
+optional plugin, treating them as functional smoke checks.
+"""
+
+_HAS_PYTEST_BENCHMARK = _importlib_util.find_spec("pytest_benchmark") is not None
+
+if not _HAS_PYTEST_BENCHMARK:  # pragma: no cover - exercised only when plugin missing
     import pytest
 
     @pytest.fixture
     def benchmark():
+        """Fallback benchmark fixture that simply executes the function.
+
+        Usage compatibility:
+            benchmark(lambda: some_fn())
+        Returns the function's return value; no timing/stats are recorded.
+        """
+
         def _runner(func, *args, **kwargs):
-            if callable(func):
-                return func(*args, **kwargs)
-            return func
+            return func(*args, **kwargs) if callable(func) else func
+
         return _runner
+
+    def pytest_configure(config):  # pragma: no cover - cosmetic marker registration
+        # Register the 'benchmark' marker to avoid unknown-mark warnings when
+        # the real plugin isn't installed.
+        try:
+            config.addinivalue_line(
+                "markers", "benchmark: no-op when pytest-benchmark is unavailable"
+            )
+        except Exception:
+            pass
 
 # Guard/cleanup fixture for approval-related tests that stub inspect_ai modules
 # and register global approvers. Ensures isolation across tests.
