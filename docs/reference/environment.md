@@ -224,6 +224,26 @@ export INSPECT_TRACE_FILE=logs/inspect_ai/trace.log
 ```
 
 
+## Tool Output & Truncation
+
+- `INSPECT_MAX_TOOL_OUTPUT` — maximum tool output in bytes (low precedence
+  override). Parsed as a non-negative integer; `0` disables truncation. This
+  is a coarse control for CI/ops and is only applied when no explicit per-call
+  `max_output` and no per-run `GenerateConfig.max_tool_output` are set. If
+  provided, the first tool event logs a one-time structured line:
+  `tool_event {"tool":"observability","phase":"info","effective_tool_output_limit":N,"source":"env|default"}`.
+  Default (when unset and no config override): `16384` bytes.
+
+Examples
+```bash
+# Cap tool outputs at 8 KiB across a run unless code sets an explicit limit
+export INSPECT_MAX_TOOL_OUTPUT=8192
+
+# Disable truncation (be careful: prompts can grow quickly)
+export INSPECT_MAX_TOOL_OUTPUT=0
+```
+
+
 ## Cache & Retries
 
 - `UV_CACHE_DIR` — cache directory for `uv` package installs (build speed).
