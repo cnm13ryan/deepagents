@@ -40,6 +40,10 @@ Open Question 1 — Policy Precedence of Exclusivity
 - Acceptance Criteria
   - Integration test using the real `policy_approver`: with an assistant message containing `[transfer_to_researcher, read_file]`, the `read_file` call is rejected due to exclusivity; only the first handoff is approved. Repeat for both `dev` and `prod`.
 
+⚠️ Still Open - Requires Decision
+
+- Current presets append `handoff_exclusive_policy()` after the dev/prod gates rather than placing it first. This means permissive gates may approve non-handoff tools before exclusivity runs. Evidence: preset construction shows exclusivity appended to lists, not prefixed. 〖F:src/inspect_agents/approval.py†L172-L185〗
+
 ---
 
 Open Question 2 — Transcript Assertions for Exclusivity Skips
@@ -61,6 +65,15 @@ Open Question 2 — Transcript Assertions for Exclusivity Skips
 - Acceptance Criteria
   - Failing test if the transcript emission changes schema or disappears; success means one “skipped due to handoff” `ToolEvent` per skipped call with the expected metadata fields.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: The exclusivity approver emits a standardized transcript `ToolEvent` for each skipped call, and tests assert its presence and metadata.
+**Evidence**: `handoff_exclusive_policy()` synthesizes a `ToolEvent` with `pending=False`, `error=ToolCallError("approval", "Skipped due to handoff")`, and metadata `selected_handoff_id`, `skipped_function`, `source="policy/handoff_exclusive"`. 〖F:src/inspect_agents/approval.py†L282-L303〗 End-to-end test asserts two such events for skipped non‑handoff tools. 〖F:tests/integration/inspect_agents/test_handoff_exclusive_end_to_end.py†L100-L112〗 Unit test also validates event shape and source. 〖F:tests/unit/inspect_agents/test_handoff_exclusive_policy.py†L174-L186〗
+**Conclusion**: Transcript assertions are in place (Options A/B effectively adopted); acceptance criteria satisfied by unit and integration coverage.
+
+</details>
+
 Detailed Open Questions — Transcript “Skipped” ToolEvents
 
 1) Error code strategy (type vs mapping vs docs)
@@ -71,6 +84,10 @@ Detailed Open Questions — Transcript “Skipped” ToolEvents
   - Docs-only: document `type="approval"` as the canonical representation for policy-driven skips; require consumers to key off `metadata.source` and `selected_handoff_id` rather than a new code.
 - Proposal: adopt export-time mapping immediately for operator logs; pursue upstream addition in parallel if broader ecosystem wants `"skipped"` as first-class.
 
+⚠️ Still Open - Requires Decision
+
+- Partial implementation only: events use `ToolCallError(type="approval")`; no export‑time mapping to `{code:"skipped"}` exists in transcript writer. `write_transcript()` currently serializes events as-is with light redaction. 〖F:src/inspect_agents/approval.py†L291-L303〗 〖F:src/inspect_agents/logging.py†L32-L38〗 〖F:src/inspect_agents/logging.py†L41-L60〗
+
 2) Event contract stability (pending, metadata)
 - Context: Policy synthesizes `ToolEvent` with `pending=False` and metadata: `selected_handoff_id`, `skipped_function`, and `source:"policy/handoff_exclusive"`. Tests assert this shape. 〖F:src/inspect_agents/approval.py†L291-L303〗 〖F:tests/integration/inspect_agents/test_handoff_exclusive_end_to_end.py†L78-L100〗
 - Decision to confirm: treat the following as stable for v1
@@ -78,12 +95,30 @@ Detailed Open Questions — Transcript “Skipped” ToolEvents
   - `metadata` must include `selected_handoff_id`, `skipped_function`, `source`.
 - Rationale: explicit pending state avoids ambiguity; stable metadata keys support analytics and cross-run correlation.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Exclusivity approver sets `pending=False` and includes `selected_handoff_id`, `skipped_function`, and `source` in `metadata`; tests assert these fields.
+**Evidence**: Event construction sets `pending=False` and metadata keys. 〖F:src/inspect_agents/approval.py†L291-L303〗 Integration test filters transcript by `source=="policy/handoff_exclusive"` and validates fields. 〖F:tests/integration/inspect_agents/test_handoff_exclusive_end_to_end.py†L100-L112〗
+**Conclusion**: Event contract for v1 is implemented and covered by tests.
+
+</details>
+
 3) message_id timing (now vs v2 executor pre-scan)
 - Context: `ToolEvent.message_id` links to a `ChatMessageTool` when one exists. For policy-synthesized skips, no conversation message is added by design; in executor pre-scan (v2) there will also be no `ChatMessageTool` for skipped calls. 〖F:external/inspect_ai/src/inspect_ai/log/_transcript.py†L242-L244〗 〖F:docs/adr/0005-tool-parallelism-policy.md†L22-L25〗
 - Options:
   - Defer: keep `message_id=None` for policy-synthesized skips in v1; revisit when implementing v2 pre-scan to decide if a synthetic, trace-only id adds value.
   - Add now: populate `message_id` with the selected handoff’s message id to aid joins. Risk: could imply a 1:1 relation that doesn’t exist; skipped calls have no ChatMessageTool.
 - Recommendation: defer; document `message_id` as optional and typically absent for skip events in v1.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Policy‑synthesized skip events omit `message_id` (left `None`), matching the defer recommendation.
+**Evidence**: `ToolEvent` created without a `message_id` attribute in exclusivity approver. 〖F:src/inspect_agents/approval.py†L291-L303〗 Transcript data model documents `message_id` as the ChatMessageTool linkage, optional by default. 〖F:external/inspect_ai/src/inspect_ai/log/_transcript.py†L242-L244〗
+**Conclusion**: v1 behavior is to leave `message_id` unset for policy‑synthesized skips; no synthetic linkage is created.
+
+</details>
 
 ---
 
@@ -143,6 +178,23 @@ Recommendation
 
 - Keep the minimal alias set for v1 and document the canonical `{type, value}` form. Prefer canonical form in examples; note that aliases may be deprecated in a future schema version.
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: YAML parser accepts a minimal alias set and normalizes to Inspect limits.
+**Evidence**: `_limit_from_dict` accepts `{type,value}` plus aliases: `seconds` for time; `max|limit|messages|tokens` for message/token. 〖F:src/inspect_agents/config.py†L92-L107〗
+**Conclusion**: “Permissive with normalization (current)” is implemented; canonical `{type,value}` remains supported.
+
+</details>
+
+⚠️ Still Open - Requires Decision
+
+- “Unlimited” representation is inconsistent across types: message/token accept `None` to mean unlimited; time requires a numeric `value` and raises if absent. Decide whether to allow `null`/omitted for time and normalize to `None` for parity. 〖F:src/inspect_agents/config.py†L94-L97〗 〖F:src/inspect_agents/config.py†L100-L107〗
+
+⚠️ Still Open - Requires Decision
+
+- No versioned schema tag is recognized; root `schema: v1` is ignored by the loader/parser today. Consider introducing a tag and documenting canonical keys while deprecating aliases over time. 〖F:src/inspect_agents/config.py†L112-L127〗 〖F:src/inspect_agents/config.py†L65-L76〗
+
 ---
 
 # Runner API for Limit Errors — Open Questions
@@ -177,6 +229,10 @@ Risks/Notes
 Recommendation
 
 - Add an optional `return_limit_error: bool = False` parameter to `run_agent` in a follow-up. When True and limits are supplied, return `(state, err)`; otherwise, preserve current behavior. Update examples to print a concise “limit hit” line when `err` is not `None`.
+
+⚠️ Still Open - Requires Decision
+
+- Wrapper currently discards the error when Inspect returns `(state, err)`; no opt‑in parameter exists yet. Evidence: `run_agent` returns `result[0]` when a tuple is received. 〖F:src/inspect_agents/run.py†L24-L27〗
 
 ---
 
@@ -236,6 +292,15 @@ Open Question 1 — Debug Toggle Semantics
 - Decision Needed
   - Which toggle policy do we standardize on for production?
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Debug logs enable when either `INSPECT_PRUNE_DEBUG` or `INSPECT_MODEL_DEBUG` is set.
+**Evidence**: `_prune_debug` computed as `bool(os.getenv("INSPECT_PRUNE_DEBUG") or os.getenv("INSPECT_MODEL_DEBUG"))`. 〖F:src/inspect_agents/iterative.py†L178-L182〗
+**Conclusion**: Option A (either toggle enables) is implemented; reflects reuse of the existing model debug convention.
+
+</details>
+
 Open Question 2 — Env Override Precedence When Args Equal Defaults
 
 - Problem
@@ -249,6 +314,15 @@ Open Question 2 — Env Override Precedence When Args Equal Defaults
 - Decision Needed
   - Do we keep status quo or switch to “env only when None”?
 
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Env overrides apply when args are `None` or equal to the documented defaults (`120` for threshold; `40` for keep window).
+**Evidence**: Threshold override if `prune_after_messages is None or == 120`; keep window override if `prune_keep_last == 40`. 〖F:src/inspect_agents/iterative.py†L157-L165〗 〖F:src/inspect_agents/iterative.py†L168-L175〗
+**Conclusion**: Option A (status quo: env can override default‑like args) is implemented.
+
+</details>
+
 Open Question 3 — Zero/Negative Semantics for Threshold
 
 - Problem
@@ -260,6 +334,15 @@ Open Question 3 — Zero/Negative Semantics for Threshold
   - B) Treat `0` as “immediate prune” (not recommended) and `<0` as disable.
 - Decision Needed
   - Confirm “non‑positive disables” as the contract and document it in user‑facing docs.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Non‑positive env values disable threshold pruning; overflow‑driven prune still applies.
+**Evidence**: `_eff_prune_after = v if v > 0 else None` during env override resolution. 〖F:src/inspect_agents/iterative.py†L160-L164〗
+**Conclusion**: Option A (“non‑positive disables”) is implemented.
+
+</details>
 
 Open Question 4 — Log Format and Prefix
 
@@ -274,6 +357,15 @@ Open Question 4 — Log Format and Prefix
   - D) Emit structured JSON (logfmt/JSON) — heavier change, may conflict with existing logging config.
 - Decision Needed
   - Choose prefix and whether to include `step` (and any additional fields) now.
+
+<details>
+<summary>✅ Answer Found in Implementation</summary>
+
+**Finding**: Current log format uses the `Prune:` prefix without a `step` field.
+**Evidence**: Threshold log: `"Prune: reason=threshold pre=%d post=%d keep_last=%d threshold=%s"`; overflow log: `"Prune: reason=overflow pre=%d post=%d keep_last=%d"`. 〖F:src/inspect_agents/iterative.py†L309-L314〗 〖F:src/inspect_agents/iterative.py†L360-L364〗
+**Conclusion**: Option A (“keep as‑is; rely on `Prune:` marker”) appears to be the implemented choice.
+
+</details>
 
 Acceptance Criteria (for closure)
 
