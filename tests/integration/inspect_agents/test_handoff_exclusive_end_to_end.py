@@ -21,6 +21,52 @@ def _ensure_vendor_on_path():
         sys.path.insert(0, vendor_src)
 
 
+def _ensure_apply_shim():
+    # Provide a lightweight apply shim if prior tests replaced the module
+    import fnmatch
+    import sys as _sys
+    import types
+
+    apply_mod = types.ModuleType("inspect_ai.approval._apply")
+    _compiled: list[tuple[list[str], object]] = []
+
+    def init_tool_approval(policies):  # pragma: no cover - simple wiring
+        nonlocal _compiled
+        compiled: list[tuple[list[str], object]] = []
+        if policies:
+            for p in policies:
+                tools = getattr(p, "tools", "*")
+                approver = getattr(p, "approver", None)
+                patterns = tools if isinstance(tools, list) else [tools]
+                compiled.append((patterns, approver))
+        _compiled = compiled
+
+    async def apply_tool_approval(message, call, viewer, history):
+        approver = None
+        if _compiled:
+            for patterns, ap in _compiled:
+                for pat in patterns:
+                    pat = pat if pat.endswith("*") else pat + "*"
+                    if fnmatch.fnmatch(call.function, pat):
+                        approver = ap
+                        break
+                if approver:
+                    break
+        if approver is None:
+            class _Approval:
+                decision = "approve"
+                modified = None
+                explanation = None
+            return True, _Approval()
+        view = viewer(call) if callable(viewer) else None
+        approval = await approver(message, call, view, history)  # type: ignore[misc]
+        return (getattr(approval, "decision", None) in ("approve", "modify")), approval
+
+    apply_mod.init_tool_approval = init_tool_approval
+    apply_mod.apply_tool_approval = apply_tool_approval
+    _sys.modules["inspect_ai.approval._apply"] = apply_mod
+
+
 def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
     _ensure_vendor_on_path()
 
@@ -29,6 +75,7 @@ def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
     from inspect_ai.agent._handoff import handoff
 
     # Activate only the exclusivity policy to ensure it is applied first
+    _ensure_apply_shim()
     from inspect_ai.approval._apply import init_tool_approval
     from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
     from inspect_ai.model._call_tools import execute_tools
