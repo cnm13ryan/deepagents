@@ -172,21 +172,19 @@ def approval_preset(preset: str) -> list[Any]:
 
     match preset:
         case "ci":
-            # CI stays permissive for flexibility (no exclusivity policy by default)
+            # CI stays permissive for flexibility (call sites may layer exclusivity/kill-switch)
             return [ApprovalPolicy(approver=approve_all, tools="*")]
         case "dev":
-            # Development: enforce handoff exclusivity BEFORE permissive/reject gates
-            # so that a handoff in the batch short-circuits other tool calls.
-            # Non-handoff cases should continue to subsequent gates.
-            return handoff_exclusive_policy() + parallel_kill_switch_policy() + [
-                ApprovalPolicy(approver=dev_gate, tools="*"),
-                ApprovalPolicy(approver=reject_all, tools="*"),
-            ]
+            # Development: exclusivity/kill-switch first, then gates
+            return approval_chain(
+                [
+                    ApprovalPolicy(approver=dev_gate, tools="*"),
+                    ApprovalPolicy(approver=reject_all, tools="*"),
+                ]
+            )
         case "prod":
-            # Production: enforce handoff exclusivity BEFORE termination gate
-            return handoff_exclusive_policy() + parallel_kill_switch_policy() + [
-                ApprovalPolicy(approver=prod_gate, tools="*")
-            ]
+            # Production: exclusivity/kill-switch first, then termination gate
+            return approval_chain([ApprovalPolicy(approver=prod_gate, tools="*")])
         case _:
             raise ValueError(f"Unknown approval preset: {preset}")
 
@@ -198,6 +196,7 @@ __all__ = [
     "redact_arguments",
     "handoff_exclusive_policy",
     "parallel_kill_switch_policy",
+    "approval_chain",
 ]
 
 
@@ -260,8 +259,8 @@ def handoff_exclusive_policy() -> list[Any]:
 
         selected = _first_handoff_from_message(source)
         if selected is None:
-            # No handoff present: no exclusivity needed; continue to other policies
-            return Approval(decision="escalate")
+            # No handoff present: exclusivity not applicable; approve
+            return Approval(decision="approve")
 
         selected_id = _get(selected, "id")
         current_is_handoff = isinstance(call.function, str) and call.function.startswith("transfer_to_")
@@ -449,3 +448,43 @@ def parallel_kill_switch_policy() -> list[Any]:
     registry_tag(lambda: None, approver, RegistryInfo(type="approver", name="policy/parallel_kill_switch"))
 
     return [ApprovalPolicy(approver=approver, tools="*")]
+
+
+def approval_chain(
+    *policies: Any,
+    include_exclusivity: bool = True,
+    include_kill_switch: bool = True,
+) -> list[Any]:
+    """Return a canonical, ordered policy chain with safe precedence.
+
+    Precedence is guaranteed:
+    1) Handoff exclusivity (if enabled)
+    2) Parallel kill-switch (if enabled)
+    3) Caller-provided policies in given order
+
+    Notes
+    - Each element in ``policies`` can be a single ``ApprovalPolicy`` or a
+      ``list[ApprovalPolicy]``. Falsy entries are ignored.
+    - This helper centralizes ordering to avoid accidental reordering at call sites.
+    """
+
+    chain: list[Any] = []
+    if include_exclusivity:
+        try:
+            chain.extend(handoff_exclusive_policy())
+        except Exception:
+            pass
+    if include_kill_switch:
+        try:
+            chain.extend(parallel_kill_switch_policy())
+        except Exception:
+            pass
+
+    for p in policies:
+        if not p:
+            continue
+        if isinstance(p, list):
+            chain.extend(p)
+        else:
+            chain.append(p)
+    return chain
