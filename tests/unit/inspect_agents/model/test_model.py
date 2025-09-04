@@ -178,3 +178,4 @@ def test_inspect_role_indirection_debug_path(monkeypatch, caplog):
 
     model_log_message = model_logs[0].getMessage()
     assert "path=role_inspect_indirection" in model_log_message
+
