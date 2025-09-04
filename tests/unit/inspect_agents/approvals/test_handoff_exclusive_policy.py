@@ -98,3 +98,4 @@ def test_no_handoff_approves_everything():
 
     result = asyncio.run(approver(msg, read_call, None, history))
     assert getattr(result, "decision", None) == "approve"
+

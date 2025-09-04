@@ -34,3 +34,4 @@ def test_preset_order_dev_prod_ci():
 
     # ci: unchanged permissive approve-all
     assert ci == ["approve_all"]
+
