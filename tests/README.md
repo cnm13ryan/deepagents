@@ -1,63 +1,74 @@
-# Test Structure
+# Tests: Inspect-AI Source of Truth
 
-The tests have been organized into three main categories:
+This repository’s tests must target the installed site‑packages version of
+`inspect_ai`. The copy under `external/inspect_ai/` is reference‑only (for
+browsing, diffs, and local development) and must not be imported or placed on
+`sys.path` by tests.
 
-## Fixtures (`tests/fixtures/`)
-Test helpers, utilities, and shared components. Currently contains configuration files and shared test setup.
+Why: keeping tests bound to the installed package prevents version skew and
+ensures we validate against the exact dependency surface that users get via
+`pip/uv`.
 
-## Unit Tests (`tests/unit/`)
-Individual component testing. These tests focus on testing single units of functionality in isolation:
+## Do / Don’t
 
-- `test_model.py` - Model resolution and configuration
-- `test_tool_schema.py` - Tool schema validation
-- `test_config_loader.py` - Configuration loading functionality
-- `test_logging.py` - Logging system testing
-- `test_migration.py` - Migration logic testing
-- `test_state.py` - State management testing
-- `test_tool_error_codes.py` - Error code handling
-- `test_fs_tools.py` - Individual file system tools
-- `test_fs_sandbox.py` - File system sandbox functionality
-- `test_todos_tool.py` - Todo tool functionality
+Do:
+- Import Inspect‑AI symbols from the installed package, e.g. `from inspect_ai.tool._tool_call import ToolCall`.
+- Use Inspect’s public helpers (e.g., `policy_approver(...)`) to exercise
+  behavior without re‑implementing approvals.
+- If you must stub Inspect modules for a unit test, scope stubs inside a helper
+  and clean them up in `teardown_module` (delete any stubbed `sys.modules[...]`
+  entries).
+- Keep tests deterministic and offline by default: set `CI=1` and
+  `NO_NETWORK=1` when running locally or in CI.
 
-## Integration Tests (`tests/integration/`)
-Multi-component interaction testing. These tests verify that different components work correctly together:
-
-- `test_subagents.py` - Subagent system interactions
-- `test_approval_chains.py` - Approval chain workflow testing
-- `test_run.py` - Full execution workflow testing
-- `test_tool_timeouts.py` - Tool timeout handling across components
-- `test_truncation.py` - Content truncation in workflows
-- `test_parallel.py` - Parallel execution testing
-- `test_supervisor.py` - Supervisor functionality testing
-- `test_approval.py` - Approval system integration
+Don’t:
+- Add `external/inspect_ai/src` to `sys.path` (directly or via `PYTHONPATH`).
+- Import from `external/inspect_ai/...` in tests.
+- Leave global `sys.modules` shims in place after a test module finishes.
+- Depend on private, unstable internals unless absolutely necessary.
 
 ## Running Tests
 
-Run all tests:
-```bash
-CI=1 NO_NETWORK=1 uv run pytest
+Installed‐package first:
+
+- Ensure dependencies are installed (example with `uv`):
+  - `uv sync`
+- Run the whole suite offline and quiet:
+  - `CI=1 NO_NETWORK=1 pytest -q -v`
+- Run subsets while iterating:
+  - `CI=1 NO_NETWORK=1 pytest -q -v tests/unit/inspect_agents -k '<expr>'`
+
+Notes:
+- The repository’s `tests/unit/inspect_agents/conftest.py` intentionally only
+  adds the repo `src/` to `sys.path` and defers all `inspect_ai` imports to the
+  installed package.
+- If a test needs to simulate Inspect behavior, prefer calling
+  `policy_approver(policies)` over importing internal approval runners. If a
+  shim is unavoidable, register it inside the test module and remove it in
+  `teardown_module`.
+
+### Fixture: approval_modules_guard
+
+Tests that temporarily stub `inspect_ai.approval*` modules should use the
+shared fixture `approval_modules_guard` (from `tests/conftest.py`):
+
+```
+def test_something(approval_modules_guard):
+    # install stubs into sys.modules["inspect_ai.approval._apply"], etc.
+    ...
+    # stubs are automatically cleaned up and originals restored on exit
 ```
 
-Run tests by category:
-```bash
-# Unit tests only
-CI=1 NO_NETWORK=1 uv run pytest tests/unit/
+The fixture snapshots any existing originals, and on teardown it restores them
+or removes stub entries (only when clearly a stub, e.g. modules without
+`__file__`). This prevents cross‑test contamination while keeping real imports
+intact.
 
-# Integration tests only
-CI=1 NO_NETWORK=1 uv run pytest tests/integration/
+## Rationale & Footguns
 
-# Fixtures (if any test files are added)
-CI=1 NO_NETWORK=1 uv run pytest tests/fixtures/
-```
-
-Run a specific test file:
-```bash
-CI=1 NO_NETWORK=1 uv run pytest tests/unit/inspect_agents/test_model.py
-```
-
-## Test Collection
-
-Verify test collection without running:
-```bash
-CI=1 NO_NETWORK=1 uv run pytest --collect-only -q tests/
-```
+- Mixing the vendored copy with the installed package leads to subtle type/schema
+  mismatches (e.g., Pydantic models, dataclasses), so tests must never depend on
+  the vendored path being importable.
+- Cross‑test contamination via `sys.modules` is a common source of flaky
+  failures. Keep any test‑local stubs narrow and short‑lived, and always clean
+  them up in `teardown_module`.
