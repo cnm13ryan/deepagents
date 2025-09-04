@@ -5,6 +5,8 @@ import os
 import re
 from typing import Any
 
+from inspect_agents.settings import truthy as _truthy  # centralized truthy
+
 
 def approval_from_interrupt_config(cfg: dict[str, Any]) -> list[Any]:
     """Convert deepagents interrupt config to Inspect ApprovalPolicy list.
@@ -270,8 +272,8 @@ def handoff_exclusive_policy() -> list[Any]:
 
         # Skip everything else in the same batch when a handoff is present
         try:
-            # Lazy import to avoid tools module at import time
-            from .tools import _log_tool_event  # local import
+            # Use observability logger without importing tools
+            from .observability import log_tool_event as _log_tool_event  # local import
 
             _log_tool_event(
                 name="handoff_exclusive",
@@ -343,10 +345,7 @@ def parallel_kill_switch_policy() -> list[Any]:
     from inspect_ai._util.registry import RegistryInfo, registry_tag  # type: ignore
     from inspect_ai.tool._tool_call import ToolCall  # type: ignore
 
-    def _truthy(val: str | None) -> bool:
-        if val is None:
-            return False
-        return val.strip().lower() in {"1", "true", "yes", "on"}
+    # use centralized truthy
 
     def _get(obj: Any, name: str, default: Any = None) -> Any:
         try:
@@ -409,7 +408,7 @@ def parallel_kill_switch_policy() -> list[Any]:
 
         # Reject subsequent non-handoff tool calls in the same batch
         try:
-            from .tools import _log_tool_event  # local import for logging
+            from .observability import log_tool_event as _log_tool_event  # local import for logging
 
             _log_tool_event(
                 name="parallel_kill_switch",

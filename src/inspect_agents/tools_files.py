@@ -16,6 +16,18 @@ from pydantic import BaseModel, Discriminator, Field, RootModel
 if TYPE_CHECKING:  # pragma: no cover
     from inspect_ai.tool._tool import Tool
 
+from . import fs as _fs
+from .exceptions import ToolException
+from .observability import log_tool_event as _log_tool_event
+from .settings import (
+    default_tool_timeout as _default_tool_timeout,
+)
+from .settings import (
+    truthy as _truthy,
+)
+from .settings import (
+    typed_results_enabled as _use_typed_results,
+)
 from .state import Files
 
 # --- Sandbox preflight (cached) ------------------------------------------------
@@ -98,12 +110,8 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
         _SANDBOX_TS = now
         _SANDBOX_WARN = "Sandbox helper unavailable; falling back to Store-backed FS."
         if mode == "force":
-            # Import lazily to avoid heavy deps if not available; fall back to local class
-            try:
-                from inspect_tool_support._util.common_types import ToolException as _ToolException  # type: ignore
-            except Exception:
-                _ToolException = ToolException  # type: ignore  # noqa: N806
-            raise _ToolException(_SANDBOX_WARN)
+            # In force mode, surface the preflight failure immediately
+            raise ToolException(_SANDBOX_WARN)
         return False
 
     try:
@@ -119,9 +127,6 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
         _SANDBOX_WARN = str(exc) or ("Sandbox service not available; falling back to Store-backed FS.")
         # Best‑effort structured warning
         try:
-            # Local import to avoid circulars at module import time
-            from .tools import _log_tool_event
-
             extra: dict[str, object] = {"ok": False, "warning": _SANDBOX_WARN}
             if os.getenv("INSPECT_SANDBOX_LOG_PATHS") in {"1", "true", "TRUE", "True", "on", "yes", "YES"}:
                 # Include fs_root and tool context when requested
@@ -139,49 +144,19 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
         except Exception:
             pass
         if mode == "force":
-            try:
-                from inspect_tool_support._util.common_types import ToolException as _ToolException  # type: ignore
-            except Exception:
-                _ToolException = ToolException  # type: ignore  # noqa: N806
-            raise _ToolException(_SANDBOX_WARN)
+            raise ToolException(_SANDBOX_WARN)
         return False
 
 
-# Forward declare ToolException to avoid circular imports
-# This will be overridden by the import at runtime
-class ToolException(Exception):  # noqa: N818
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
-
-
+# ToolException is provided centrally via inspect_agents.exceptions
 # Helper functions
 def _use_sandbox_fs() -> bool:
     """Return True if using sandbox filesystem mode."""
     return os.getenv("INSPECT_AGENTS_FS_MODE", "store").strip().lower() == "sandbox"
 
 
-def _default_tool_timeout() -> float:
-    """Get default tool timeout from environment."""
-    try:
-        return float(os.getenv("INSPECT_AGENTS_TOOL_TIMEOUT", "15"))
-    except Exception:
-        return 15.0
-
-
-def _use_typed_results() -> bool:
-    """Return True if typed result models should be returned."""
-    env_val = os.getenv("INSPECT_AGENTS_TYPED_RESULTS")
-    if env_val is None:
-        return False
-    return env_val.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _truthy(env_val: str | None) -> bool:
-    """Return True for common truthy string values."""
-    if env_val is None:
-        return False
-    return env_val.strip().lower() in {"1", "true", "yes", "on"}
+## Delegated env helpers (centralized in settings.py)
+## Keep symbol names for backward-compatible test patch points.
 
 
 def _fs_root() -> str:
@@ -218,11 +193,7 @@ async def _deny_symlink(path: str) -> None:
     Raises:
         ToolException: If the path is a symlink or check fails
     """
-    # Import here to use the actual ToolException
-    try:
-        from inspect_tool_support._util.common_types import ToolException as _ToolException
-    except ImportError:
-        _ToolException = ToolException  # noqa: N806
+    # Use centralized ToolException
 
     try:
         # If sandbox bash support isn't available (e.g., unit tests without a sandbox),
@@ -245,7 +216,7 @@ async def _deny_symlink(path: str) -> None:
         if result and hasattr(result, "stdout"):
             output = result.stdout.strip() if result.stdout else ""
             if output == "SYMLINK":
-                raise _ToolException(
+                raise ToolException(
                     f"Access denied: '{path}' is a symbolic link. "
                     f"Symbolic links are not allowed in sandbox mode for security reasons."
                 )
@@ -255,7 +226,7 @@ async def _deny_symlink(path: str) -> None:
             # No result or no stdout — treat as non-fatal in best-effort mode.
             return
 
-    except _ToolException:
+    except ToolException:
         # Re-raise explicit policy violations (e.g., actual symlink)
         raise
     except Exception:
@@ -276,11 +247,7 @@ def _validate_sandbox_path(path: str) -> str:
     Raises:
         ToolException: If the path is outside the configured root
     """
-    # Import here to use the actual ToolException
-    try:
-        from inspect_tool_support._util.common_types import ToolException as _ToolException
-    except ImportError:
-        _ToolException = ToolException  # noqa: N806
+    # Use centralized ToolException
 
     # Get the configured root
     root = _fs_root()
@@ -297,12 +264,24 @@ def _validate_sandbox_path(path: str) -> str:
 
     # Check if the normalized path starts with the root
     if not normalized_path.startswith(root + os.sep) and normalized_path != root:
-        raise _ToolException(
+        raise ToolException(
             f"Access denied: path '{path}' is outside the configured filesystem root '{root}'. "
             f"Only paths within the root are allowed in sandbox mode."
         )
 
     return normalized_path
+
+
+# Adopt unified FS helpers from inspect_agents.fs (override local defs)
+reset_sandbox_preflight_cache = _fs.reset_sandbox_preflight_cache
+_ensure_sandbox_ready = _fs.ensure_sandbox_ready
+_use_sandbox_fs = _fs.use_sandbox_fs
+_default_tool_timeout = _fs.default_tool_timeout
+_truthy = _fs.truthy
+_fs_root = _fs.fs_root
+_max_bytes = _fs.max_bytes
+_deny_symlink = _fs.deny_symlink
+_validate_sandbox_path = _fs.validate_sandbox_path
 
 
 # Result types
@@ -413,7 +392,7 @@ async def execute_ls(params: LsParams) -> list[str] | FileListResult:
     from inspect_ai.util._store_model import store_as
 
     # Import lazily to avoid circular import during module import
-    from .tools import _log_tool_event
+    # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:ls",
@@ -496,7 +475,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     """
     from inspect_ai.util._store_model import store_as
 
-    from .tools import _log_tool_event
+    # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:read",
@@ -567,11 +546,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
             if file_bytes is not None:
                 max_bytes = _max_bytes()
                 if file_bytes > max_bytes:
-                    # Import here to use the same ToolException as the tools module
-                    try:
-                        from inspect_tool_support._util.common_types import ToolException as _ToolException
-                    except ImportError:
-                        _ToolException = ToolException  # noqa: N806
+                    # Use centralized ToolException
                     _log_tool_event(
                         name="files:read",
                         phase="error",
@@ -583,7 +558,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                         },
                         t0=_t0,
                     )
-                    raise _ToolException(
+                    raise ToolException(
                         f"File exceeds maximum size limit: {file_bytes:,} bytes > {max_bytes:,} bytes. "
                         f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
                     )
@@ -677,18 +652,13 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         files = store_as(Files, instance=params.instance)
         content = files.get_file(params.file_path)
     if content is None:
-        # Import here to use the same ToolException as the tools module
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:read",
             phase="error",
             extra={"ok": False, "error": "FileNotFound"},
             t0=_t0,
         )
-        raise _ToolException(  # noqa: N806
+        raise ToolException(  # noqa: N806
             f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
         )
 
@@ -703,17 +673,13 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     content_bytes = len(content.encode("utf-8"))
     max_bytes = _max_bytes()
     if content_bytes > max_bytes:
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:read",
             phase="error",
             extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": content_bytes, "max_bytes": max_bytes},
             t0=_t0,
         )
-        raise _ToolException(
+        raise ToolException(
             f"File exceeds maximum size limit: {content_bytes:,} bytes > {max_bytes:,} bytes. "
             f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
         )
@@ -723,11 +689,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
     end_idx = min(start_idx + params.limit, len(lines))
 
     if start_idx >= len(lines):
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
-        raise _ToolException(  # noqa: N806
+        raise ToolException(  # noqa: N806
             f"Line offset {params.offset} exceeds file length ({len(lines)} lines). "
             f"Use an offset between 0 and {len(lines) - 1}."
         )
@@ -761,7 +723,7 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
     """
     from inspect_ai.util._store_model import store_as
 
-    from .tools import _log_tool_event
+    # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:write",
@@ -771,29 +733,20 @@ async def execute_write(params: WriteParams) -> str | FileWriteResult:
 
     # Read-only guard in sandbox mode
     if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(name="files:write", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
-        raise _ToolException("SandboxReadOnly")
+        raise ToolException("SandboxReadOnly")
 
     # Enforce byte ceiling to prevent OOM and long stalls
     content_bytes = len(params.content.encode("utf-8"))
     max_bytes = _max_bytes()
     if content_bytes > max_bytes:
-        # Import here to use the same ToolException as the tools module
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:write",
             phase="error",
             extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": content_bytes, "max_bytes": max_bytes},
             t0=_t0,
         )
-        raise _ToolException(
+        raise ToolException(
             f"File content exceeds maximum size limit: {content_bytes:,} bytes > {max_bytes:,} bytes. "
             f"Consider breaking the content into smaller files or increase INSPECT_AGENTS_FS_MAX_BYTES."
         )
@@ -847,7 +800,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     """
     from inspect_ai.util._store_model import store_as
 
-    from .tools import _log_tool_event
+    # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:edit",
@@ -862,12 +815,8 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     )
     # Read-only guard in sandbox mode
     if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(name="files:edit", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
-        raise _ToolException("SandboxReadOnly")
+        raise ToolException("SandboxReadOnly")
     # For sandbox mode, we need to preflight check file size before edit
     if _use_sandbox_fs() and await _ensure_sandbox_ready("editor"):
         # Validate path is within configured root first (before try block to prevent fallback)
@@ -905,11 +854,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
 
                 max_bytes = _max_bytes()
                 if estimated_new_bytes > max_bytes:
-                    # Import here to use the same ToolException as the tools module
-                    try:
-                        from inspect_tool_support._util.common_types import ToolException as _ToolException
-                    except ImportError:
-                        _ToolException = ToolException  # noqa: N806
+                    # Use centralized ToolException
                     _log_tool_event(
                         name="files:edit",
                         phase="error",
@@ -921,7 +866,7 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
                         },
                         t0=_t0,
                     )
-                    raise _ToolException(
+                    raise ToolException(
                         f"Edit would result in file exceeding maximum size limit: ~{estimated_new_bytes:,} bytes > {max_bytes:,} bytes. "
                         f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
                     )
@@ -952,33 +897,24 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
         files = store_as(Files, instance=params.instance)
         content = files.get_file(params.file_path)
     if content is None:
-        # Import here to use the same ToolException as the tools module
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:edit",
             phase="error",
             extra={"ok": False, "error": "FileNotFound"},
             t0=_t0,
         )
-        raise _ToolException(  # noqa: N806
+        raise ToolException(  # noqa: N806
             f"File '{params.file_path}' not found. Please check the file path and ensure the file exists."
         )
 
     if params.old_string not in content:
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:edit",
             phase="error",
             extra={"ok": False, "error": "StringNotFound"},
             t0=_t0,
         )
-        raise _ToolException(
+        raise ToolException(
             f"String '{params.old_string}' not found in file '{params.file_path}'. "
             f"Please check the exact text to replace."
         )
@@ -995,17 +931,13 @@ async def execute_edit(params: EditParams) -> str | FileEditResult:
     updated_bytes = len(updated.encode("utf-8"))
     max_bytes = _max_bytes()
     if updated_bytes > max_bytes:
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:edit",
             phase="error",
             extra={"ok": False, "error": "FileSizeExceeded", "actual_bytes": updated_bytes, "max_bytes": max_bytes},
             t0=_t0,
         )
-        raise _ToolException(
+        raise ToolException(
             f"Edit would result in file exceeding maximum size limit: {updated_bytes:,} bytes > {max_bytes:,} bytes. "
             f"Consider smaller edits or increase INSPECT_AGENTS_FS_MAX_BYTES."
         )
@@ -1029,7 +961,7 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
     """
     from inspect_ai.util._store_model import store_as
 
-    from .tools import _log_tool_event
+    # import provided at module level: from .observability import log_tool_event as _log_tool_event
 
     _t0 = _log_tool_event(
         name="files:delete",
@@ -1039,27 +971,18 @@ async def execute_delete(params: DeleteParams) -> str | FileDeleteResult:
 
     # Sandbox mode: disabled for safety; if read-only flag is set, return specific error
     if _use_sandbox_fs() and _truthy(os.getenv("INSPECT_AGENTS_FS_READ_ONLY")):
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(name="files:delete", phase="error", extra={"ok": False, "error": "SandboxReadOnly"}, t0=_t0)
-        raise _ToolException("SandboxReadOnly")
+        raise ToolException("SandboxReadOnly")
 
     # Sandbox mode: disabled for safety
     if _use_sandbox_fs():
-        # Import here to use the same ToolException as the tools module
-        try:
-            from inspect_tool_support._util.common_types import ToolException as _ToolException
-        except ImportError:
-            _ToolException = ToolException  # noqa: N806
         _log_tool_event(
             name="files:delete",
             phase="error",
             extra={"ok": False, "error": "SandboxUnsupported"},
             t0=_t0,
         )
-        raise _ToolException(
+        raise ToolException(
             "delete is disabled in sandbox mode; set INSPECT_AGENTS_FS_MODE=store "
             "to delete from the in-memory Files store"
         )
@@ -1130,12 +1053,7 @@ def files_tool():  # -> Tool
                 # If tool_types not available, skip validation
                 pass
             except Exception as e:
-                # Import here to use the same ToolException as the tools module
-                try:
-                    from inspect_tool_support._util.common_types import ToolException as _ToolException
-                except ImportError:
-                    _ToolException = ToolException  # noqa: N806
-                raise _ToolException(f"Invalid parameters: {str(e)}")
+                raise ToolException(f"Invalid parameters: {str(e)}")
 
             command_params = params.root
 
@@ -1150,11 +1068,7 @@ def files_tool():  # -> Tool
             elif isinstance(command_params, DeleteParams):
                 return await execute_delete(command_params)
             else:
-                try:
-                    from inspect_tool_support._util.common_types import ToolException as _ToolException
-                except ImportError:
-                    _ToolException = ToolException  # noqa: N806
-                raise _ToolException(f"Unknown command type: {type(command_params)}")
+                raise ToolException(f"Unknown command type: {type(command_params)}")
 
         params = ToolParams()
         params.properties["params"] = json_schema(FilesParams)
