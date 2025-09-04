@@ -131,3 +131,4 @@ def test_warn_small_max_messages(monkeypatch, caplog):
 
     # Assert: a warning mentioning max_messages was emitted
     assert any("max_messages" in rec.getMessage() for rec in caplog.records)
+
