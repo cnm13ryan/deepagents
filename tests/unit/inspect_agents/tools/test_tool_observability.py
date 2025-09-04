@@ -176,3 +176,4 @@ async def test_files_read_logs_metadata_not_content(caplog):
     # Verify no content-related fields
     assert "content" not in args
     assert "file_content" not in args
+

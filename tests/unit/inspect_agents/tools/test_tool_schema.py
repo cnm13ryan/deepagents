@@ -98,3 +98,4 @@ def test_yaml_coercion_maps_scalar_to_first_param():
 
     call_true = parse_tool_call(id="2", function="echo_value", arguments="true", tools=[tool_info])
     assert call_true.arguments == {"value": True}
+
