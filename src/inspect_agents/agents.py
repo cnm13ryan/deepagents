@@ -9,7 +9,7 @@ via the default `submit()` tool provided by Inspect.
 """
 
 from collections.abc import Sequence
-from typing import Any, NotRequired, Sequence, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 # Base prompt modeled after deepagents.base_prompt
 BASE_PROMPT_HEADER = (

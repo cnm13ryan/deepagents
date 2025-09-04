@@ -1,9 +1,12 @@
 # quickstart_toy.py
 import asyncio
+
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
+
 from inspect_agents.agents import build_supervisor
 from inspect_agents.run import run_agent
+
 
 @agent
 def toy_submit_model():

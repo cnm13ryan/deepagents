@@ -16,7 +16,6 @@ Notes
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample

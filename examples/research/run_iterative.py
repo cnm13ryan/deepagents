@@ -25,7 +25,6 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 # Ensure local repo sources are imported (not an installed wheel)
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -33,9 +32,12 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from inspect_agents.agents import build_iterative_agent
-from inspect_agents.model import resolve_model
-from inspect_agents.run import run_agent
+"""Imports moved into functions to satisfy E402 (imports at top).
+
+Ruff flagged module-level imports occurring after path mutation. To keep
+local import behavior (prefer repo `src/` over installed wheel) and satisfy
+linting, import runtime dependencies inside `_main()`.
+"""
 
 
 def _load_env_files() -> None:
@@ -65,6 +67,10 @@ def _load_env_files() -> None:
 
 
 async def _main() -> int:
+    # Local imports to ensure src/ precedence without violating E402
+    from inspect_agents.agents import build_iterative_agent
+    from inspect_agents.model import resolve_model
+    from inspect_agents.run import run_agent
     parser = argparse.ArgumentParser(description="Run the Iterative Agent (no submit).")
     parser.add_argument("prompt", nargs="*", help="User prompt text (default from $PROMPT)")
     parser.add_argument("--time-limit", type=int, default=600, help="Real-time limit in seconds (default 600)")

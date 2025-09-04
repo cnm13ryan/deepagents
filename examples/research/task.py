@@ -17,7 +17,6 @@ Environment
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
@@ -40,7 +39,7 @@ from inspect_agents.tools import (
 def research_task(
     prompt: str = "Write a short overview of Inspect‑AI",
     attempts: int = 1,
-    config: Optional[str] = None,
+    config: str | None = None,
     enable_web_search: bool = False,
 ):
     """Expose the research composition as an Inspect task.
