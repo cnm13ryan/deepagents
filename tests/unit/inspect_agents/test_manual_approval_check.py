@@ -15,75 +15,63 @@ import asyncio
 import sys
 import types
 
-# ---- Minimal stubs for inspect_ai internals used by approval.py ----
-approval_mod = types.ModuleType('inspect_ai.approval._approval')
+
+def _load_module_with_stubs():
+    # ---- Minimal stubs for inspect_ai internals used by approval.py ----
+    approval_mod = types.ModuleType('inspect_ai.approval._approval')
+    class Approval:  # pragma: no cover - tiny shim
+        def __init__(self, decision, modified=None, explanation=None):
+            self.decision = decision
+            self.modified = modified
+            self.explanation = explanation
+    approval_mod.Approval = Approval
+    sys.modules['inspect_ai.approval._approval'] = approval_mod
+
+    policy_mod = types.ModuleType('inspect_ai.approval._policy')
+    class ApprovalPolicy:  # pragma: no cover - tiny shim
+        def __init__(self, approver, tools):
+            self.approver = approver
+            self.tools = tools
+    policy_mod.ApprovalPolicy = ApprovalPolicy
+    sys.modules['inspect_ai.approval._policy'] = policy_mod
+
+    tool_mod = types.ModuleType('inspect_ai.tool._tool_call')
+    class ToolCall:  # pragma: no cover - tiny shim
+        def __init__(self, id, function, arguments, parse_error=None, view=None, type=None):
+            self.id = id
+            self.function = function
+            self.arguments = arguments
+            self.parse_error = parse_error
+            self.view = view
+            self.type = type
+    tool_mod.ToolCall = ToolCall
+    sys.modules['inspect_ai.tool._tool_call'] = tool_mod
+
+    registry_mod = types.ModuleType('inspect_ai._util.registry')
+    class RegistryInfo:  # pragma: no cover - tiny shim
+        def __init__(self, type, name):
+            self.type = type
+            self.name = name
+    def registry_tag(template, func, info):  # pragma: no cover - no-op
+        return None
+    registry_mod.RegistryInfo = RegistryInfo
+    registry_mod.registry_tag = registry_tag
+    sys.modules['inspect_ai._util.registry'] = registry_mod
+
+    # ---- Load the approval module directly to avoid package __init__ side-effects ----
+    g = {}
+    with open('src/inspect_agents/approval.py', encoding='utf-8') as f:
+        code = f.read()
+    exec(code, g, g)  # noqa: S102
+    return g
 
 
-class Approval:
-    def __init__(self, decision, modified=None, explanation=None):
-        self.decision = decision
-        self.modified = modified
-        self.explanation = explanation
-
-
-approval_mod.Approval = Approval
-sys.modules['inspect_ai.approval._approval'] = approval_mod
-
-policy_mod = types.ModuleType('inspect_ai.approval._policy')
-
-
-class ApprovalPolicy:
-    def __init__(self, approver, tools):
-        self.approver = approver
-        self.tools = tools
-
-
-policy_mod.ApprovalPolicy = ApprovalPolicy
-sys.modules['inspect_ai.approval._policy'] = policy_mod
-
-tool_mod = types.ModuleType('inspect_ai.tool._tool_call')
-
-
-class ToolCall:
-    def __init__(self, id, function, arguments, parse_error=None, view=None, type=None):
-        self.id = id
-        self.function = function
-        self.arguments = arguments
-        self.parse_error = parse_error
-        self.view = view
-        self.type = type
-
-
-tool_mod.ToolCall = ToolCall
-sys.modules['inspect_ai.tool._tool_call'] = tool_mod
-
-registry_mod = types.ModuleType('inspect_ai._util.registry')
-
-
-class RegistryInfo:
-    def __init__(self, type, name):
-        self.type = type
-        self.name = name
-
-
-def registry_tag(template, func, info):
-    # No-op tagging for tests
-    return None
-
-
-registry_mod.RegistryInfo = RegistryInfo
-registry_mod.registry_tag = registry_tag
-sys.modules['inspect_ai._util.registry'] = registry_mod
-
-
-# ---- Load the approval module directly to avoid package __init__ side-effects ----
-exec(open('src/inspect_agents/approval.py').read())  # noqa: S102
-
-
-def test_sensitive_patterns_and_dev_preset():
+def test_sensitive_patterns_and_dev_preset(approval_modules_guard):
     """Dev preset escalates for sensitive tool names, approves others."""
-    policies = approval_preset("dev")  # noqa: F821  (symbol defined by exec)
+    mod = _load_module_with_stubs()
+    policies = mod['approval_preset']("dev")
     dev_gate = policies[0].approver
+    tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
 
     cases = [
         ("write_file", True),
@@ -98,25 +86,27 @@ def test_sensitive_patterns_and_dev_preset():
     ]
 
     for tool_name, should_escalate in cases:
-        call = ToolCall(id="1", function=tool_name, arguments={})
+        call = tool_call_cls(id="1", function=tool_name, arguments={})
         result = asyncio.run(dev_gate("", call, None, []))
         assert (result.decision == "escalate") == should_escalate, tool_name
 
 
-def test_prod_preset_terminates_and_redacts():
+def test_prod_preset_terminates_and_redacts(approval_modules_guard):
     """Prod preset terminates sensitive tools and redacts secrets in explanation."""
-    policies = approval_preset("prod")  # noqa: F821
+    mod = _load_module_with_stubs()
+    policies = mod['approval_preset']("prod")
     prod_gate = policies[0].approver
+    tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
 
     args = {"code": "import os", "api_key": "SECRET_KEY", "authorization": "Bearer TOKEN"}
-    call = ToolCall(id="1", function="python", arguments=args)
+    call = tool_call_cls(id="1", function="python", arguments=args)
     result = asyncio.run(prod_gate("", call, None, []))
     assert result.decision == "terminate"
     explanation = result.explanation or ""
     assert "[REDACTED]" in explanation and "SECRET_KEY" not in explanation and "TOKEN" not in explanation
 
 
-def test_redaction_helper_redacts_expected_keys():
+def test_redaction_helper_redacts_expected_keys(approval_modules_guard):
     """redact_arguments replaces sensitive fields with [REDACTED]."""
     original = {
         "file_path": "/etc/passwd",
@@ -126,7 +116,8 @@ def test_redaction_helper_redacts_expected_keys():
         "normal_param": "ok",
     }
 
-    red = redact_arguments(original)  # noqa: F821
+    mod = _load_module_with_stubs()
+    red = mod['redact_arguments'](original)
     assert red["api_key"] == "[REDACTED]"
     assert red["content"] == "[REDACTED]"
     assert red["authorization"] == "[REDACTED]"
@@ -134,3 +125,5 @@ def test_redaction_helper_redacts_expected_keys():
     assert red["file_path"] == "/etc/passwd"
     assert red["normal_param"] == "ok"
 
+
+# Cleanup handled by approval_modules_guard fixture
