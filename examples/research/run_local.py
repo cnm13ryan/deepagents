@@ -101,6 +101,16 @@ async def _main() -> int:
     )
     parser.add_argument("prompt", nargs="*", help="User prompt text")
     parser.add_argument(
+        "--provider",
+        default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"),
+        help="Model provider (ollama, lm-studio, openai, ...)",
+    )
+    parser.add_argument(
+        "--model",
+        default=os.getenv("INSPECT_EVAL_MODEL"),
+        help="Explicit model name (optional; provider prefix allowed)",
+    )
+    parser.add_argument(
         "--enable-web-search",
         action="store_true",
         help="Enable Inspect standard web_search tool",
@@ -123,13 +133,18 @@ async def _main() -> int:
         os.environ["INSPECT_ENABLE_WEB_SEARCH"] = "1"
 
     # Local‑first: let resolver choose provider/model (defaults to Ollama if unset)
-    model_id = resolve_model()
+    model_id = resolve_model(provider=args.provider, model=args.model)
+    # Test hook: short-circuit and echo resolved model for subprocess tests
+    if os.getenv("DEEPAGENTS_TEST_ECHO_MODEL") == "1":
+        print(model_id)
+        return 0
 
     # If a YAML config is provided, build from config; else use the inline composition
     yaml_agent = None
     yaml_approvals = []
+    yaml_limits = []
     if args.config:
-        yaml_agent, _, yaml_approvals = load_and_build(args.config, model=model_id)
+        yaml_agent, _, yaml_approvals, yaml_limits = load_and_build(args.config, model=model_id)
         agent = yaml_agent
     else:
         # Build base tools for sub-agents (same composition as library built-ins)
@@ -174,14 +189,14 @@ async def _main() -> int:
             attempts=1,
             model=model_id,
         )
-    # Approval policies (optional): apply preset and handoff exclusivity in dev/prod
+    # Approval policies (optional): apply preset and handoff exclusivity in dev/prod/ci
     policies = list(yaml_approvals or []) or None
     if args.approval:
         extra = list(approval_preset(args.approval))
-        if args.approval in {"dev", "prod"}:
+        if args.approval in {"dev", "prod", "ci"}:
             extra.extend(handoff_exclusive_policy())
         policies = (policies or []) + extra
-    result = await run_agent(agent, user_input, approval=policies)
+    result = await run_agent(agent, user_input, approval=policies, limits=yaml_limits)
 
     # Print the final assistant completion and transcript log path
     completion = getattr(result.output, "completion", None)

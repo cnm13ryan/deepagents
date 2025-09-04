@@ -27,6 +27,9 @@ Tip: Both pathways load `.env` (repo root and this folder); you can also pass `-
 - Optional: set local provider env (Ollama or LM Studio), or cloud keys.
 - Run: `uv run python examples/research/run_local.py "What is Inspect‑AI?"`
 
+### CI mode example (single‑handoff)
+- `uv run python examples/research/run_local.py --approval ci "Summarize this repository"`
+
 ### Iterative Agent (no submit)
 - A minimal runner that exercises the new Iterative Agent (continuous small steps, time/step bounded):
   - `uv run python examples/research/run_iterative.py "Improve README structure"`
@@ -38,9 +41,17 @@ This iterative runner uses `inspect_agents.build_iterative_agent` and respects s
 #### Inspect task variant (runs via Inspect CLI)
 - `uv run inspect eval examples/research/iterative_task.py -T prompt="List files and summarize" -T time_limit=300 -T max_steps=20 -T enable_exec=true`
 
+### Model selection (CLI parity)
+- Local runner with provider/model: `uv run python examples/research/run_local.py --provider ollama --model llama3.1 "What is Inspect‑AI?"`
+- Iterative runner with provider/model: `uv run python examples/research/run_iterative.py --provider ollama --model llama3.1 "List files and propose edits"`
+- Pass-through explicit model: `uv run python examples/research/run_local.py --model openai/gpt-4o-mini "What is Inspect‑AI?"`
+
 ## Useful flags
+- `--provider <name>`: model provider (e.g., `ollama`, `lm-studio`, `openai`, `openai-api/vendor`).
+- `--model <name>`: model name; may be bare (paired with `--provider`) or fully qualified (e.g., `openai/gpt-4o-mini`).
 - `--enable-web-search`: expose the standard `web_search` tool (works with `TAVILY_API_KEY` or `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY`).
-- `--approval dev|ci|prod`: apply approvals presets; dev/prod also enable handoff exclusivity.
+- `--approval dev|ci|prod`: apply approvals presets; dev/prod/ci enable handoff exclusivity in this runner.
+  - Example (CI single‑handoff): `uv run python examples/research/run_local.py --approval ci "Summarize this repository"`
 - `--env-file <path>`: load a specific `.env` before running.
 
 ## Quarantine (handoff input filtering)
@@ -53,3 +64,4 @@ This iterative runner uses `inspect_agents.build_iterative_agent` and respects s
 
 ## Notes
 - Previous legacy artifacts were removed. There is no `requirements.txt` here; use the repo install + env variables.
+ - Note: When invoked with `--approval ci`, this runner enforces single‑handoff exclusivity to keep CI runs deterministic.

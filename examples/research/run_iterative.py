@@ -9,8 +9,9 @@ Examples
                "Create docs/OUTLINE.md and add 3 sections"
 
 Environment
-- Model routing prefers local by default (Ollama). To change provider/model, set env
-  as described in docs/reference/environment.md.
+- Model routing prefers local by default (Ollama). To change provider/model, use
+  CLI flags `--provider/--model` or set env as described in
+  docs/reference/environment.md.
 - Optional tools via env flags (see docs/tools/*):
   - INSPECT_ENABLE_EXEC=1          # enable bash() and python() tools
   - INSPECT_ENABLE_WEB_SEARCH=1    # enable web_search (requires API keys)
@@ -35,6 +36,12 @@ async def _main() -> int:
     parser.add_argument("--time-limit", type=int, default=600, help="Real-time limit in seconds (default 600)")
     parser.add_argument("--max-steps", type=int, default=40, help="Max loop steps (default 40)")
     parser.add_argument("--enable-exec", action="store_true", help="Enable bash/python tools via env flag")
+    parser.add_argument("--provider", default=os.getenv("DEEPAGENTS_MODEL_PROVIDER", "ollama"), help="Model provider (ollama, lm-studio, openai, ...)")
+    parser.add_argument(
+        "--model",
+        default=os.getenv("INSPECT_EVAL_MODEL"),
+        help="Explicit model name (optional; provider prefix allowed)",
+    )
     args = parser.parse_args()
 
     user_input = " ".join(args.prompt).strip() or os.getenv(
@@ -44,8 +51,12 @@ async def _main() -> int:
     if args.enable_exec:
         os.environ["INSPECT_ENABLE_EXEC"] = "1"
 
-    # Resolve model (prefers local Ollama by default; see docs for env overrides)
-    model_id = resolve_model()
+    # Resolve model (prefers local Ollama by default; CLI/env may override)
+    model_id = resolve_model(provider=args.provider, model=args.model)
+    # Test hook: short-circuit and echo resolved model for subprocess tests
+    if os.getenv("DEEPAGENTS_TEST_ECHO_MODEL") == "1":
+        print(model_id)
+        return 0
 
     agent = build_iterative_agent(
         prompt=(
