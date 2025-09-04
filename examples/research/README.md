@@ -2,6 +2,10 @@
 
 This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/research/iterative_task.py`. For termination, truncation, and configuration details, see the Iterative Agent reference: [Iterative Agent — Termination and Truncation](../../docs/reference/iterative-agent-behavior.md).
 
+## Inspiration
+
+The iterative approach used here (and referenced across `docs/reference` and `src/inspect_agents/`) is inspired by the PaperBench work on iterative multi‑step agent evaluation. See: PaperBench — https://arxiv.org/abs/2504.01848.
+
 ## What’s Configured (defaults in this repo)
 
 - Sandbox: `local` — the task runs tools (e.g., `bash`, `python`) inside a per‑sample temp directory via Inspect’s built‑in local sandbox.
