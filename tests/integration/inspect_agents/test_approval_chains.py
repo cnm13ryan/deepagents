@@ -2,6 +2,8 @@ import asyncio
 import sys
 import types
 
+import pytest
+
 # Use the real Inspect‑AI ToolCall dataclass to satisfy event schema
 from inspect_ai.tool._tool_call import ToolCall
 
@@ -181,3 +183,4 @@ def test_prod_preset_terminates_web_browser_go_with_redacted_args():
     assert getattr(approval, "decision", None) == "terminate"
     text = getattr(approval, "explanation", "")
     assert "[REDACTED]" in text and "SECRET_TOKEN" not in text
+pytestmark = pytest.mark.approvals

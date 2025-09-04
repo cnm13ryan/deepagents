@@ -3,6 +3,8 @@
 
 import pytest
 
+pytestmark = [pytest.mark.handoff, pytest.mark.filters]
+
 
 @pytest.mark.asyncio
 async def test_subagent_input_and_supervisor_output_filters(monkeypatch):
@@ -112,4 +114,3 @@ async def test_subagent_input_and_supervisor_output_filters(monkeypatch):
     # Final message should be a user nudge indicating completion
     assert isinstance(agent_msgs[-1], ChatMessageUser)
     assert agent_msgs[-1].text == "The writer agent has completed its work."
-
