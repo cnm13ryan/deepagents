@@ -7,6 +7,7 @@ using a discriminated union for commands: ls, read, write, edit.
 from __future__ import annotations
 
 import os
+import time
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import anyio
@@ -20,6 +21,21 @@ from .state import Files
 # --- Sandbox preflight (cached) ------------------------------------------------
 _SANDBOX_READY: bool | None = None
 _SANDBOX_WARN: str | None = None
+# Timestamp (monotonic seconds) of last preflight evaluation for TTL caching
+_SANDBOX_TS: float | None = None
+
+
+def reset_sandbox_preflight_cache() -> None:
+    """Reset cached sandbox preflight result and warning.
+
+    Clears the module-level cache used by `_ensure_sandbox_ready` including the
+    TTL timestamp so that the next call re-evaluates preflight regardless of the
+    configured TTL. Intended for tests and operator workflows.
+    """
+    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS
+    _SANDBOX_READY = None
+    _SANDBOX_WARN = None
+    _SANDBOX_TS = None
 
 
 async def _ensure_sandbox_ready(tool_name: str) -> bool:
@@ -34,9 +50,29 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
     tool modules: if the helper isn't importable, we assume sandbox is not
     available and prefer a safe fallback rather than raising.
     """
-    global _SANDBOX_READY, _SANDBOX_WARN
-    if _SANDBOX_READY is not None:
-        return _SANDBOX_READY
+    global _SANDBOX_READY, _SANDBOX_WARN, _SANDBOX_TS
+
+    # Preflight mode: auto|skip|force (default auto)
+    mode = os.getenv("INSPECT_SANDBOX_PREFLIGHT", "auto").strip().lower()
+    if mode not in {"auto", "skip", "force"}:
+        mode = "auto"
+
+    # Skip mode: never attempt sandbox, behave as not ready without logging
+    if mode == "skip":
+        return False
+
+    # TTL cache: use cached result if not expired
+    try:
+        ttl_sec = float(os.getenv("INSPECT_SANDBOX_PREFLIGHT_TTL_SEC", "300"))
+    except Exception:
+        ttl_sec = 300.0
+    now = time.monotonic()
+    if _SANDBOX_READY is not None and _SANDBOX_TS is not None and ttl_sec > 0:
+        if (now - _SANDBOX_TS) < ttl_sec:
+            return _SANDBOX_READY
+
+    # Invalidate cache on TTL expiry to force recheck below
+    _SANDBOX_TS = None
 
     # Special-case: if tests have installed in-process stubs for tools,
     # treat sandbox as available. This enables unit tests without Docker.
@@ -45,9 +81,11 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
 
         if tool_name == "editor" and "inspect_ai.tool._tools._text_editor" in sys.modules:
             _SANDBOX_READY = True
+            _SANDBOX_TS = now
             return True
         if tool_name == "bash session" and "inspect_ai.tool._tools._bash_session" in sys.modules:
             _SANDBOX_READY = True
+            _SANDBOX_TS = now
             return True
     except Exception:
         pass
@@ -57,16 +95,26 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
         from inspect_ai.tool._tool_support_helpers import tool_support_sandbox
     except Exception:
         _SANDBOX_READY = False
+        _SANDBOX_TS = now
         _SANDBOX_WARN = "Sandbox helper unavailable; falling back to Store-backed FS."
+        if mode == "force":
+            # Import lazily to avoid heavy deps if not available; fall back to local class
+            try:
+                from inspect_tool_support._util.common_types import ToolException as _ToolException  # type: ignore
+            except Exception:
+                _ToolException = ToolException  # type: ignore  # noqa: N806
+            raise _ToolException(_SANDBOX_WARN)
         return False
 
     try:
         # Verify the sandbox has the required service; ignore returned version
         await tool_support_sandbox(tool_name)
         _SANDBOX_READY = True
+        _SANDBOX_TS = now
         return True
     except Exception as exc:
         _SANDBOX_READY = False
+        _SANDBOX_TS = now
         # Prefer the rich guidance message from PrerequisiteError if present
         _SANDBOX_WARN = str(exc) or ("Sandbox service not available; falling back to Store-backed FS.")
         # Best‑effort structured warning
@@ -74,13 +122,28 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
             # Local import to avoid circulars at module import time
             from .tools import _log_tool_event
 
+            extra: dict[str, object] = {"ok": False, "warning": _SANDBOX_WARN}
+            if os.getenv("INSPECT_SANDBOX_LOG_PATHS") in {"1", "true", "TRUE", "True", "on", "yes", "YES"}:
+                # Include fs_root and tool context when requested
+                try:
+                    extra["fs_root"] = _fs_root()
+                except Exception:
+                    pass
+                # Avoid clashing with the core 'tool' field in logs
+                extra["sandbox_tool"] = tool_name
             _log_tool_event(
                 name="files:sandbox_preflight",
                 phase="warn",
-                extra={"ok": False, "warning": _SANDBOX_WARN},
+                extra=extra,
             )
         except Exception:
             pass
+        if mode == "force":
+            try:
+                from inspect_tool_support._util.common_types import ToolException as _ToolException  # type: ignore
+            except Exception:
+                _ToolException = ToolException  # type: ignore  # noqa: N806
+            raise _ToolException(_SANDBOX_WARN)
         return False
 
 

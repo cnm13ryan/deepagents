@@ -42,7 +42,28 @@ Notes
 - `edit_file` uses `text_editor('str_replace', ...)` in sandbox mode.
 
 ## Fallbacks & Preflight
-When sandbox mode is enabled, the tools run a quick preflight against Inspect’s sandbox service. If the sandbox is unavailable, calls gracefully fall back to the in‑memory store (no host FS writes). A warning is logged once.
+When sandbox mode is enabled, the tools run a quick preflight against Inspect’s sandbox service. If the sandbox is unavailable, calls gracefully fall back to the in‑memory store (no host FS writes). A warning is logged once by default.
+
+Preflight behavior is controllable via environment flags:
+
+```bash
+# Mode: auto|skip|force (default auto)
+export INSPECT_SANDBOX_PREFLIGHT=auto
+
+# TTL cache for the preflight result in seconds (default 300)
+# Set to 0 to recheck on every call.
+export INSPECT_SANDBOX_PREFLIGHT_TTL_SEC=300
+
+# Include fs_root/tool context in the preflight warning log
+export INSPECT_SANDBOX_LOG_PATHS=1
+```
+
+- `auto` (default): perform preflight; on failure, log a one‑time `files:sandbox_preflight` warning and fall back to the store.
+- `skip`: do not perform preflight and behave as “not ready” without emitting a warning. Useful for deterministic unit tests or offline CI.
+- `force`: perform preflight and raise immediately on failure instead of falling back. Use sparingly for operator workflows where sandbox is required.
+
+Programmatic reset
+- `reset_sandbox_preflight_cache()` clears the cached preflight decision and TTL, forcing a fresh check on next use. This is intended for tests and debugging.
 
 ## Delete Policy
 - `delete_file` is supported only in `store` mode.
