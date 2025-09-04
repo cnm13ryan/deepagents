@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+import pytest
 from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant
 from inspect_ai.tool._tool_call import ToolCall
@@ -9,6 +10,8 @@ from inspect_agents.agents import build_subagents, build_supervisor
 from inspect_agents.logging import write_transcript
 from inspect_agents.run import run_agent
 from inspect_agents.tools import edit_file, ls, read_file, update_todo_status, write_file, write_todos
+
+pytestmark = pytest.mark.handoff
 
 
 # Toy model that immediately calls submit with a fixed completion.
@@ -36,6 +39,26 @@ def test_research_example_offline_smoke(monkeypatch, tmp_path):
     # Ensure no accidental network and write logs to a temp dir
     monkeypatch.setenv("NO_NETWORK", "1")
     monkeypatch.setenv("INSPECT_LOG_DIR", str(tmp_path))
+
+    # Neutralize environment leakage that can cause blocking behavior:
+    # - Clear any globally-registered approvals (some prior runs may have set these)
+    # - Disable optional standard tools regardless of provider keys in the shell
+    try:  # best-effort: not all environments expose init_tool_approval
+        from inspect_ai.approval._apply import init_tool_approval  # type: ignore
+
+        init_tool_approval(None)  # type: ignore[func-returns-value]
+    except Exception:
+        pass
+
+    # Explicitly disable heavy/optional tools so supervisor init stays deterministic
+    monkeypatch.setenv("INSPECT_ENABLE_WEB_SEARCH", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_EXEC", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_WEB_BROWSER", "0")
+    monkeypatch.setenv("INSPECT_ENABLE_TEXT_EDITOR_TOOL", "0")
+    # Unset common web search provider keys that could auto-enable providers
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_CSE_ID", raising=False)
+    monkeypatch.delenv("GOOGLE_CSE_API_KEY", raising=False)
 
     # Build a minimal base toolset (no web_search providers required)
     builtins = [write_todos(), update_todo_status(), write_file(), read_file(), ls(), edit_file()]
