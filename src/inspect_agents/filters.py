@@ -21,10 +21,8 @@ MessageFilter = Callable[[list[Message]], Awaitable[list[Message]]]
 ACTIVE_INPUT_FILTER_KEY = "inspect_agents:active_input_filter_mode"
 
 
-def _truthy(val: str | None) -> bool:
-    if val is None:
-        return False
-    return val.strip().lower() in {"1", "true", "yes", "on"}
+from .settings import int_env as _settings_int_env
+from .settings import truthy as _settings_truthy  # delegate to centralized settings
 
 
 def _compose_filters(*filters: MessageFilter) -> MessageFilter:
@@ -126,12 +124,16 @@ def _append_scoped_summary_factory(max_todos: int = 10, max_files: int = 20, max
     return run
 
 
+# Compatibility alias (no redefinition) for truthy
+_truthy = _settings_truthy
+
+
 def _int_env(name: str, default: int, minimum: int = 0) -> int:
-    try:
-        val = int(os.getenv(name, str(default)))
-        return max(minimum, val)
-    except Exception:
-        return default
+    """Compatibility wrapper delegating to settings.int_env.
+
+    Preserves signature and minimum-clamp semantics used by filters.
+    """
+    return _settings_int_env(name, default, minimum=minimum)
 
 
 def scoped_quarantine_filter(include_state_summary: bool = True) -> MessageFilter:
