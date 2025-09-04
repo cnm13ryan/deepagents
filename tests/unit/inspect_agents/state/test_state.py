@@ -67,3 +67,4 @@ def test_store_event_recorded_on_change():
     # At least one StoreEvent should be present
     evs = transcript().events
     assert any(isinstance(e, StoreEvent) for e in evs)
+
