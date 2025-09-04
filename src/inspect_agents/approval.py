@@ -279,6 +279,32 @@ def handoff_exclusive_policy() -> list[Any]:
             # Logging should never fail policy decisions
             pass
 
+        # Emit a standardized transcript ToolEvent to reflect the skip
+        # (kept separate from repo-local logger above for operator-facing parity).
+        try:
+            from inspect_ai.log._transcript import ToolEvent, transcript  # type: ignore
+            from inspect_ai.tool._tool_call import ToolCallError  # type: ignore
+
+            # Synthesize a minimal ToolEvent for the skipped call.
+            # Note: we use ToolCallError type 'approval' to indicate policy enforcement
+            # and include attribution details in `metadata`.
+            ev = ToolEvent(
+                id=str(call.id),
+                function=str(call.function),
+                arguments=dict(call.arguments or {}),
+                pending=False,
+                error=ToolCallError("approval", "Skipped due to handoff"),
+                metadata={
+                    "selected_handoff_id": selected_id,
+                    "skipped_function": call.function,
+                    "source": "policy/handoff_exclusive",
+                },
+            )
+            transcript()._event(ev)
+        except Exception:
+            # Never block a decision on transcript emission
+            pass
+
         return Approval(decision="reject", explanation="Skipped due to handoff exclusivity")
 
     # Tag for Inspect logging/registry
