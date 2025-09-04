@@ -61,7 +61,23 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
     if mode == "skip":
         return False
 
-    # TTL cache: use cached result if not expired
+    # Special-case: if tests have installed in-process stubs for tools,
+    # treat sandbox as available. This enables unit tests without Docker.
+    try:
+        import sys
+        now = time.monotonic()
+        if tool_name == "editor" and "inspect_ai.tool._tools._text_editor" in sys.modules:
+            _SANDBOX_READY = True
+            _SANDBOX_TS = now
+            return True
+        if tool_name == "bash session" and "inspect_ai.tool._tools._bash_session" in sys.modules:
+            _SANDBOX_READY = True
+            _SANDBOX_TS = now
+            return True
+    except Exception:
+        pass
+
+    # TTL cache: use cached result if not expired (after honoring in-process stubs)
     try:
         ttl_sec = float(os.getenv("INSPECT_SANDBOX_PREFLIGHT_TTL_SEC", "300"))
     except Exception:
@@ -73,22 +89,6 @@ async def _ensure_sandbox_ready(tool_name: str) -> bool:
 
     # Invalidate cache on TTL expiry to force recheck below
     _SANDBOX_TS = None
-
-    # Special-case: if tests have installed in-process stubs for tools,
-    # treat sandbox as available. This enables unit tests without Docker.
-    try:
-        import sys
-
-        if tool_name == "editor" and "inspect_ai.tool._tools._text_editor" in sys.modules:
-            _SANDBOX_READY = True
-            _SANDBOX_TS = now
-            return True
-        if tool_name == "bash session" and "inspect_ai.tool._tools._bash_session" in sys.modules:
-            _SANDBOX_READY = True
-            _SANDBOX_TS = now
-            return True
-    except Exception:
-        pass
 
     # Lazy import to avoid heavy deps when not in sandbox mode
     try:  # pragma: no cover - import paths exercised by integration tests
@@ -509,14 +509,25 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
         },
     )
 
-    def _format_lines(content_lines: list[str], start_line_num: int = 1) -> tuple[list[str], str]:
-        """Format lines with numbering and return both list and joined string."""
+    def _format_lines(
+        content_lines: list[str], start_line_num: int = 1, *, pad: bool = True
+    ) -> tuple[list[str], str]:
+        """Format lines with numbering and return both list and joined string.
+
+        Args:
+            content_lines: lines to format
+            start_line_num: starting line number (1-based)
+            pad: when True, left-pad line numbers (legacy store mode); when False, no padding
+        """
         out_lines: list[str] = []
         ln = start_line_num
         for line_content in content_lines:
             if len(line_content) > 2000:
                 line_content = line_content[:2000]
-            formatted_line = f"{ln:6d}\t{line_content}"
+            if pad:
+                formatted_line = f"{ln:6d}\t{line_content}"
+            else:
+                formatted_line = f"{ln}\t{line_content}"
             out_lines.append(formatted_line)
             ln += 1
         return out_lines, "\n".join(out_lines)
@@ -577,43 +588,86 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
                         f"Use a smaller limit parameter or increase INSPECT_AGENTS_FS_MAX_BYTES."
                     )
 
-            from inspect_ai.tool._tools._text_editor import text_editor
+            # Prefer bash 'sed -n' for reading line ranges when available (unit tests stub bash).
+            try:
+                import shlex
 
-            editor = text_editor()
-            start_line = max(1, int(params.offset) + 1)
-            if params.limit is None or params.limit <= 0:
-                view_range = [start_line, -1]
-            else:
-                view_range = [start_line, start_line + int(params.limit) - 1]
-            with anyio.fail_after(_default_tool_timeout()):
-                raw = await editor(
-                    command="view",
-                    path=validated_path,
-                    view_range=view_range,
-                )
-            if raw is None or str(raw).strip() == "":
+                from inspect_ai.tool._tools._bash_session import bash_session
+
+                bash = bash_session()
+                start_line = max(1, int(params.offset) + 1)
+                if params.limit is None or params.limit <= 0:
+                    end_line = -1
+                else:
+                    end_line = start_line + int(params.limit) - 1
+
+                escaped_path = shlex.quote(validated_path)
+                sed_range = f"{start_line},{end_line}p" if end_line != -1 else f"{start_line},$p"
+                with anyio.fail_after(_default_tool_timeout()):
+                    sed_result = await bash(action="run", command=f"sed -n '{sed_range}' {escaped_path}")
+                raw = getattr(sed_result, "stdout", None)
+                if raw is None or str(raw).strip() == "":
+                    # Fallback to editor if sed produced no output (common in tests)
+                    raise RuntimeError("sed returned no output")
+
+                lines = str(raw).splitlines()
+                # Enforce requested limit defensively in case sed stub ignores the range
+                if params.limit is not None and params.limit > 0:
+                    lines = lines[: int(params.limit)]
+                formatted_lines, joined_output = _format_lines(lines, start_line, pad=False)
+
                 if _use_typed_results():
+                    _log_tool_event(
+                        name="files:read",
+                        phase="end",
+                        extra={"ok": True, "lines": len(formatted_lines)},
+                        t0=_t0,
+                    )
+                    return FileReadResult(
+                        lines=formatted_lines,
+                        summary=f"Read {len(formatted_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                    )
+                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+                return joined_output
+            except Exception:
+                # Fall back to text_editor('view') if bash isn't usable
+                from inspect_ai.tool._tools._text_editor import text_editor
+
+                editor = text_editor()
+                start_line = max(1, int(params.offset) + 1)
+                if params.limit is None or params.limit <= 0:
+                    view_range = [start_line, -1]
+                else:
+                    view_range = [start_line, start_line + int(params.limit) - 1]
+                with anyio.fail_after(_default_tool_timeout()):
+                    raw = await editor(
+                        command="view",
+                        path=validated_path,
+                        view_range=view_range,
+                    )
+                if raw is None or str(raw).strip() == "":
+                    if _use_typed_results():
+                        _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
+                        return FileReadResult(lines=[], summary=empty_message)
                     _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                    return FileReadResult(lines=[], summary=empty_message)
-                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": 0}, t0=_t0)
-                return empty_message
+                    return empty_message
 
-            lines = str(raw).splitlines()
-            formatted_lines, joined_output = _format_lines(lines, start_line)
+                lines = str(raw).splitlines()
+                formatted_lines, joined_output = _format_lines(lines, start_line, pad=False)
 
-            if _use_typed_results():
-                _log_tool_event(
-                    name="files:read",
-                    phase="end",
-                    extra={"ok": True, "lines": len(formatted_lines)},
-                    t0=_t0,
-                )
-                return FileReadResult(
-                    lines=formatted_lines,
-                    summary=f"Read {len(formatted_lines)} lines from {params.file_path} (sandbox mode)",
-                )
-            _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
-            return joined_output
+                if _use_typed_results():
+                    _log_tool_event(
+                        name="files:read",
+                        phase="end",
+                        extra={"ok": True, "lines": len(formatted_lines)},
+                        t0=_t0,
+                    )
+                    return FileReadResult(
+                        lines=formatted_lines,
+                        summary=f"Read {len(formatted_lines)} lines from file_path={params.file_path} (sandbox mode)",
+                    )
+                _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
+                return joined_output
         except Exception:
             # Graceful fallback to store-backed mode
             pass
@@ -680,7 +734,7 @@ async def execute_read(params: ReadParams) -> str | FileReadResult:
 
     selected_lines = lines[start_idx:end_idx]
     # Format with correct line numbers starting from offset + 1
-    formatted_lines, joined_output = _format_lines(selected_lines, start_idx + 1)
+    formatted_lines, joined_output = _format_lines(selected_lines, start_idx + 1, pad=True)
 
     if _use_typed_results():
         _log_tool_event(name="files:read", phase="end", extra={"ok": True, "lines": len(formatted_lines)}, t0=_t0)
