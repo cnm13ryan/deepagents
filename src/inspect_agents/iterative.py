@@ -22,9 +22,13 @@ by `inspect_agents.tools.standard_tools()` (e.g., INSPECT_ENABLE_EXEC=1).
 from __future__ import annotations
 
 import asyncio
+import os
 import copy
 import time
+import logging
 from typing import Any, Sequence
+
+logger = logging.getLogger(__name__)
 
 
 def _format_progress_time(seconds: float) -> str:
@@ -74,6 +78,7 @@ def build_iterative_agent(
     model: Any | None = None,
     real_time_limit_sec: int | None = None,
     max_steps: int | None = None,
+    max_messages: int | None = None,
     continue_message: str | None = None,
     max_turns: int = 50,
     progress_every: int = 5,
@@ -88,8 +93,9 @@ def build_iterative_agent(
         prompt: System instructions. If None, a sensible default is used.
         tools: Tools to expose. Defaults to Files tools plus any enabled standard tools.
         model: Inspect model identifier or object. If None, current active model is used.
-        real_time_limit_sec: Wall‑clock time budget for the agent (excludes provider retry backoff best‑effort).
-        max_steps: Hard cap on loop steps.
+        real_time_limit_sec: Wall‑clock time budget for the agent (excludes provider retry backoff best‑effort). If None, falls back to the env var `INSPECT_ITERATIVE_TIME_LIMIT` (seconds) when set.
+        max_steps: Hard cap on loop steps. If None, falls back to the env var `INSPECT_ITERATIVE_MAX_STEPS` when set.
+        max_messages: Absolute cap on retained message tail during pruning. When set, this takes precedence over the heuristic `2*max_turns` tail size.
         continue_message: Ephemeral user message appended each step (not persisted).
 
     Returns:
@@ -120,6 +126,71 @@ def build_iterative_agent(
     @agent(name="iterative_supervisor")
     def _iterative() -> Any:
         async def execute(state: AgentState) -> AgentState:
+            # Resolve env fallbacks for limits when args are None
+            _time_limit: int | None = real_time_limit_sec
+            if _time_limit is None:
+                try:
+                    env_v = os.getenv("INSPECT_ITERATIVE_TIME_LIMIT")
+                    if env_v is not None and str(env_v).strip() != "":
+                        v = int(env_v)
+                        _time_limit = v if v > 0 else None
+                except Exception:
+                    _time_limit = None
+
+            _max_steps: int | None = max_steps
+            if _max_steps is None:
+                try:
+                    env_v = os.getenv("INSPECT_ITERATIVE_MAX_STEPS")
+                    if env_v is not None and str(env_v).strip() != "":
+                        v = int(env_v)
+                        _max_steps = v if v > 0 else None
+                except Exception:
+                    _max_steps = None
+
+            # --- Pruning configuration -------------------------------------------------
+            # Effective values for threshold-based prune and keep window.
+            # Env overrides apply only when args are None/defaults to avoid
+            # surprising callers who pass explicit values.
+            _eff_prune_after: int | None = prune_after_messages
+            _eff_prune_keep: int = prune_keep_last
+
+            # Allow env to override threshold when arg is None or default (120)
+            try:
+                if prune_after_messages is None or prune_after_messages == 120:
+                    env_after = os.getenv("INSPECT_PRUNE_AFTER_MESSAGES")
+                    if env_after is not None and str(env_after).strip() != "":
+                        v = int(env_after)
+                        _eff_prune_after = v if v > 0 else None  # non-positive disables
+            except Exception:
+                # Keep existing value on parse errors
+                pass
+
+            # Allow env to override keep window when arg is default (40)
+            try:
+                if prune_keep_last == 40:
+                    env_keep = os.getenv("INSPECT_PRUNE_KEEP_LAST")
+                    if env_keep is not None and str(env_keep).strip() != "":
+                        v = int(env_keep)
+                        _eff_prune_keep = max(0, v)
+            except Exception:
+                pass
+
+            # Enable prune debug logs if either INSPECT_PRUNE_DEBUG or
+            # INSPECT_MODEL_DEBUG is set (reuse existing model debug toggle).
+            _prune_debug: bool = bool(
+                os.getenv("INSPECT_PRUNE_DEBUG") or os.getenv("INSPECT_MODEL_DEBUG")
+            )
+
+            # Advisory warning for very small max_messages caps
+            if isinstance(max_messages, int) and 0 < max_messages < 6:
+                try:
+                    logger.warning(
+                        "iterative: max_messages=%d is very small; recent context may be unstable.",
+                        max_messages,
+                    )
+                except Exception:
+                    pass
+
             # Ensure system prompt is present once at the head
             has_system = any(isinstance(m, ChatMessageSystem) for m in state.messages)
             if not has_system:
@@ -138,8 +209,14 @@ def build_iterative_agent(
                 except Exception:
                     return messages
 
-                if max_turns is None or max_turns <= 0:
+                # Determine pruning window size with precedence for max_messages
+                if isinstance(max_messages, int) and max_messages > 0:
+                    tail_window = max_messages
+                elif max_turns is None or max_turns <= 0:
                     return messages
+                else:
+                    # Approximate: keep the last 2*max_turns messages from remaining
+                    tail_window = max(0, 2 * int(max_turns))
 
                 # Keep first system and first user messages (if present)
                 first_sys_idx = next((i for i, m in enumerate(messages) if isinstance(m, _S)), None)
@@ -156,8 +233,6 @@ def build_iterative_agent(
                 # Remaining messages (preserve order) excluding chosen prefix
                 remaining = [m for i, m in enumerate(messages) if i not in prefix_idxs]
 
-                # Approximate: keep the last 2*max_turns messages from remaining
-                tail_window = max(0, 2 * int(max_turns))
                 tail = remaining[-tail_window:] if tail_window else remaining
 
                 # Drop orphan tool messages that are not immediately following an assistant
@@ -180,20 +255,24 @@ def build_iterative_agent(
 
             start = time.time()
             step = 0
-            model_obj = get_model(model) if model is not None else get_model()
+            # Accept either an Inspect Model spec or a model-like object with `generate()`
+            if model is not None and hasattr(model, "generate"):
+                model_obj = model  # custom test/dummy model passed directly
+            else:
+                model_obj = get_model(model) if model is not None else get_model()
 
             # Main loop
             while True:
                 step += 1
 
                 # Time budget
-                if real_time_limit_sec is not None:
+                if _time_limit is not None:
                     elapsed = time.time() - start
-                    if elapsed >= real_time_limit_sec:
+                    if elapsed >= _time_limit:
                         break
 
                 # Step budget
-                if max_steps is not None and step > max_steps:
+                if _max_steps is not None and step > _max_steps:
                     break
 
                 # Progress ping every N steps (persisted)
@@ -216,8 +295,23 @@ def build_iterative_agent(
 
                 # Opportunistic global prune when message list exceeds threshold
                 try:
-                    if prune_messages and prune_after_messages is not None and len(state.messages) > prune_after_messages:
-                        state.messages = prune_messages(state.messages, keep_last=prune_keep_last)
+                    if (
+                        prune_messages
+                        and _eff_prune_after is not None
+                        and len(state.messages) > _eff_prune_after
+                    ):
+                        _pre = len(state.messages)
+                        state.messages = prune_messages(
+                            state.messages, keep_last=_eff_prune_keep
+                        )
+                        if _prune_debug:
+                            logger.info(
+                                "Prune: reason=threshold pre=%d post=%d keep_last=%d threshold=%s",
+                                _pre,
+                                len(state.messages),
+                                int(_eff_prune_keep),
+                                "None" if _eff_prune_after is None else int(_eff_prune_after),
+                            )
                 except Exception:
                     pass
 
@@ -228,8 +322,8 @@ def build_iterative_agent(
 
                 # Compute per-call timeout so we do not run past the budget
                 gen_timeout: int | None = None
-                if real_time_limit_sec is not None:
-                    remaining = int(real_time_limit_sec - (time.time() - start))
+                if _time_limit is not None:
+                    remaining = int(_time_limit - (time.time() - start))
                     gen_timeout = max(1, remaining) if remaining > 0 else 1
 
                 length_overflow = False
@@ -257,7 +351,17 @@ def build_iterative_agent(
                     # Apply pruning immediately after overflow to reduce context
                     try:
                         if prune_messages:
-                            state.messages = prune_messages(state.messages, keep_last=prune_keep_last)
+                            _pre = len(state.messages)
+                            state.messages = prune_messages(
+                                state.messages, keep_last=_eff_prune_keep
+                            )
+                            if _prune_debug:
+                                logger.info(
+                                    "Prune: reason=overflow pre=%d post=%d keep_last=%d",
+                                    _pre,
+                                    len(state.messages),
+                                    int(_eff_prune_keep),
+                                )
                     except Exception:
                         pass
                     continue
@@ -268,8 +372,8 @@ def build_iterative_agent(
                 if tool_calls:
                     # Per‑call timeout equals remaining budget
                     timeout_ctx = None
-                    if real_time_limit_sec is not None:
-                        remaining = real_time_limit_sec - (time.time() - start)
+                    if _time_limit is not None:
+                        remaining = _time_limit - (time.time() - start)
                         timeout_ctx = max(1, int(remaining)) if remaining > 0 else 1
 
                     try:
