@@ -11,7 +11,6 @@ dev/prod preset gates) to validate core semantics with the real policy engine.
 
 import asyncio
 import sys
-import types
 
 
 def _ensure_vendor_on_path():
@@ -24,7 +23,7 @@ def _ensure_vendor_on_path():
 def _load_approval_module_symbols():
     # Load approval.py directly to avoid importing the entire package
     g: dict[str, object] = {}
-    with open('src/inspect_agents/approval.py', 'r', encoding='utf-8') as f:
+    with open('src/inspect_agents/approval.py', encoding='utf-8') as f:
         code = f.read()
     exec(code, g, g)
     return g['handoff_exclusive_policy']  # type: ignore[index]

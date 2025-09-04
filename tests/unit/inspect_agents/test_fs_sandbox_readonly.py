@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from inspect_agents.tools import ToolException as ToolExceptionTools, delete_file, edit_file, write_file
+from inspect_agents.tools import ToolException as ToolExceptionTools
+from inspect_agents.tools import delete_file, edit_file, write_file
 from inspect_agents.tools_files import ToolException as ToolExceptionFiles
 
 

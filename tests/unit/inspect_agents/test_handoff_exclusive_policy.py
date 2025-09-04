@@ -143,7 +143,7 @@ def _parse_tool_event_from_caplog(caplog: 'logging.LogCaptureFixture'):
 
 def test_handoff_exclusive_skips_non_handoff(caplog):
     # Fresh transcript to make assertions deterministic
-    from inspect_ai.log._transcript import Transcript, ToolEvent, init_transcript, transcript
+    from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
     init_transcript(Transcript())
     policies = approval.handoff_exclusive_policy()
     approver = policies[0].approver

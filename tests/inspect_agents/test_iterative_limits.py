@@ -1,19 +1,16 @@
 import asyncio
-import os
+import logging
 from typing import Any
 
-from inspect_agents.iterative import build_iterative_agent
-import inspect_agents.iterative as iterative_mod
-
-
 from inspect_ai.model._model import Model
-import logging
+
+from inspect_agents.iterative import build_iterative_agent
 
 
 class TinyModel(Model):
     async def generate(self, input, tools, config, cache: bool = False):
-        from inspect_ai.model._model_output import ModelOutput
         from inspect_ai.model._chat_message import ChatMessageAssistant
+        from inspect_ai.model._model_output import ModelOutput
 
         return ModelOutput.from_message(ChatMessageAssistant(content="ok", source="generate"))
 
