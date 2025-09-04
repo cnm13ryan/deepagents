@@ -10,6 +10,9 @@ import asyncio
 import sys
 import types
 
+import pytest
+
+pytestmark = pytest.mark.kill_switch
 
 def _ensure_vendor_on_path():
     vendor_src = "external/inspect_ai/src"

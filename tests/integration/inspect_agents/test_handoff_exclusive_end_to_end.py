@@ -14,6 +14,9 @@ Notes:
 import asyncio
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.handoff
 
 def _ensure_vendor_on_path():
     vendor_src = "external/inspect_ai/src"

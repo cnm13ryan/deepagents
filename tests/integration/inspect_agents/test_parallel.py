@@ -18,6 +18,8 @@ from inspect_ai.util._limit import time_limit
 
 from inspect_agents.agents import build_subagents
 
+pytestmark = pytest.mark.parallel
+
 
 def _tool(name: str, reply: str) -> Tool:
     async def execute() -> str:

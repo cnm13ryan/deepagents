@@ -173,3 +173,5 @@ def test_terminate_aborts_sample(approval_modules_guard):
 
 
 # Cleanup is handled by the shared approval_modules_guard fixture
+
+pytestmark = pytest.mark.approvals

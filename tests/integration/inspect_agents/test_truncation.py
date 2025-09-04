@@ -1,9 +1,12 @@
 import asyncio
 
+import pytest
 from inspect_ai.model._call_tools import execute_tools
 from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageTool, ChatMessageUser
 from inspect_ai.tool._tool_def import ToolDef
 from inspect_ai.tool._tool_params import ToolParams
+
+pytestmark = pytest.mark.truncation
 
 
 def long_output_tool():

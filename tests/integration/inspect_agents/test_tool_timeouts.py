@@ -12,6 +12,8 @@ from inspect_ai.tool._tool_call import ToolCall
 from inspect_ai.tool._tool_def import ToolDef
 from inspect_ai.tool._tool_params import ToolParams
 
+pytestmark = pytest.mark.timeout
+
 
 def slow_tool() -> Tool:  # type: ignore[return-type]
     async def execute(delay: float = 1.0, timeout: float = 0.01) -> str:
