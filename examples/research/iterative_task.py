@@ -21,6 +21,7 @@ from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 
 from inspect_agents import build_iterative_agent
+from inspect_agents.approval import approval_preset
 from inspect_agents.model import resolve_model
 
 
@@ -49,5 +50,8 @@ def iterative_task(
     return Task(
         dataset=[Sample(input=prompt)],
         solver=agent,
+        # Configure a sandbox so exec tools (bash/python) have an environment
+        sandbox="local",
+        # Enable approvals; use permissive preset suitable for local/dev runs
+        approval=approval_preset("ci"),
     )
-
