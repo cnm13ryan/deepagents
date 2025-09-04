@@ -139,7 +139,7 @@ uv run python examples/inspect/run.py --provider openai --model gpt-4o-mini "You
 ## Advanced Usage
 
 ### Sub-agents Configuration
-Define sub-agents in YAML and load programmatically:
+Define sub-agents in YAML and load programmatically. You can also set root-level runtime limits:
 ```yaml
 # inspect.yaml
 supervisor:
@@ -151,13 +151,16 @@ subagents:
     prompt: Research the user's query. Plan, browse, then draft findings.
     mode: handoff
     tools: [web_search, write_todos, read_file, write_file]
-    limits:
-      - type: time
-        seconds: 60
-      - type: messages
-        max: 8
     context_scope: scoped
     include_state_summary: true
+limits:
+  # Minimal schema: {type: time|message|token, value: <number>}
+  - type: time
+    value: 60    # seconds
+  - type: message
+    value: 8     # total messages
+  # - type: token
+  #   value: 10000  # optional total tokens
 ```
 
 ```python
@@ -166,8 +169,8 @@ from inspect_agents.run import run_agent
 import asyncio, yaml
 
 cfg = yaml.safe_load(open("inspect.yaml"))
-agent, tools, approvals = load_and_build(cfg)
-result = asyncio.run(run_agent(agent, "start", approval=approvals))
+agent, tools, approvals, limits = load_and_build(cfg)
+result = asyncio.run(run_agent(agent, "start", approval=approvals, limits=limits))
 print(getattr(result.output, "completion", "[no completion]"))
 ```
 
