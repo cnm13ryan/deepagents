@@ -24,7 +24,7 @@ activate_approval_policies(policies)
 Both methods call Inspect’s approval init under the hood. If the approval module is stubbed (e.g., in tests), initialization is a safe no‑op.
 
 ## Presets (ci | dev | prod)
-Use built‑in presets to start quickly:
+Use built‑in presets to start quickly. As of 2025‑09‑04, the `dev` and `prod` presets include the handoff‑exclusivity policy by default.
 
 ```python
 from inspect_agents.approval import approval_preset
@@ -33,14 +33,17 @@ policies = approval_preset("dev")   # or "ci", "prod"
 ```
 
 Preset behavior:
-- `ci`: approve all tools (no‑op gate). 
-- `dev`: approve most; escalate sensitive tools to a second policy that rejects them (good for local safety).
-- `prod`: terminate sensitive tools with a redacted explanation.
+- `ci`: approve all tools (no‑op gate).
+- `dev`: approve most; escalate sensitive tools to a second policy that rejects them; enforce handoff exclusivity (only the first `transfer_to_*` call in an assistant turn is allowed; others are skipped).
+- `prod`: terminate sensitive tools with a redacted explanation; enforce handoff exclusivity (only the first `transfer_to_*` call per turn is allowed).
 
 Sensitive tools (matched by name):
 - `write_file`, `text_editor`, `bash`, `python`, and any `web_browser_*` tool.
 
 Tip: Combine presets with targeted custom rules (below) for fine control.
+
+Opt‑out of exclusivity:
+- If you need to disable handoff exclusivity, build a custom policy list instead of using `approval_preset("dev"|"prod")` (e.g., start from `approval_from_interrupt_config({...})` or from `approval_preset("ci")` and add rules you need). The exclusivity policy is not included in `ci`.
 
 ## Custom Policies (declarative)
 You can express approvals using a compact mapping and convert it to Inspect policies:
@@ -111,4 +114,3 @@ result = await run_agent(agent, "start", approval=policies)
 - Keep `dev` safe by default; approve only the minimal set of tools you need while iterating.
 - Prefer `modify` over blanket `approve` for risky tools: inject safe arguments (paths, timeouts) in the policy.
 - Pair approvals with sandboxed FS and disabled browser/exec unless explicitly required.
-

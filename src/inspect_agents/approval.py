@@ -171,14 +171,17 @@ def approval_preset(preset: str) -> list[Any]:
 
     match preset:
         case "ci":
+            # CI stays permissive for flexibility (no exclusivity policy by default)
             return [ApprovalPolicy(approver=approve_all, tools="*")]
         case "dev":
+            # Development: escalate sensitive tools and enforce handoff exclusivity by default
             return [
                 ApprovalPolicy(approver=dev_gate, tools="*"),
                 ApprovalPolicy(approver=reject_all, tools="*"),
-            ]
+            ] + handoff_exclusive_policy()
         case "prod":
-            return [ApprovalPolicy(approver=prod_gate, tools="*")]
+            # Production: terminate sensitive tools and enforce handoff exclusivity by default
+            return [ApprovalPolicy(approver=prod_gate, tools="*")] + handoff_exclusive_policy()
         case _:
             raise ValueError(f"Unknown approval preset: {preset}")
 
