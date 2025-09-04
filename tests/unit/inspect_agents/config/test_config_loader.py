@@ -204,3 +204,4 @@ def test_subagent_model_precedence_over_role(monkeypatch):
     from inspect_ai.tool._tool_def import tool_defs
     defs = asyncio.run(tool_defs(tools))
     assert any(d.name == "transfer_to_helper" for d in defs)
+
