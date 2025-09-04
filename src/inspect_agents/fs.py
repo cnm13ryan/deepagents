@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Consolidated filesystem and sandbox utilities.
 
 This module centralizes helpers previously duplicated across tools modules:
@@ -12,6 +10,8 @@ Design goals:
 - No import cycles with local modules (does not import .tools or .tools_files)
 - Preserve existing behaviors/messages used by callers when adopted
 """
+
+from __future__ import annotations
 
 import os
 import time

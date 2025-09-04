@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Centralized environment/settings utilities for inspect_agents.
 
 Semantics mirror existing helpers to avoid regressions:
@@ -10,6 +8,8 @@ Semantics mirror existing helpers to avoid regressions:
 - float_env: parse float; default on errors.
 - str_env: passthrough string (or default/None when unset).
 """
+
+from __future__ import annotations
 
 import os
 
@@ -75,4 +75,3 @@ __all__ = [
     "typed_results_enabled",
     "default_tool_timeout",
 ]
-
