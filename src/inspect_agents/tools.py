@@ -22,8 +22,14 @@ if TYPE_CHECKING:  # pragma: no cover - only for type checkers
 
 import json
 import logging
-import time
 
+from .exceptions import ToolException
+from .settings import (
+    truthy as _truthy,
+)
+from .settings import (
+    typed_results_enabled as _use_typed_results,
+)
 from .state import Todo, Todos
 from .tools_files import (
     DeleteParams,
@@ -43,124 +49,14 @@ from .tools_files import (
     execute_write,
 )
 
-# Structured observability configuration
-_OBS_TRUNCATE = int(os.getenv("INSPECT_TOOL_OBS_TRUNCATE", "200"))
-
-# One-time observability: effective tool-output limit log
-_EFFECTIVE_LIMIT_LOGGED = False
-
-def _parse_int(env_val: str | None) -> int | None:
-    try:
-        if env_val is None:
-            return None
-        val = int(env_val.strip())
-        if val < 0:
-            return None
-        return val
-    except Exception:
-        return None
-
-
-def _maybe_emit_effective_tool_output_limit_log() -> None:
-    """Emit a single structured log with the effective tool-output limit.
-
-    - Reads optional env override `INSPECT_MAX_TOOL_OUTPUT` (bytes).
-    - If set and upstream GenerateConfig has no explicit limit, set it once
-      to keep precedence: explicit arg > GenerateConfig > env > fallback 16 KiB.
-    - Logs a one-time `tool_event` with fields:
-        { tool: "observability", phase: "info",
-          effective_tool_output_limit: <int>, source: "env"|"default" }
-    """
-    global _EFFECTIVE_LIMIT_LOGGED
-    if _EFFECTIVE_LIMIT_LOGGED:
-        return
-
-    # Determine env override, validate as non-negative integer (0 disables)
-    env_raw = os.getenv("INSPECT_MAX_TOOL_OUTPUT")
-    env_limit = _parse_int(env_raw)
-
-    # Attempt to apply env to active GenerateConfig only if not already set
-    source = "default"
-    effective = 16 * 1024
-    try:
-        from inspect_ai.model._generate_config import (
-            active_generate_config,
-            set_active_generate_config,
-        )
-
-        cfg = active_generate_config()
-        # If env is provided and config has no explicit limit, adopt env
-        if env_limit is not None and getattr(cfg, "max_tool_output", None) is None:
-            try:
-                # Prefer merge to avoid mutating the existing instance in-place
-                new_cfg = cfg.merge({"max_tool_output": env_limit})  # type: ignore[arg-type]
-                set_active_generate_config(new_cfg)
-            except Exception:
-                # Fallback: best-effort in-place set (may be a no-op in some contexts)
-                try:
-                    cfg.max_tool_output = env_limit  # type: ignore[attr-defined]
-                except Exception:
-                    pass
-
-        # Resolve effective limit from active config if present; otherwise default
-        cfg_limit = getattr(active_generate_config(), "max_tool_output", None)
-        if cfg_limit is not None:
-            effective = int(cfg_limit)
-        elif env_limit is not None:
-            # No config, but env provided: reflect that as effective value
-            effective = env_limit
-        # Decide source label (env vs default). We intentionally collapse
-        # explicit config/arg into "default" to keep payload minimal here.
-        source = "env" if env_limit is not None else "default"
-    except Exception:
-        # If upstream APIs aren't available, fall back to env/default only
-        if env_limit is not None:
-            effective = env_limit
-            source = "env"
-
-    # Emit one-time structured log
-    logger = logging.getLogger(__name__)
-    try:
-        payload = {
-            "tool": "observability",
-            "phase": "info",
-            "effective_tool_output_limit": effective,
-            "source": source,
-        }
-        logger.info("tool_event %s", json.dumps(payload, ensure_ascii=False))
-    except Exception:
-        pass
-
-    _EFFECTIVE_LIMIT_LOGGED = True
+_EFFECTIVE_LIMIT_LOGGED = False  # maintained for test reset; used by observability
 
 
 def _redact_and_truncate(payload: dict[str, Any] | None, max_len: int | None = None) -> dict[str, Any]:
-    """Redact sensitive keys and truncate large string fields.
+    # Backwards-compat shim: delegate to observability
+    from .observability import _redact_and_truncate as _impl
 
-    - Redaction uses approval.redact_arguments to apply the shared REDACT_KEYS policy.
-    - Truncation applies to string values > max_len chars (default from env).
-    """
-    if not payload:
-        return {}
-    try:
-        from .approval import redact_arguments
-    except Exception:
-        # Fallback: shallow copy without redaction
-        redacted = dict(payload)
-    else:
-        redacted = redact_arguments(dict(payload))  # type: ignore[arg-type]
-
-    limit = max_len if (max_len is not None and max_len > 0) else _OBS_TRUNCATE
-
-    def _truncate(v: Any) -> Any:
-        try:
-            if isinstance(v, str) and limit and len(v) > limit:
-                return v[:limit] + f"...[+{len(v) - limit} chars]"
-            return v
-        except Exception:
-            return "[UNSERIALIZABLE]"
-
-    return {k: _truncate(v) for k, v in redacted.items()}
+    return _impl(payload, max_len)
 
 
 def _log_tool_event(
@@ -170,73 +66,13 @@ def _log_tool_event(
     extra: dict[str, Any] | None = None,
     t0: float | None = None,
 ) -> float:
-    """Emit a minimal structured log line for tool lifecycle.
+    """Backward-compat wrapper delegating to observability.log_tool_event."""
+    from .observability import log_tool_event as _impl
 
-    Returns a perf counter when phase == "start" so callers can pass it back
-    on "end"/"error" to compute a duration.
-    """
-    # Emit one-time effective limit log on the very first tool event
-    _maybe_emit_effective_tool_output_limit_log()
-
-    logger = logging.getLogger(__name__)
-    now = time.perf_counter()
-    data: dict[str, Any] = {
-        "tool": name,
-        "phase": phase,
-    }
-    if args:
-        # Belt-and-suspenders normalization: rewrite raw content fields to length metadata
-        # before any redaction/truncation. This prevents accidental leaks from new callers
-        # that might pass raw strings. See docs/design/open-questions.md §2.
-        try:
-            norm = dict(args)
-            # Known sensitive keys -> length-only fields (allowlist)
-            mapping: list[tuple[str, str]] = [
-                ("content", "content_len"),
-                ("file_text", "file_text_len"),
-                ("old_string", "old_len"),
-                ("new_string", "new_len"),
-            ]
-            for src, dst in mapping:
-                if src in norm and isinstance(norm[src], str):
-                    try:
-                        norm[dst] = len(norm[src])
-                    except Exception:
-                        norm[dst] = "[len_error]"
-                    # Remove the original raw field
-                    norm.pop(src, None)
-        except Exception:
-            norm = args  # fall back to original if normalization errors
-        data["args"] = _redact_and_truncate(norm)
-    if t0 is not None and phase in ("end", "error"):
-        try:
-            data["duration_ms"] = round((now - t0) * 1000, 2)
-        except Exception:
-            pass
-    if extra:
-        # Shallow merge; do not overwrite core fields
-        for k, v in extra.items():
-            if k not in data:
-                data[k] = v
-
-    try:
-        logger.info("tool_event %s", json.dumps(data, ensure_ascii=False))
-    except Exception:
-        # Last-resort: emit best-effort repr
-        logger.info("tool_event %s", {k: ("[obj]" if k == "args" else v) for k, v in data.items()})
-
-    return now if phase == "start" else (t0 or now)
+    return _impl(name=name, phase=phase, args=args, extra=extra, t0=t0)
 
 
-# Import ToolException for structured error handling
-try:
-    from inspect_tool_support._util.common_types import ToolException
-except ImportError:
-    # Fallback for test environments where inspect_tool_support might not be available
-    class ToolException(Exception):  # noqa: N818
-        def __init__(self, message: str):
-            self.message = message
-            super().__init__(message)
+# ToolException is provided centrally via inspect_agents.exceptions
 
 
 def _fs_mode() -> str:
@@ -253,22 +89,8 @@ def _use_sandbox_fs() -> bool:
     return _fs_mode() == "sandbox"
 
 
-def _default_tool_timeout() -> float:
-    try:
-        return float(os.getenv("INSPECT_AGENTS_TOOL_TIMEOUT", "15"))
-    except Exception:
-        return 15.0
-
-
-def _truthy(env_val: str | None) -> bool:
-    if env_val is None:
-        return False
-    return env_val.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _use_typed_results() -> bool:
-    """Return True if typed result models should be returned instead of strings/lists."""
-    return _truthy(os.getenv("INSPECT_AGENTS_TYPED_RESULTS"))
+## Delegated env helpers (centralized in settings.py)
+## Keep symbol names for backward-compatible test patch points.
 
 
 class TodoWriteResult(BaseModel):
