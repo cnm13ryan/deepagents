@@ -15,3 +15,7 @@ Welcome to the unified documentation site for DeepAgents. This site collects all
 - Open Questions: [Discussion Topics](design/open-questions.md)
 
 For a fuller section-by-section map of all docs, see the in-repo index at [docs/README.md](README.md).
+
+## Acknowledgments
+
+The iterative agent approach described in examples (`examples/research/`), reference guides, and the `src/inspect_agents/` implementation draws inspiration from the PaperBench project on iterative multi‑step agent evaluation. See: PaperBench — https://arxiv.org/abs/2504.01848.
