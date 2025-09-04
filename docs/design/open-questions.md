@@ -32,6 +32,343 @@ Decision needed by: 2025‑09‑10.
 
 ---
 
+# Approvals — Default Activation for Handoff Exclusivity (ADR 0005 v1)
+
+Context
+- ADR 0005 shipped a policy that enforces “first handoff wins” via an approval policy (`handoff_exclusive_policy()`); today this is opt‑in and not wired into presets. The question is whether to activate it by default in our approval presets (ci/dev/prod) or leave it fully opt‑in per run/config.
+
+Problem
+- Inconsistent defaults lead to surprising multi‑tool execution during handoffs in dev/prod unless the caller explicitly installs the policy. Teams may expect exclusivity out‑of‑the‑box after reading ADR 0005.
+
+Options
+- Option A — Enable in `dev` and `prod` presets; keep `ci` permissive. Pros: safer defaults in interactive/dev and deployments; preserves CI flexibility. Cons: behavior change for existing users of presets.
+- Option B — Keep opt‑in; document prominently in guides and examples. Pros: no change in behavior. Cons: drift from ADR intent in default experiences.
+- Option C — New preset `dev_strict` that includes exclusivity; leave existing presets unchanged.
+
+Decision: Adopted Option A on 2025‑09‑04.
+- `approval_preset("dev")` and `approval_preset("prod")` now include `handoff_exclusive_policy()` by default; `ci` remains permissive.
+- Docs updated in `docs/how-to/approvals.md`; opt‑out guidance: build a custom policy list or start from `ci` and add rules.
+
+References
+- Policy implementation: `handoff_exclusive_policy()` enforces exclusivity at approval layer (v1).  
+  Source: src/inspect_agents/approval.py.
+
+---
+
+# Config — Sub‑Agent Role Mapping in YAML
+
+Context
+- Today `SubAgentCfg` accepts a concrete `model`. We want to optionally accept a `role` and resolve to a model via `resolve_model(role=...)`, keeping `model` > `role` precedence and enabling env/pyproject role mapping work tracked in the backlog.
+
+Problem
+- Configs hard‑code models, reducing portability between local/CI/prod where providers differ. A role indirection keeps configs portable and allows centralized env policy.
+
+Options
+- Option A — Add `role: str | None` to `SubAgentCfg`; when `model` is absent, call `resolve_model(role=...)` during `build_subagents`. Preserve existing behavior otherwise.
+- Option B — Leave YAML unchanged; require callers to resolve roles externally and pass concrete `model`.
+
+Recommendation (pending approval)
+- Option A; minimal change, backwards compatible, and aligns with the model‑roles backlog.
+
+Decision Needed
+- Approve schema change and precedence; green‑light tests/docs to demonstrate role‑based sub‑agents.
+
+References
+- Resolver precedence and env keys live in src/inspect_agents/model.py; `SubAgentCfg` defined in src/inspect_agents/config.py.
+
+---
+
+# Sandbox Guardrails — Minimal Test Matrix (Root, Symlink, Delete, Size)
+
+Context
+- Files tool enforces sandbox root confinement, symlink denial, delete disabled in sandbox, and a byte ceiling across modes. We need an agreed, offline‑friendly test matrix to keep these guarantees durable.
+
+Problem
+- CI environments may not provide a running sandbox service; tests must pass offline while still validating behaviors.
+
+Options
+- Option A — Pure offline tests using the in‑memory store plus in‑process stubs to simulate sandbox transport presence, asserting:
+  - Root confinement rejects paths outside `INSPECT_AGENTS_FS_ROOT` when sandbox is “available”.
+  - Symlink denial via a simulated bash_session response.
+  - Delete disabled in sandbox; enabled/idempotent in store.
+  - Byte ceiling errors for read/write/edit with small configured limits.
+- Option B — Dual‑layer: keep A as baseline; add optional integration tests behind a marker when a sandbox is available (skipped by default in CI).
+
+Recommendation (pending approval)
+- Option B; ship A now, add a `sandbox` pytest marker for opt‑in integration.
+
+Decision Needed
+- Approve baseline assertions and skip strategy; define acceptable lower bounds for coverage.
+
+References
+- Guardrails implemented in src/inspect_agents/tools_files.py.
+
+---
+
+# Conversation Pruning — Defaults, Scope, and Observability
+
+Context
+- A new lightweight `prune_messages()` helper was added and integrated into the iterative agent to bound history growth (keep all system, first user, and last N messages with tool pairing). Length‑based only; no tokenizer.
+
+Open Questions
+- Defaults: are `prune_after_messages=120` and `prune_keep_last=40` appropriate across workloads?
+- Scope: should pruning also apply to the react supervisor path or remain iterative‑only?
+- Unification: remove the older in‑file `_prune_history` logic and use `prune_messages()` everywhere for a single behavior?
+- Observability: emit a lightweight `prune_event` (pre→post counts) to logs for diagnose‑ability, or keep silent unless debugging is enabled?
+- Configuration: add env toggles `INSPECT_PRUNE_AFTER_MESSAGES` and `INSPECT_PRUNE_KEEP_LAST` with sensible bounds?
+
+Recommendation (pending approval)
+- Keep current conservative defaults; add optional env toggles; emit a single info log when `INSPECT_MODEL_DEBUG` (or a new `INSPECT_PRUNE_DEBUG`) is set.
+
+Decision Needed
+- Confirm defaults, scope (iterative‑only vs global), and logging approach.
+
+References
+- Utility: src/inspect_agents/_conversation.py. Integration points: src/inspect_agents/iterative.py.
+
+---
+
+# Token‑Aware Pruning — Future Option and Flags
+
+Context
+- Length‑based pruning is robust and provider‑agnostic but can be sub‑optimal relative to token budgets. A token‑aware path could use provider metadata while keeping a soft dependency model.
+
+Options
+- Option A — Add an optional token‑aware strategy that estimates tokens using Inspect’s model utilities when present; fall back to length‑based.
+- Option B — Stay length‑only; defer token work to provider‑specific runners.
+
+Recommendation (pending approval)
+- Option A, behind a flag, documented as “best‑effort”, with guardrails to avoid tight coupling. Add environment knobs (e.g., `INSPECT_PRUNE_TOKEN_BUDGET`) and a minimum floor to prevent over‑pruning.
+
+Decision Needed
+- Approve roadmap and flag names; decide default off/on for dev.
+
+References
+- Iterative agent integration and pruning utility named above.
+
+---
+# Iterative Agent — Pruning, Termination, and Public Surface (New)
+
+Last updated: 2025‑09‑04
+
+Context
+- The `build_iterative_agent(...)` now avoids provider‑specific exceptions, adds bounded history pruning, and surfaces configuration for progress cadence and optional keyword termination.  It remains submit‑less and uses the active Inspect model by default.  Signature and parameters are documented inline. 〖F:src/inspect_agents/iterative.py†L70-L81〗 〖F:src/inspect_agents/iterative.py†L96-L107〗 〖F:src/inspect_agents/iterative.py†L191-L201〗 〖F:src/inspect_agents/iterative.py†L233-L242〗
+- The pruning helper keeps the first system + first user message and the last window of turns, while dropping orphan tool messages. 〖F:src/inspect_agents/iterative.py†L120-L171〗
+- `build_iterative_agent` is now re‑exported via `inspect_agents.agents` for a consistent public surface alongside `build_supervisor`. 〖F:src/inspect_agents/agents.py†L141-L152〗 〖F:src/inspect_agents/agents.py†L161-L170〗
+
+Open Questions
+1) Pruning defaults — turns vs messages
+   - Problem: `max_turns=50` keeps the last ≈2×turns messages (assistant/tool/user mix), which is robust but heuristic.  Should we offer a messages‑based cap (`max_messages`) in addition to `max_turns`?
+   - Options: (A) keep `max_turns` only; (B) add `max_messages` (higher precedence when set); (C) expose both but default to turns.
+   - Considerations: determinism across providers, tool burstiness, simplicity of mental model.
+   - Recommendation (pending): (B) add `max_messages` as an opt‑in; keep `max_turns=50` default.
+
+2) Progress pings and pruning order
+   - Problem: Progress pings (“Info: HH:MM:SS elapsed”) aid observability but could consume space in the retained tail.  Should pruning prefer dropping pings first? 〖F:src/inspect_agents/iterative.py†L191-L201〗
+   - Options: (A) treat pings like any user message (status quo); (B) detect and preferentially drop them during pruning; (C) gate with `progress_every=0` to disable.
+   - Recommendation (pending): Keep (A) for simplicity; document (C) for tight contexts.
+
+3) Keyword‑based termination (opt‑in only)
+   - Problem: Keyword stops are brittle; default is off (`stop_on_keywords=None`).  Validate the opt‑in list and restrict matching to assistant text only (status quo). 〖F:src/inspect_agents/iterative.py†L276-L283〗
+   - Decision: Keep default off; no change needed unless users request canned sets.
+
+4) Provider coupling avoidance
+   - Problem: Ensure we remain provider‑agnostic.  We removed the OpenAI‑specific `LengthFinishReasonError`; detection now relies on `stop_reason=="model_length"` or a generic overflow path.  Are there providers that use alternative stop reason fields?
+   - Action: Audit providers used in this repo; if divergence exists, add a small compatibility shim documented in code comments. 〖F:src/inspect_agents/iterative.py†L220-L231〗 〖F:src/inspect_agents/iterative.py†L233-L242〗
+
+Decision Needed
+- Add `max_messages`? Preferentially drop progress pings? Target: 2025‑09‑10.
+
+---
+
+# Files Tool Exposure vs Wrappers in Supervisor (New)
+
+Context
+- Docs position `files` as the canonical unified API, with `ls/read_file/write_file/edit_file/delete_file` as wrappers. 〖F:docs/tools/README.md†L9-L21〗
+- Supervisor built‑ins currently expose the wrapper tools but not the `files` tool directly. 〖F:src/inspect_agents/agents.py†L79-L93〗
+
+Open Question
+- Should `files_tool()` also be exposed by default in the supervisor to align docs with runtime, or should docs explicitly state that wrappers are what agents receive by default?
+
+Options
+- A) Expose `files` alongside wrappers by default (no behavior change for wrappers; enables unified usage).
+- B) Keep wrappers only; update docs to clarify exposure vs canonical reference.
+
+Recommendation (pending)
+- B) Keep wrappers only to minimize surface duplication; add a one‑line note in Tools README about exposure defaults.
+
+Decision Needed
+- Choose A or B; if B, add a short doc note. Target: 2025‑09‑08.
+
+---
+
+# Limits Observability — Runner vs Handoff Scope (New)
+
+Context
+- We want consistent, machine‑parseable logs when limits are nearing (≥80%) or exceeded. Runner limits are straightforward; handoff‑level limits are applied inside `handoff(...)` and are harder to centralize.
+
+Problem
+- Where to emit “limit_nearing/limit_exceeded” events and how to avoid noisy/duplicated logs across scopes.
+
+Options
+- Option A — Runner‑only in v1: emit JSON logs at the end of a sample using Inspect’s `sample_limits()` and transcript events. Pros: simple, low noise. Cons: no immediate handoff‑scope signals.
+- Option B — Runner + Handoff: add a wrapper/hook around `handoff(..., limits=[...])` to emit scope=`handoff` events when thresholds are crossed. Pros: granular visibility. Cons: higher coupling and risk of duplication.
+
+Recommendation (pending)
+- Start with Option A (runner‑only), then add a minimal hook for handoffs in v2 with deduplication guards.
+
+Event Schema (proposed)
+- `event`: `limit_nearing | limit_exceeded`
+- `scope`: `runner | handoff`
+- `limit_kind`: `time | tokens | messages | tools`
+- `threshold`, `used`, `remaining`, `agent_name` (optional for runner), `handoff_name` (handoff only).
+
+Decision Needed
+- Approve Option A for v1; define the handoff hook location for v2. Target: 2025‑09‑12.
+
+---
+
+# YAML Limits: Parser vs Runner Responsibility (New)
+
+Context
+- The config model contains `limits` at the root, but `build_from_config` returns `(agent, tools, approvals)` without applying or returning limits; guides mark YAML limits as “illustrative spec; bind via Python”. 〖F:src/inspect_agents/config.py†L32-L37〗 〖F:src/inspect_agents/config.py†L115-L123〗 〖F:docs/guides/subagents.md†L64-L76〗
+
+Open Question
+- Do we implement a small parser that maps YAML limit specs to Inspect `Limit` objects and return them from `load_and_build`, or do we remove the field to avoid confusion and keep limits strictly at the Python callsite/runner?
+
+Options
+- A) Implement parser now (time/message/token) and return `limits` from `load_and_build` so callers can pass them to `run_agent`.
+- B) Remove/ignore the field and document runner‑level responsibility only.
+
+Recommendation (pending)
+- A) Implement a minimal parser for the three core limit types; keep behavior optional and backward compatible.
+
+Decision Needed
+- Choose A or B; if A, define the minimal schema. Target: 2025‑09‑12.
+
+---
+
+# Retries & Cache — Per‑Agent Env in v1 or Global Only? (New)
+
+Context
+- The guidance proposes env‑first configuration with per‑agent overrides (`...__<AGENT_NAME>` suffix), but the code does not yet plumb retries/cache through `build_supervisor/build_subagents`. 〖F:docs/guides/retries_cache.md†L58-L94〗
+
+Open Question
+- For the first release, should we support per‑agent env overrides, or keep a single global env (simpler) and add per‑agent later?
+
+Options
+- A) Global only in v1 (`INSPECT_AGENTS_CACHE`, `INSPECT_AGENTS_MAX_RETRIES`, `INSPECT_AGENTS_TIMEOUT_S`).
+- B) Global + per‑agent suffix in v1 (consistent with quarantine filters).
+
+Recommendation (pending)
+- A) Start global to reduce scope; add per‑agent once APIs are in place.
+
+Decision Needed
+- Choose A or B. Target: 2025‑09‑12.
+
+---
+
+# Sandbox Preflight & `text_editor` Exposure (New)
+
+Context
+- FS tools proxy to `text_editor`/`bash_session` in sandbox mode. We cache a preflight result; exposure of `text_editor()` in `standard_tools()` is env‑gated but not preflight‑aware.
+
+Problem
+- Exposing `text_editor()` when sandbox is unavailable leads to confusing failures. We need a best‑effort sync check without making `standard_tools()` async.
+
+Options
+- Option A — Best‑effort gating: expose only when stubs are present in‑process or a strict env hint is set (e.g., `INSPECT_SANDBOX_PREFLIGHT=force`).
+- Option B — Always expose when env flag is set; rely on tool‑path preflight and fallback messaging.
+- Option C — New mode flags: `auto|force|skip` that affect both exposure and tool‑path behavior; include a `reset` API and optional TTL recheck.
+
+Recommendation (pending)
+- Adopt A for immediate UX improvement; stage C (modes + reset + TTL) as follow‑ups.
+
+Decision Needed
+- Approve gating semantics and env names: `INSPECT_SANDBOX_PREFLIGHT=auto|force|skip`, `INSPECT_SANDBOX_PREFLIGHT_TTL=<sec>`. Target: 2025‑09‑11.
+
+---
+
+# Model Roles — Strict Mode & Unmapped Warnings (New)
+
+Context
+- `resolve_model()` supports role mapping via env. Some deployments want stricter behavior (fail fast on unmapped roles) and better diagnostics.
+
+Problem
+- Typos or missing mappings silently fall back to `inspect/<role>`; harder to catch in CI.
+
+Options
+- Option A — Add `INSPECT_ROLES_STRICT=1` to raise on unmapped roles; optional allowlist.
+- Option B — Add `INSPECT_ROLES_WARN_UNMAPPED=1` to log a warning once per role when falling back.
+- Option C — Support repo defaults via `pyproject.toml` to reduce reliance on env.
+
+Recommendation (pending)
+- Implement A+B; consider C later (cached `tomllib` read) to keep hot path light.
+
+Decision Needed
+- Approve strict/warn flags and allowlist format. Target: 2025‑09‑15.
+
+---
+
+# Tool Output Truncation — Defaults, Env Override, Counts Line (New)
+
+Context
+- ADR 0004 proposes formalizing a 16 KiB default for tool output truncation, plus an optional env override and a counts line outside the payload envelope.
+
+Problem
+- Today the default is implied by a fallback; users can’t change it fleet‑wide without code changes; it’s unclear how much was truncated.
+
+Options
+- Option A — Set `GenerateConfig.max_tool_output = 16*1024` by default (upstream), keep function fallback.
+- Option B — Add env `INSPECT_MAX_TOOL_OUTPUT` (low precedence) read by `truncate_tool_output` when config is None.
+- Option C — Add a counts line above `<START_TOOL_OUTPUT>` stating shown vs original bytes.
+
+Recommendation (pending)
+- Adopt A+B+C; keep precedence `arg > config > env > fallback` and add one‑time log when env is used.
+
+Decision Needed
+- Approve upstream change and env name; confirm counts line copy. Target: 2025‑09‑13.
+
+---
+
+# Docs Synchronization — Limits & FS Behavior (New)
+
+Context
+- Some tool docs drifted from code (e.g., byte ceilings in write/edit and sandbox path validation).
+
+Problem
+- Readers may be misled about safety limits and validation; drift accumulates without checks.
+
+Options
+- Option A — Add a lightweight docs check that greps for key claims (size caps, delete policy) in tool pages and compares against code constants/envs.
+- Option B — Consolidate canonical defaults in a single page (already `docs/tools/_defaults.md`) and keep tool pages thin; avoid duplicating limits.
+
+Recommendation (pending)
+- Prefer B; add a CI reminder to update `_defaults.md` when touching relevant code paths.
+
+Decision Needed
+- Approve policy and CI reminder location. Target: 2025‑09‑10.
+
+---
+
+# Approvals Presets — Include Handoff Exclusivity by Default? (New)
+
+Context
+- Presets `ci|dev|prod` are implemented; a separate `handoff_exclusive_policy()` enforces “first handoff wins” at approval‑policy level (v1). These are currently independent. 〖F:src/inspect_agents/approval.py†L126-L183〗 〖F:src/inspect_agents/approval.py†L195-L216〗
+
+Open Question
+- Should `approval_preset("dev")` and `approval_preset("prod")` include `handoff_exclusive_policy()` by default so users get exclusivity out‑of‑the‑box?
+
+Options
+- A) Yes — add the exclusivity policy to `dev` and `prod` presets; `ci` remains approve‑all.
+- B) No — keep it separate; document combinators in the approvals guide.
+
+Recommendation (pending)
+- A) Yes — makes handoffs safer by default; aligns with ADR 0005 behavior and expectations.
+
+Decision Needed
+- Choose A or B; if A, update the approvals guide/preset docs. Target: 2025‑09‑08.
+
 # Docs — Built-in Tools List (Dedup + Canonicalization)
 
 Context
@@ -461,3 +798,104 @@ Decision Needed
 
 Notes
 - The script already respects `INSPECT_ENV_FILE` and `.env` without overriding process env and resolves `INSPECT_LOG_DIR` correctly; changes above should not alter those invariants. 〖F:scripts/read_log_eval.py†L29-L46〗 〖F:scripts/read_log_eval.py†L71-L76〗
+
+---
+
+# API Unification and Exports — Public Surface and Naming (New)
+
+Last updated: 2025‑09‑04
+
+Context
+- Goal: present a coherent public API for agent builders under a single import path for discoverability, while retaining backward compatibility.
+- Current code:
+  - Root exports now re‑export builders from the unified agents surface. 〖F:src/inspect_agents/__init__.py†L4-L17〗
+  - Unified surface `inspect_agents.agents` exposes `build_supervisor` (submit style), a parity alias `build_basic_submit_agent`, and `build_iterative_agent` (no submit). 〖F:src/inspect_agents/agents.py†L96-L138〗 〖F:src/inspect_agents/agents.py†L142-L170〗 〖F:src/inspect_agents/agents.py†L141-L152〗 〖F:src/inspect_agents/agents.py†L161-L170〗
+  - Examples/docs are being updated to import builders from `inspect_agents.agents`. 〖F:examples/research/run_iterative.py†L22-L32〗 〖F:docs/todo_paperbench_iterative_agent.md†L30-L37〗
+
+Open Questions
+1) Preferred import style in docs and examples
+   - Options: (A) Standardize on `from inspect_agents.agents import ...` for all builders; (B) Keep mixed style (root import for convenience, agents for clarity); (C) Root import only.
+   - Considerations: discoverability, auto‑complete affordances, alignment with submodule structure.
+   - Recommendation (pending): (A) Prefer `inspect_agents.agents` in new docs/examples; keep root re‑exports for BC.
+
+2) Naming of the submit‑style builder
+   - Problem: We introduced `build_basic_submit_agent` as an alias for `build_supervisor` to present paired names alongside `build_iterative_agent`. Should we keep both, or converge on one canonical name in docs?
+   - Options: (A) Keep both; docs prefer `build_basic_submit_agent` in side‑by‑side comparisons; (B) Prefer `build_supervisor` in docs and omit the alias from public docs; (C) Deprecate the alias later.
+   - Recommendation (pending): (B) Keep alias for parity but prefer `build_supervisor` in docs to avoid naming sprawl. 〖F:src/inspect_agents/agents.py†L142-L170〗
+
+3) Root exports policy and deprecation window
+   - Problem: Root `__init__` re‑exports builders for convenience. Do we want to document a future deprecation of builder exports at the root to simplify the top‑level namespace?
+   - Options: (A) Keep root exports indefinitely; (B) Mark as “convenience re‑exports” with no deprecation; (C) Announce an optional migration path with a future major release toggle.
+   - Recommendation (pending): (A) Keep indefinitely; this is low‑cost and avoids churn. 〖F:src/inspect_agents/__init__.py†L4-L17〗
+
+4) Linter/docs guardrails
+   - Question: Should we add a docs check that flags new snippets importing builders from the root instead of `inspect_agents.agents`, to keep the style consistent?
+   - Option: Add a lightweight docs lint in CI that greps for `from inspect_agents import build_` in `docs/` (allow‑listed exclusions permitted).
+
+Decision Needed
+- Choose preferred import style and naming guidance for submit vs iterative builders; define CI/docs lint scope (if any). Target: 2025‑09‑08.
+
+---
+
+# Iterative Agent (No Submit) — Open Questions (New)
+
+Last updated: 2025‑09‑04
+
+Context
+- Implemented `build_iterative_agent`: ephemeral “continue” nudge added to a copy of history each step; assistant/tool results persist; loop bounded by time and step limits.  Safe default toolset (Files/Todos built‑ins; exec/search/browser via env). 〖F:src/inspect_agents/iterative.py†L62-L74〗 〖F:src/inspect_agents/iterative.py†L130-L168〗
+- Examples: CLI runner and Inspect task variant under `examples/research/`. 〖F:examples/research/run_iterative.py†L41-L63〗 〖F:examples/research/iterative_task.py†L27-L41〗
+
+Questions
+1) Code‑only variant toggle
+   - Problem: Some workflows prefer “code‑only” prompting (bias toward file ops; avoid execution). Should the builder expose `code_only: bool` that adjusts the default system message and hides exec tools unless explicitly enabled?
+   - Options: (A) Add builder flag; (B) rely on user‑supplied `prompt`; (C) environment variable `INSPECT_CODE_ONLY`.
+   - Recommendation (pending): (A) explicit flag for clarity; env as secondary.
+
+2) Default toolset baseline
+   - Problem: Keep the iterative agent minimal (Files/Todos) vs auto‑include `think()` and/or `web_search()` when configured.
+   - Options: (A) keep minimal (status quo); (B) always include `think()`; (C) include `web_search` when keys present.
+   - Trade‑offs: action‑space breadth vs determinism/cost.
+   - Recommendation (pending): (A) minimal; document opt‑ins. 〖F:src/inspect_agents/tools.py†L206-L229〗
+
+3) Optional submit/end tool
+   - Problem: Some flows want an explicit “done” signal without scoring. Add optional submit tool that simply terminates?
+   - Options: (A) keep pure time/step termination; (B) gate a no‑op submit behind a flag; (C) recommend the submit‑style supervisor instead.
+   - Recommendation (pending): (C) recommend supervisor; revisit if demand emerges.
+
+4) Default limits and env fallbacks
+   - Problem: Examples default to `600s/40 steps`; no repo‑level env standard.
+   - Options: (A) explicit args only; (B) add `INSPECT_ITERATIVE_TIME_LIMIT` / `INSPECT_ITERATIVE_MAX_STEPS`; (C) runners convert YAML limit specs to Inspect `Limit`s.
+   - Recommendation (pending): (B) add env fallbacks while keeping explicit args. 〖F:examples/research/run_iterative.py†L47-L53〗 〖F:examples/research/iterative_task.py†L31-L41〗
+
+5) Progress ping cadence
+   - Problem: Pings every 5 steps aid visibility but add tokens/logs.
+   - Options: (A) fixed cadence; (B) `progress_every` parameter where 0 disables; (C) suppress in tasks by default.
+   - Recommendation (pending): (B) parameterize; default 5.
+
+6) Context management (pruning vs summarization)
+   - Problem: Current loop only reacts to length overflow and nudges to summarize; no active pruning.
+   - Options: (A) sliding‑window pruning; (B) summarization of older chunks into a system note; (C) hybrid.
+   - Recommendation (pending): (A) add a small sliding window; consider (B) later.
+
+7) Retry/backoff observability
+   - Problem: PaperBench measured provider backoff time; we rely on Inspect telemetry.
+   - Options: (A) status quo; (B) add a generate wrapper to record backoff counters in transcript; (C) structured log counters.
+   - Recommendation (pending): (A) for now; revisit if gaps appear in logs/traces.
+
+8) Sub‑agent handoff support
+   - Problem: Should the iterative agent support handoff to sub‑agents or remain single‑agent?
+   - Options: (A) single‑agent (status quo); (B) optional handoff tool; (C) use the supervisor composition when handoff is needed.
+   - Recommendation (pending): (C) prefer supervisor for orchestration.
+
+9) Iterative task flags for web search
+   - Problem: `iterative_task.py` exposes `enable_exec` only.
+   - Options: (A) add `enable_web_search: bool`; (B) keep env‑only; (C) separate research‑oriented iterative task.
+   - Recommendation (pending): (A) add a boolean flag for parity with runner.
+
+10) YAML composition for iterative
+   - Problem: Research YAML targets supervisor/subagents; none for iterative.
+   - Options: (A) Python‑only; (B) extend YAML with an `iterative` section; (C) `supervisor.mode: iterative` variant.
+   - Recommendation (pending): (A) for now; reassess with usage.
+
+Decision Needed
+- Prioritize (1), (5), (6), (9) for next release; confirm toolset policy (2). Target: 2025‑09‑15.
