@@ -1,6 +1,6 @@
 # Iterative Research Task (Inspect‑AI)
 
-This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/research/iterative_task.py`.
+This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/research/iterative_task.py`. For termination, truncation, and configuration details, see the Iterative Agent reference: [Iterative Agent — Termination and Truncation](../../docs/reference/iterative-agent-behavior.md).
 
 ## What’s Configured (defaults in this repo)
 
