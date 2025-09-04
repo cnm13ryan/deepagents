@@ -7,7 +7,37 @@ on:
     branches: [ main, master, inspect-ai-rewrite ]
 
 jobs:
+  commit-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run commit guard (PR)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.sha }}
+        run: |
+          python scripts/commit_guard.py --range "${BASE}..${HEAD}"
+
+      - name: Run commit guard (push)
+        if: github.event_name == 'push'
+        env:
+          BASE: ${{ github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: |
+          python scripts/commit_guard.py --range "${BASE}..${HEAD}"
+
   lint:
+    needs: [commit-guard]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,4 +58,3 @@ jobs:
 
       - name: Ruff Format (check only)
         run: ruff format --check .
-
