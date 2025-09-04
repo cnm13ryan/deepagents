@@ -1,0 +1,48 @@
+name: Benchmarks (on label)
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+    branches: [ main, master, inspect-ai-rewrite ]
+  workflow_dispatch: {}
+
+jobs:
+  run-benchmarks:
+    if: >-
+      github.event_name == 'workflow_dispatch' || contains(toJSON(github.event.pull_request.labels), 'run-benchmarks')
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      NO_NETWORK: '1'
+      PYTHONHASHSEED: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONWARNINGS: default
+      PYTHONPATH: src:external/inspect_ai/src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -e '.[dev,testing,utilities]'
+
+      - name: Run benchmarks (pytest-benchmark)
+        run: |
+          mkdir -p .benchmarks
+          pytest -q -m benchmark --benchmark-only \
+                 --benchmark-autosave \
+                 --benchmark-save="pr-${{ github.event.pull_request.number || 'manual' }}-${{ github.sha }}" \
+                 tests/benchmarks
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-${{ github.sha }}
+          path: .benchmarks
+          if-no-files-found: ignore
