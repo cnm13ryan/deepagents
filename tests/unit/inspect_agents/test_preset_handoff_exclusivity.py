@@ -8,7 +8,6 @@ practical effect on a mixed handoff/non‑handoff batch.
 """
 
 import asyncio
-import importlib
 import sys
 import types
 
@@ -65,7 +64,7 @@ def _install_minimal_stubs():
 def _load_module_via_exec():
     # Load approval.py directly to avoid package side-effects
     g = {}
-    with open('src/inspect_agents/approval.py', 'r', encoding='utf-8') as f:
+    with open('src/inspect_agents/approval.py', encoding='utf-8') as f:
         code = f.read()
     exec(code, g, g)
     return g
@@ -115,9 +114,9 @@ def test_exclusivity_policy_effect_is_present_in_presets():
             self.tool_calls = tool_calls
 
     # Build a mixed batch
-    ToolCall = sys.modules['inspect_ai.tool._tool_call'].ToolCall
-    handoff = ToolCall(id='1', function='transfer_to_researcher', arguments={})
-    non_handoff = ToolCall(id='2', function='read_file', arguments={'file_path': 'README.md'})
+    tool_call_cls = sys.modules['inspect_ai.tool._tool_call'].ToolCall
+    handoff = tool_call_cls(id='1', function='transfer_to_researcher', arguments={})
+    non_handoff = tool_call_cls(id='2', function='read_file', arguments={'file_path': 'README.md'})
     msg = _Msg([handoff, non_handoff])
     history = [msg]
 
