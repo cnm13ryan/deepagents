@@ -26,7 +26,7 @@ import copy
 import logging
 import os
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from inspect_ai.agent._agent import AgentState
@@ -97,6 +97,9 @@ def build_iterative_agent(
     # Token-aware overflow control (per-message cap; default off)
     per_msg_token_cap: int | None = None,
     truncate_last_k: int = 200,
+    # Optional injections for deterministic testing (kw-only, default real time)
+    clock: Callable[[], float] = time.time,
+    timeout_factory: Callable[[int], Any] = asyncio.timeout,
 ) -> Any:
     """Create an Inspect agent that runs an iterative tool loop.
 
@@ -190,75 +193,27 @@ def build_iterative_agent(
                 # Best-effort only; do not block agent startup on config issues
                 pass
 
-            # Resolve env fallbacks for limits when args are None
-            _time_limit: int | None = real_time_limit_sec
-            if _time_limit is None:
-                try:
-                    env_v = os.getenv("INSPECT_ITERATIVE_TIME_LIMIT")
-                    if env_v is not None and str(env_v).strip() != "":
-                        v = int(env_v)
-                        _time_limit = v if v > 0 else None
-                except Exception:
-                    _time_limit = None
+            # Resolve limits/pruning/truncation using pure helpers
+            from .iterative_config import (
+                resolve_pruning,
+                resolve_time_and_step_limits,
+                resolve_truncation,
+            )
 
-            _max_steps: int | None = max_steps
-            if _max_steps is None:
-                try:
-                    env_v = os.getenv("INSPECT_ITERATIVE_MAX_STEPS")
-                    if env_v is not None and str(env_v).strip() != "":
-                        v = int(env_v)
-                        _max_steps = v if v > 0 else None
-                except Exception:
-                    _max_steps = None
+            _time_limit, _max_steps = resolve_time_and_step_limits(
+                real_time_limit_sec=real_time_limit_sec,
+                max_steps=max_steps,
+            )
 
-            # --- Pruning configuration -------------------------------------------------
-            # Effective values for threshold-based prune and keep window.
-            # Env overrides apply only when args are None/defaults to avoid
-            # surprising callers who pass explicit values.
-            _eff_prune_after: int | None = prune_after_messages
-            _eff_prune_keep: int = prune_keep_last
+            _eff_prune_after, _eff_prune_keep = resolve_pruning(
+                prune_after_messages=prune_after_messages,
+                prune_keep_last=prune_keep_last,
+            )
 
-            # Token-aware truncation config (env-gated, default off)
-            def _parse_int_opt(v: str | None) -> int | None:
-                try:
-                    if v is None or str(v).strip() == "":
-                        return None
-                    iv = int(str(v).strip())
-                    return iv if iv > 0 else None
-                except Exception:
-                    return None
-
-            _eff_token_cap: int | None = per_msg_token_cap
-            if _eff_token_cap is None:
-                _eff_token_cap = _parse_int_opt(os.getenv("INSPECT_PER_MSG_TOKEN_CAP"))
-            _eff_truncate_last_k: int = truncate_last_k
-            try:
-                env_last_k = _parse_int_opt(os.getenv("INSPECT_TRUNCATE_LAST_K"))
-                if env_last_k is not None:
-                    _eff_truncate_last_k = int(env_last_k)
-            except Exception:
-                pass
-
-            # Allow env to override threshold when arg is None or default (120)
-            try:
-                if prune_after_messages is None or prune_after_messages == 120:
-                    env_after = os.getenv("INSPECT_PRUNE_AFTER_MESSAGES")
-                    if env_after is not None and str(env_after).strip() != "":
-                        v = int(env_after)
-                        _eff_prune_after = v if v > 0 else None  # non-positive disables
-            except Exception:
-                # Keep existing value on parse errors
-                pass
-
-            # Allow env to override keep window when arg is default (40)
-            try:
-                if prune_keep_last == 40:
-                    env_keep = os.getenv("INSPECT_PRUNE_KEEP_LAST")
-                    if env_keep is not None and str(env_keep).strip() != "":
-                        v = int(env_keep)
-                        _eff_prune_keep = max(0, v)
-            except Exception:
-                pass
+            _eff_token_cap, _eff_truncate_last_k = resolve_truncation(
+                per_msg_token_cap=per_msg_token_cap,
+                truncate_last_k=truncate_last_k,
+            )
 
             # Enable prune debug logs if either INSPECT_PRUNE_DEBUG or
             # INSPECT_MODEL_DEBUG is set (reuse existing model debug toggle).
@@ -338,7 +293,7 @@ def build_iterative_agent(
 
                 return prefix + filtered_tail
 
-            start = time.time()
+            start = clock()
             # Track total backoff/wait introduced by provider retries handled by
             # our local generate() wrapper. When INSPECT_PRODUCTIVE_TIME=1 is
             # enabled, we subtract this from elapsed time for budget/timeout.
@@ -359,7 +314,7 @@ def build_iterative_agent(
 
                 # Time budget
                 if _time_limit is not None:
-                    _wall = time.time() - start
+                    _wall = clock() - start
                     _elapsed = (
                         _wall - total_retry_time if productive_time_enabled else _wall
                     )
@@ -464,7 +419,7 @@ def build_iterative_agent(
 
                 # Progress ping every N steps (persisted)
                 if progress_every and step % int(progress_every) == 0:
-                    _wall = time.time() - start
+                    _wall = clock() - start
                     _elapsed = (
                         _wall - total_retry_time if productive_time_enabled else _wall
                     )
@@ -540,7 +495,7 @@ def build_iterative_agent(
                 # Compute per-call timeout so we do not run past the budget
                 gen_timeout: int | None = None
                 if _time_limit is not None:
-                    _wall = time.time() - start
+                    _wall = clock() - start
                     _rem = _time_limit - (
                         (_wall - total_retry_time) if productive_time_enabled else _wall
                     )
@@ -622,7 +577,7 @@ def build_iterative_agent(
                     # Per‑call timeout equals remaining budget
                     timeout_ctx = None
                     if _time_limit is not None:
-                        _wall = time.time() - start
+                        _wall = clock() - start
                         _rem = _time_limit - (
                             (_wall - total_retry_time)
                             if productive_time_enabled
@@ -641,7 +596,7 @@ def build_iterative_agent(
 
                         _max_out = int(max_tool_output_bytes) if max_tool_output_bytes is not None else None
                         if timeout_ctx is not None:
-                            async with asyncio.timeout(timeout_ctx):
+                            async with timeout_factory(timeout_ctx):
                                 exec_res = await _exec_tools(state.messages, active_tools, _max_out)
                         else:
                             exec_res = await _exec_tools(state.messages, active_tools, _max_out)
