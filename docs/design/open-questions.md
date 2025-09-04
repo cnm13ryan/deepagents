@@ -16,6 +16,92 @@ Exclusivity is intended to be a global guard: when a handoff is present in a bat
 
 ---
 
+# Tool Output Truncation — Env Override + One‑Time Effective Limit Log (Open)
+
+Last updated: 2025-09-04
+
+Context
+
+- Goal: Allow operators/CI to override the upstream tool-output envelope size via env and log the effective limit once per run to aid incident analysis and deterministic test tuning.
+- Implementation (current): On the first repo-local tool log, emit a one-time `tool_event` with `{tool:"observability", phase:"info", effective_tool_output_limit:<int>, source:"env|default"}` and, if `GenerateConfig.max_tool_output` is unset, optionally apply `INSPECT_MAX_TOOL_OUTPUT` to the active config. This preserves precedence: explicit arg > `GenerateConfig.max_tool_output` > `INSPECT_MAX_TOOL_OUTPUT` > default `16 KiB`. 〖F:src/inspect_agents/tools.py†L64-L135〗 〖F:src/inspect_agents/tools.py†L178-L181〗
+- Docs: Added `INSPECT_MAX_TOOL_OUTPUT` to environment reference with examples and the one-time log format. 〖F:docs/reference/environment.md†L198-L206〗
+- Tests: Added unit coverage to assert single-emission behavior and env/default resolution. 〖F:tests/unit/inspect_agents/test_effective_tool_output_limit_log.py†L1-L21〗 〖F:tests/unit/inspect_agents/test_effective_tool_output_limit_log.py†L23-L46〗 〖F:tests/unit/inspect_agents/test_effective_tool_output_limit_log.py†L49-L91〗
+
+Why this matters
+
+Operators need a consistent way to see and control the tool-output envelope across environments without code changes, while keeping explicit per-run settings authoritative. The one-time log provides an anchor for debugging truncation symptoms without adding noise.
+
+Open Question A — Source Label Granularity
+
+- Problem
+  - The one-time log currently reports `source` as `env` when `INSPECT_MAX_TOOL_OUTPUT` is applied, otherwise `default`. It does not distinguish cases where a non-default `GenerateConfig.max_tool_output` or a per-call `max_output` argument is in effect (even though those take precedence and will be reflected in actual truncation behavior).
+- Options
+  - A1) Keep minimal labels: `env|default` only (current). Simple and stable for log parsers.
+  - A2) Expand to `arg|config|env|default` based on the highest-precedence contributor at time of first log.
+  - A3) Emit `sources: {arg:bool, config:bool, env:bool, default:bool}` for richer diagnostics.
+- Considerations
+  - A2/A3 require detecting explicit per-call args at the time of first log, which may not exist yet; emitting after the first actual truncation event would be more accurate but later in time.
+- Proposal
+  - Decide whether operator value outweighs the added coupling. If yes, prefer A2 on the first observed truncation (not merely first tool log) to reflect true active source.
+
+Open Question B — Emission Timing and Shape
+
+- Problem
+  - We emit a dedicated one-time `tool_event` before the first real tool `start` event. Alternative is to piggyback fields onto the first `start` event.
+- Options
+  - B1) Separate `observability` event (current): discoverable and does not affect existing event schemas.
+  - B2) Attach fields to first real tool `start` event: fewer lines but couples semantics and may break assertions on event shapes.
+- Proposal
+  - Keep B1 unless there is a strong requirement to minimize log lines; document the event as stable operator signal.
+
+Open Question C — Config Mutation Contract
+
+- Problem
+  - We currently set the active `GenerateConfig.max_tool_output` from env only when it is `None`, to preserve precedence. Should we make this behavior explicit in public docs and guarantee it won’t override future preset defaults?
+- Options
+  - C1) Keep behavior but document it as a contract (env never overrides non-None config; per-call arg always wins).
+  - C2) Never mutate active config; only log the effective env. This simplifies semantics but forfeits the fleet-wide knob unless the upstream call path checks env.
+- Proposal
+  - Prefer C1 (current). Document the precedence and mutation point clearly; add a guard test asserting config remains authoritative when set.
+
+Open Question D — Default Value to Log
+
+- Problem
+  - When `INSPECT_MAX_TOOL_OUTPUT` is unset and config is `None`, we log `16384` bytes (16 KiB). If upstream changes its fallback or begins defaulting the config, our logged value might diverge.
+- Options
+  - D1) Continue logging `16384` as the repo default (current) and accept drift risk.
+  - D2) Resolve from `active_generate_config()` if non-`None`, else defer emission until first truncation where upstream’s chosen default can be observed and logged.
+- Proposal
+  - Prefer D2 if accuracy is critical; otherwise keep D1 for earlier visibility.
+
+Open Question E — Multi‑Process/Multi‑Worker Semantics
+
+- Problem
+  - The “once” guard is process-local. In multi-worker runs, the line will appear once per process.
+- Options
+  - E1) Accept per-process once (current).
+  - E2) Add a file/FD-based lock to deduplicate across workers (heavier and can block).
+  - E3) Rely on centralized transcript aggregation for dedupe.
+- Proposal
+  - Keep E1 and document expected multiplicity; revisit if operators request global dedupe.
+
+Open Question F — Invalid Env Handling
+
+- Problem
+  - Invalid values (non-integer or negative) are silently ignored.
+- Options
+  - F1) Keep silent ignore (current) to avoid noisy logs.
+  - F2) Emit a single warning `tool_event` noting the invalid value and the fallback path.
+- Proposal
+  - Adopt F2 if misconfiguration becomes a common source of confusion.
+
+Next Steps
+
+1) Decide on source label granularity (A) and emission timing (B); update implementation and docs accordingly.
+2) Document the config mutation contract (C) in environment reference and add a small precedence test that sets config and confirms env is ignored.
+3) Choose default logging policy (D) — fixed 16 KiB vs defer-to-observed — and adjust tests.
+4) Evaluate demand for cross-worker dedupe (E) and invalid-env warnings (F) post-usage.
+
 Open Question 1 — Policy Precedence of Exclusivity
 
 - Problem
@@ -40,9 +126,14 @@ Open Question 1 — Policy Precedence of Exclusivity
 - Acceptance Criteria
   - Integration test using the real `policy_approver`: with an assistant message containing `[transfer_to_researcher, read_file]`, the `read_file` call is rejected due to exclusivity; only the first handoff is approved. Repeat for both `dev` and `prod`.
 
-⚠️ Still Open - Requires Decision
+<details>
+<summary>✅ Answer Found in Implementation</summary>
 
-- Current presets append `handoff_exclusive_policy()` after the dev/prod gates rather than placing it first. This means permissive gates may approve non-handoff tools before exclusivity runs. Evidence: preset construction shows exclusivity appended to lists, not prefixed. 〖F:src/inspect_agents/approval.py†L172-L185〗
+**Finding**: `approval_preset("dev"|"prod")` now places `handoff_exclusive_policy()` first, before the permissive/termination gates, ensuring exclusivity is evaluated on every call in the batch.
+**Evidence**: Presets return `handoff_exclusive_policy() + [...]` with comments indicating "enforce handoff exclusivity BEFORE" the gates. 〖F:src/inspect_agents/approval.py†L176-L186〗 Unit test asserts the exclusivity approver is present in both presets and verifies its effect on a mixed batch. 〖F:tests/unit/inspect_agents/test_preset_handoff_exclusivity.py†L86-L92〗 〖F:tests/unit/inspect_agents/test_preset_handoff_exclusivity.py†L123-L131〗 Integration test with the real Inspect policy engine confirms first‑handoff approval and rejection of subsequent handoff and non‑handoff calls. 〖F:tests/integration/inspect_agents/test_handoff_exclusivity_integration.py†L45-L66〗
+**Conclusion**: Option A (place exclusivity first) has been implemented; the precedence issue is resolved.
+
+</details>
 
 ---
 
@@ -122,6 +213,75 @@ Detailed Open Questions — Transcript “Skipped” ToolEvents
 
 ---
 
+Open Question 3 — Unit Test Key: Approver Names vs Registry Tags
+
+- Problem
+  - The new preset-order unit test asserts approver function names (e.g., `"approver"`, `"dev_gate"`, `"reject_all"`, `"prod_gate"`). Function names may change in refactors, causing brittle tests. 〖F:tests/inspect_agents/test_approval_preset_order.py†L24-L36〗
+
+- Current Behavior
+  - Presets prepend the exclusivity approver (`approver`) before gates in `dev`/`prod`. 〖F:src/inspect_agents/approval.py†L176-L187〗 Gate functions are defined as `dev_gate`, `reject_all`, and `prod_gate`. 〖F:src/inspect_agents/approval.py†L151-L169〗
+
+- Options
+  - A) Keep asserting function names (simplest; fragile on rename).
+  - B) Assert on Inspect registry tags (e.g., `preset/dev_gate`, `preset/prod_gate`, `policy/handoff_exclusive`) if tags are retrievable from the `ApprovalPolicy` or approver function at runtime.
+  - C) Behavior-first: assert order indirectly by executing a minimal `policy_approver` pass over representative tool calls and verifying which approver handled the decision (requires capturing approver identity via logging or metadata).
+  - D) Hybrid: name assertion for order + one behavior assertion to validate effectiveness.
+
+- Decision Needed
+  - Choose the primary assertion mechanism for long-term robustness (Names vs Registry Tags vs Behavior).
+
+---
+
+Open Question 4 — Preset Coverage Beyond dev/prod
+
+- Problem
+  - Today the order test targets `dev`, `prod`, and asserts `ci` remains permissive. Future presets (e.g., `staging`, `demo`) may be introduced; should exclusivity be first for all non-`ci` presets, and should tests be parameterized accordingly?
+
+- Options
+  - A) Enforce exclusivity-first in all non-`ci` presets; parameterize the test to iterate known presets.
+  - B) Limit to `dev`/`prod` only; require explicit decisions for any new presets.
+  - C) Add a helper in code: `approval_preset_should_enforce_exclusivity(preset) -> bool` and assert that contract in tests.
+
+- Decision Needed
+  - Define policy for future presets and, if (A), add a parameterized test to guard it.
+
+---
+
+Open Question 5 — When to Un‑XFail Integration Test
+
+- Problem
+  - The targeted integration test `test_handoff_with_other_tool_only_handoff_executes` remains `xfail`. With exclusivity-first now implemented in presets, should we un‑xfail immediately or wait for a pinned Inspect version and broader CI coverage?
+
+- Current Signal
+  - Running the targeted test shows `XFAIL` with message: “Handoff should cancel/skip other tool calls in same turn.” 〖F:tests/integration/inspect_agents/test_parallel.py†L76-L119〗
+
+- Options
+  - A) Un‑xfail now and ensure CI pins an Inspect version that guarantees policy semantics.
+  - B) Keep `xfail` until a release note explicitly records the preset ordering change and downstream teams have upgraded.
+  - C) Gate un‑xfail behind an env flag (e.g., `INSPECT_ENABLE_EXCLUSIVITY_FIRST=1`) to allow staged rollout.
+
+- Decision Needed
+  - Choose timing and gating for un‑xfailing the integration test.
+
+---
+
+Open Question 6 — Approval Log Ordering Guarantees
+
+- Problem
+  - With exclusivity evaluating first, skip decisions and associated logs/transcript events may occur before gate logs. Do we want to document and guarantee a specific ordering for operator expectations and tooling that scrapes logs?
+
+- Current Behavior
+  - Exclusivity returns `escalate` when not applicable (no context/no handoff) to allow gates to decide, avoiding extra logs in non‑handoff batches. 〖F:src/inspect_agents/approval.py†L253-L261〗 When a handoff is present, exclusivity logs a repo‑local event and emits a transcript `ToolEvent` for skipped calls before returning `reject` with explanation. 〖F:src/inspect_agents/approval.py†L268-L311〗
+
+- Options
+  - A) Specify ordering: when a handoff is present, exclusivity skip event(s) precede any gate decisions for that batch; skipped calls produce no gate logs.
+  - B) No strict ordering guarantee beyond “a skip event is emitted”; tooling should not rely on inter-policy log ordering.
+  - C) Provide structured metadata (e.g., `source="policy/handoff_exclusive"`, `selected_handoff_id`) and recommend consumers key off metadata rather than line order.
+
+- Decision Needed
+  - Define the operator-visible contract for log/transcript ordering and metadata reliance.
+
+
 Next Steps
 
 1) Decide policy order for `dev`/`prod` presets (recommend: exclusivity first).
@@ -143,6 +303,84 @@ Next Steps (updated)
 3) Add transcript‑level assertions (unit first; optional integration) for skipped calls.
 
 ---
+
+# Parallel Tool Kill‑Switch — Open Questions
+
+Last updated: 2025-09-04
+
+Context
+
+- Purpose: Provide an operator kill‑switch to disable parallel execution of non‑handoff tools at runtime for safer incident response and deterministic sequencing.
+- Implementation (current): An approval policy `parallel_kill_switch_policy()` is included in `dev`/`prod` presets (not `ci`). When `INSPECT_DISABLE_TOOL_PARALLEL` is truthy and a single assistant turn contains multiple tool calls with no handoff, only the first non‑handoff call is approved; others are rejected. If a handoff is present, the policy escalates so `handoff_exclusive_policy()` governs. 〖F:src/inspect_agents/approval.py†L173-L191〗 〖F:src/inspect_agents/approval.py†L322-L406〗
+- Observability: On rejections, a repo‑local `tool_event` with `tool="parallel_kill_switch"` and a standardized transcript `ToolEvent` (`metadata.source="policy/parallel_kill_switch"`) are emitted.
+
+Why this matters
+
+The kill‑switch offers a fast, low‑blast‑radius control to tame concurrency during incidents. Details around naming, preset wiring, semantics, and telemetry affect operator experience and downstream consistency.
+
+---
+
+Open Question A — Canonical Env Name and Deprecation Plan
+
+- Decision so far: Standardize on `INSPECT_DISABLE_TOOL_PARALLEL` (matches backlog). Keep `INSPECT_TOOL_PARALLELISM_DISABLE` as a legacy alias for now. 〖F:docs/reference/environment.md†L131-L136〗
+- Open decisions:
+  - Should we emit a one‑time deprecation log when the legacy alias is used? If yes, where (approval policy vs startup), and what text?
+  - Removal timeline: propose warning now, remove alias no earlier than N minor versions or after date YYYY‑MM.
+
+---
+
+Open Question B — Exact Semantics Under the Flag
+
+- Current behavior: Approve only the first non‑handoff call in the batch; reject subsequent non‑handoff calls. Escalate (no decision) when a handoff is present so exclusivity governs. 〖F:src/inspect_agents/approval.py†L376-L406〗
+- Alternatives:
+  - “Simple mode”: reject all non‑handoff calls in any multi‑call batch (stricter, easier to reason about, but more disruptive).
+  - Model‑layer disable: also (or instead) set provider config `parallel_tool_calls=False` upstream when flag is set, preventing concurrent scheduling even if approvals are bypassed.
+- Decision needed: keep “first non‑handoff only” as default? introduce an optional stricter mode (e.g., `INSPECT_DISABLE_TOOL_PARALLEL_STRICT=1`)? also add a model‑layer guard for belt‑and‑suspenders?
+
+---
+
+Open Question C — Preset Wiring Strategy
+
+- Current: Policy is part of `dev`/`prod` presets; env‑gated; `ci` unchanged. 〖F:src/inspect_agents/approval.py†L173-L191〗
+- Alternatives:
+  - Provide a separate preset variant (e.g., `dev_kill_switch`, `prod_kill_switch`) to decouple code presence from env gating.
+  - Make it global (always evaluated) but env decides behavior (status quo), yields simpler ops (just export/unset env).
+- Decision needed: retain inclusion in `dev`/`prod`, or introduce explicit variants? If variants are added, ensure docs/tests are updated accordingly.
+
+---
+
+Open Question D — Telemetry and Operator Signals
+
+- Current: per‑call skip events via repo logger and transcript with `source="policy/parallel_kill_switch"`.
+- Options:
+  - Emit a run‑level one‑time info event (e.g., `policy/parallel_kill_switch activated`) when the flag is first observed.
+  - Add counters/metrics hooks (skipped_calls, first_allowed_id frequency) for dashboards.
+  - Surface in UI: annotate the run header that parallel tool execution is disabled.
+- Decision needed: which signals are required for incidents, and where they should appear (logs, transcript, UI, metrics).
+
+---
+
+Open Question E — Runtime Toggle Scope
+
+- Current: Env is checked at approval time, making the switch dynamic per turn.
+- Alternatives: Snapshot once per run (deterministic across a run), or allow per‑agent override.
+- Decision needed: prefer fully dynamic (simpler ops) vs run‑snapshot (predictable behavior for long runs).
+
+---
+
+Open Question F — Interactions with Handoff Exclusivity and Ordering
+
+- Current: `handoff_exclusive_policy()` precedes the kill‑switch in presets; the kill‑switch escalates when a handoff is detected, ensuring exclusivity governs handoff batches. 〖F:src/inspect_agents/approval.py†L176-L189〗
+- Decision needed: codify and test this ordering as an invariant (add a unit asserting preset policy names/ordering), and document in operator runbooks.
+
+---
+
+Open Question G — Multi‑Turn Semantics
+
+- Current: The policy scope is one assistant message (batch) at a time; there is no cross‑turn throttling.
+- Consideration: Do we need a stricter emergency mode that enforces “one tool per turn” or “no parallel calls across consecutive turns” at the conversation level?
+- Decision needed: clarify desired scope for incident playbooks.
+
 
 # Testing Strategy — Inspect-AI Source of Truth (Open Questions)
 
@@ -288,9 +526,66 @@ Recommendation
 
 - Add an optional `return_limit_error: bool = False` parameter to `run_agent` in a follow-up. When True and limits are supplied, return `(state, err)`; otherwise, preserve current behavior. Update examples to print a concise “limit hit” line when `err` is not `None`.
 
-⚠️ Still Open - Requires Decision
+<details>
+<summary>✅ Answer Found in Implementation</summary>
 
-- Wrapper currently discards the error when Inspect returns `(state, err)`; no opt‑in parameter exists yet. Evidence: `run_agent` returns `result[0]` when a tuple is received. 〖F:src/inspect_agents/run.py†L24-L27〗
+**Finding**: `run_agent(...)` now supports opt‑in propagation of limit errors via `return_limit_error` and `raise_on_limit` flags while preserving backward compatibility by default.
+**Evidence**: Function signature includes `return_limit_error: bool = False` and `raise_on_limit: bool = False`; when Inspect returns `(state, err)`, code optionally raises on limit or returns `(state, err)` when requested, else returns state only. 〖F:src/inspect_agents/run.py†L11-L13〗 〖F:src/inspect_agents/run.py†L16-L25〗 〖F:src/inspect_agents/run.py†L40-L55〗
+**Conclusion**: Recommendation implemented (opt‑in tuple propagation/raise mode); no breaking change to existing callers.
+
+</details>
+
+Follow-ups Post-Implementation — Open Questions
+
+1) Flag Precedence when both flags are True
+
+- Problem
+  - Callers may pass both `return_limit_error=True` and `raise_on_limit=True`. We need a clear, documented precedence rule to avoid ambiguity.
+- Current Behavior (code today)
+  - Raising takes precedence: when a tuple is returned and `err is not None`, `run_agent` re-raises `err` before considering the return-tuple path. 〖F:src/inspect_agents/run.py†L44-L55〗
+- Options
+  - A) Keep “raise wins” (current). Pros: simplest mental model; control-flow via exceptions is explicit. Cons: callers cannot simultaneously inspect the tuple and raise.
+  - B) “Return wins” — always return `(state, err)` when `return_limit_error=True`, even if `raise_on_limit=True`. Pros: easier tuple-based branching. Cons: silent override of a strong signal (raise), surprising when both are set.
+  - C) Treat as configuration conflict: raise `ValueError` if both flags are True. Pros: forces explicit intent. Cons: breaks currently valid calls that set both.
+- Decision Needed
+  - Choose and document the precedence rule; propose to keep Option A (“raise wins”) and document it in the guide and signature docstring. 〖F:docs/guides/supervisor-limits.md†L34-L52〗
+
+2) Return Type Shape when `return_limit_error=True` but no tuple upstream
+
+- Problem
+  - When `limits` is empty or when no error occurred, Inspect may return a bare `state` (not a tuple). Should `run_agent(..., return_limit_error=True)` force a `(state, None)` shape for type stability, or preserve the upstream shape and return just `state`?
+- Current Behavior (code today)
+  - Dynamic shape: we only return `(state, err)` when upstream returned a tuple; otherwise we return `state`. 〖F:src/inspect_agents/run.py†L40-L57〗
+- Options
+  - A) Preserve upstream shape (current). Pros: zero surprise for existing callers; no unconditional tuple creation. Cons: tuple-aware callers must branch on type.
+  - B) Force tuple when `return_limit_error=True` — always return `(state, None)` if no error/tuple upstream. Pros: stable type; easier to pattern-match. Cons: subtle API change vs Inspect’s shape; risks breaking implicit assumptions in existing code/tests.
+  - C) Add `always_tuple: bool = False` for explicit opt-in to Option B. Pros: flexible; Cons: adds another knob.
+- Decision Needed
+  - Pick A (status quo) or B (stable tuple) and document with examples; if B, add tests asserting `(state, None)` when no error.
+
+3) Error Type Scope for `raise_on_limit`
+
+- Problem
+  - Upstream contract says the second element is `LimitExceededError|None` when `catch_errors=True`. Should we defensively restrict raising to `LimitExceededError` instances, or raise any non-None `err` for forward compatibility?
+- Current Behavior (code today)
+  - Re-raises whatever object is returned in `err` when non-None (no isinstance guard). 〖F:src/inspect_agents/run.py†L44-L48〗
+- Options
+  - A) Raise any non-None `err` (current). Pros: forwards-compatible; preserves type/traceback. Cons: could surface unexpected types if upstream changes.
+  - B) Restrict to `LimitExceededError`; otherwise wrap in `RuntimeError` with context. Pros: narrows API to the intended class; Cons: hides concrete types if upstream broadens contract.
+  - C) Add `strict_limit_error: bool = False` to guard with isinstance when True. Pros: opt-in strictness; Cons: more surface area.
+- Decision Needed
+  - Document current behavior (A) and decide if stricter guard is required before a stable upstream contract is pinned.
+
+Acceptance Criteria (for closing these questions)
+
+- Tests
+  - Precedence: add a test where both flags are True and a limit is exceeded; assert that an exception is raised and the tuple path is not taken.
+  - Shape: add a test with `return_limit_error=True` and `limits=[]`; decide expected return (`state` vs `(state, None)`) and assert accordingly.
+  - Type scope: if choosing B/C, add tests stubbing a non-`LimitExceededError` `err` and assert the chosen behavior (raise as-is vs wrap vs guard).
+- Docs
+  - Update `supervisor-limits.md` examples to note precedence and return shape explicitly. 〖F:docs/guides/supervisor-limits.md†L34-L52〗
+- Code
+  - If decisions imply behavior changes, update `run_agent` with minimal, well-documented adjustments and keep defaults backward compatible. 〖F:src/inspect_agents/run.py†L11-L25〗
 
 ---
 
@@ -427,6 +722,81 @@ Open Question 4 — Log Format and Prefix
 
 Acceptance Criteria (for closure)
 
-- Written policy for toggle precedence and env override rules is reflected in README/docs.
-- Unit tests assert the chosen semantics (env override behavior and log format fields).
-- Example logs in docs match the finalized format, including the chosen prefix.
+ - Written policy for toggle precedence and env override rules is reflected in README/docs.
+ - Unit tests assert the chosen semantics (env override behavior and log format fields).
+ - Example logs in docs match the finalized format, including the chosen prefix.
+
+---
+
+# Sandbox Preflight — Open Questions
+
+Date: 2025-09-04
+
+Context
+
+- We introduced env‑controlled sandbox preflight in `inspect_agents.tools_files`:
+  - `INSPECT_SANDBOX_PREFLIGHT=auto|skip|force` (default `auto`).
+  - `INSPECT_SANDBOX_PREFLIGHT_TTL_SEC` (default `300` seconds; `0` disables caching).
+  - `INSPECT_SANDBOX_LOG_PATHS=1` to enrich the warn log with `fs_root` and `sandbox_tool`.
+- Defaults retain prior behavior: auto + cache, warn‑once on failure, graceful fallback to store.
+- New API: `reset_sandbox_preflight_cache()` clears `_SANDBOX_READY/_SANDBOX_WARN/_SANDBOX_TS` for deterministic tests and operator resets.
+
+Why this matters
+
+- Operators and CI can now explicitly choose: force sandbox (no fallback), skip checks for determinism, or auto with caching for performance.
+- TTL + reset enable predictable rechecks without process restarts; enriched warnings aid debugging by surfacing `fs_root` and tool context when desired.
+
+Open Question 1 — Exception Type for Force Mode
+
+- Problem
+  - In `force` mode, preflight failures currently raise `ToolException` (from `inspect_tool_support` when available, else a local fallback). This blends preflight failure with general tool errors.
+- Options
+  - A) Keep `ToolException` for compatibility; rely on error strings and `files:sandbox_preflight` warn to diagnose.
+  - B) Introduce a dedicated `SandboxPreflightError` (new type) for clearer handling and testability; wrap underlying details.
+  - C) Use a subtype of `ToolException` (e.g., `ToolException("SandboxPreflightError: ...")`) to preserve catch‑all semantics with a discriminant prefix.
+- Considerations
+  - API stability in existing tests and integrations that catch `ToolException`.
+  - Need for programmatic branching on preflight errors versus runtime tool errors.
+- Decision Needed
+  - Choose error strategy (A/B/C). If B/C, document in reference and add tests asserting exception type and message contract.
+
+Open Question 2 — Default TTL Value
+
+- Problem
+  - TTL defaults to `300s`. For local dev, shorter TTL (e.g., `60s`) might reduce confusion when the environment changes; for CI, longer TTL reduces repeated checks.
+- Options
+  - A) Keep `300s` universally (current).
+  - B) Use mode‑aware defaults: `CI=1` → `300s`, otherwise `60s`.
+  - C) Keep `300s` but document `TTL=0` for always‑recheck during debugging.
+- Considerations
+  - Consistency across environments vs ergonomics for iterative dev.
+  - Overhead of frequent checks in large runs.
+- Decision Needed
+  - Pick a default policy; if B, implement conditional defaulting keyed off `CI` and document precedence.
+
+Open Question 3 — Logging Scope and Levels
+
+- Problem
+  - Today we log a warn‑level `tool_event` only on failure (`files:sandbox_preflight`). When `INSPECT_SANDBOX_LOG_PATHS=1`, we include `fs_root` and `sandbox_tool`. There is no success/info log.
+- Options
+  - A) Keep warn‑only to minimize log noise (current).
+  - B) Add a one‑time `phase="info"` success event when preflight passes, gated by `INSPECT_SANDBOX_LOG_PATHS=1`.
+  - C) Emit success logs only when `INSPECT_LOG_LEVEL=DEBUG` (or similar) to avoid clutter in production.
+- Considerations
+  - Operator expectations for “positive confirmation” in audits.
+  - Backwards compatibility of log parsing and alerting rules.
+- Decision Needed
+  - Choose A/B/C and update docs/tests accordingly; if adding success logs, define payload fields and one‑time emission semantics.
+
+Related Artifacts
+
+- Implementation: `src/inspect_agents/tools_files.py` (`_ensure_sandbox_ready`, TTL cache, reset API).
+- Docs: `docs/how-to/filesystem.md` (preflight usage) and `docs/reference/environment.md` (new envs).
+- Tests: `tests/unit/inspect_agents/test_sandbox_preflight_modes.py` (skip/force/TTL/reset/logging).
+
+Next Steps
+
+1) Decide exception strategy for `force` mode and update code/docs/tests.
+2) Confirm TTL default policy; consider `CI`‑aware defaulting.
+3) Decide whether to add a success/info log and its gating conditions.
+4) If a new exception type is introduced, add a migration note and example catch blocks in the how‑to.
