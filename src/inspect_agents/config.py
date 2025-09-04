@@ -7,8 +7,8 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 from .agents import build_subagents, build_supervisor
-from .model import resolve_model
 from .approval import approval_from_interrupt_config
+from .model import resolve_model
 
 # Limits (Inspect-AI)
 try:  # Prefer real Inspect-AI if available

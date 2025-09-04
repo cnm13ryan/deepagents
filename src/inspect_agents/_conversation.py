@@ -29,7 +29,8 @@ False
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 def _is_system(msg: Any) -> bool:
