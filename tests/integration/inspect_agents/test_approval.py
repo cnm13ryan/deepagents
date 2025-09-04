@@ -130,7 +130,7 @@ def _supervisor():
     )
 
 
-def test_approve_allows_original_args():
+def test_approve_allows_original_args(approval_modules_guard):
     _install_apply_shim()
     policies = approval_from_interrupt_config({"submit": {"decision": "approve"}})
     agent_obj = _supervisor()
@@ -139,7 +139,7 @@ def test_approve_allows_original_args():
     assert "DONE" in (result.output.completion or "")
 
 
-def test_modify_changes_arguments_before_execution():
+def test_modify_changes_arguments_before_execution(approval_modules_guard):
     _install_apply_shim()
     policies = approval_from_interrupt_config(
         {"submit": {"decision": "modify", "modified_args": {"answer": "CHANGED"}}}
@@ -150,7 +150,7 @@ def test_modify_changes_arguments_before_execution():
     assert "CHANGED" in (result.output.completion or "")
 
 
-def test_reject_returns_not_approved_and_decision():
+def test_reject_returns_not_approved_and_decision(approval_modules_guard):
     _install_apply_shim()
     policies = approval_from_interrupt_config({"submit": {"decision": "reject"}})
     # Activate policies and call the shim directly to avoid agent loop
@@ -163,7 +163,7 @@ def test_reject_returns_not_approved_and_decision():
     assert getattr(approval, "decision", None) == "reject"
 
 
-def test_terminate_aborts_sample():
+def test_terminate_aborts_sample(approval_modules_guard):
     _install_apply_shim()
     policies = approval_from_interrupt_config({"submit": {"decision": "terminate"}})
     agent_obj = _supervisor()
@@ -172,15 +172,4 @@ def test_terminate_aborts_sample():
         asyncio.run(run_agent(agent_obj, "go", approval=policies))
 
 
-def teardown_module(module):  # reset approval shim to default approve-all
-    import sys
-    import types
-    apply_mod = types.ModuleType("inspect_ai.approval._apply")
-    async def apply_tool_approval(message, call, viewer, history):  # pragma: no cover
-        class _Approval:
-            decision = "approve"
-            modified = None
-            explanation = None
-        return True, _Approval()
-    apply_mod.apply_tool_approval = apply_tool_approval
-    sys.modules["inspect_ai.approval._apply"] = apply_mod
+# Cleanup is handled by the shared approval_modules_guard fixture
