@@ -21,12 +21,16 @@ def _ensure_vendor_on_path():
         sys.path.insert(0, vendor_src)
 
 
-def test_handoff_exclusive_one_handoff_N_skipped(monkeypatch):
+def test_handoff_exclusive_one_handoff_n_skipped(monkeypatch):
     _ensure_vendor_on_path()
 
     # Import Inspect-AI building blocks from vendored source
     from inspect_ai.agent._agent import AgentState, agent
     from inspect_ai.agent._handoff import handoff
+
+    # Activate only the exclusivity policy to ensure it is applied first
+    from inspect_ai.approval._apply import init_tool_approval
+    from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
     from inspect_ai.model._call_tools import execute_tools
     from inspect_ai.model._chat_message import (
         ChatMessageAssistant,
@@ -34,13 +38,10 @@ def test_handoff_exclusive_one_handoff_N_skipped(monkeypatch):
         ChatMessageUser,
     )
     from inspect_ai.tool._tool import Tool
+    from inspect_ai.tool._tool_call import ToolCall
     from inspect_ai.tool._tool_def import ToolDef
     from inspect_ai.tool._tool_params import ToolParams
-    from inspect_ai.tool._tool_call import ToolCall
-    from inspect_ai.log._transcript import ToolEvent, Transcript, init_transcript, transcript
 
-    # Activate only the exclusivity policy to ensure it is applied first
-    from inspect_ai.approval._apply import init_tool_approval
     from inspect_agents.approval import handoff_exclusive_policy
 
     init_tool_approval(handoff_exclusive_policy())
