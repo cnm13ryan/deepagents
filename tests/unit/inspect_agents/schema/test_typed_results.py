@@ -256,7 +256,7 @@ class TestTypedResults:
         asyncio.run(_setup2())
         
         async def _test_legacy():
-            return await update_tool(todo_index=0, status="in_progress")
+            return await update_todo_status(todo_index=0, status="in_progress")
         
         result = asyncio.run(_test_legacy())
         assert isinstance(result, str)
@@ -303,3 +303,4 @@ class TestTypedResults:
         
         result = asyncio.run(_test_unset())
         assert isinstance(result, list)
+

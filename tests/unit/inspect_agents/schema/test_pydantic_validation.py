@@ -215,3 +215,4 @@ class TestTodoToolValidationIntegration:
                 await self.write_tool([InvalidTodo()])
 
             assert "Invalid todo parameters" in str(exc_info.value)
+
