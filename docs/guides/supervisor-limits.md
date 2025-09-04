@@ -32,12 +32,33 @@ Observability
 Examples
 ```python
 # Runner‑level wall‑clock (global)
-from inspect_ai.limits import time_limit
+from inspect_ai.util import time_limit
 result = await run_agent(agent, "start", limits=[time_limit(90)])
 
 # Handoff‑level message cap (targeted)
 from inspect_ai.limits import message_limit
 handoff_agent = handoff(sub_agent, description="researcher", limits=[message_limit(12)])
+```
+
+Propagating Limit Errors
+```python
+from inspect_ai.util import time_limit, LimitExceededError
+
+# Return the error tuple for branching without parsing logs
+state, err = await run_agent(
+    agent,
+    "start",
+    limits=[time_limit(0)],
+    return_limit_error=True,
+)
+if err is not None:
+    print(f"Limit hit: {type(err).__name__}")
+
+# Or raise on limit exceed to use try/except control flow
+try:
+    await run_agent(agent, "start", limits=[time_limit(0)], raise_on_limit=True)
+except LimitExceededError:
+    print("Limit exceeded — handle or retry")
 ```
 
 Testing Tips

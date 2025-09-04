@@ -4,6 +4,8 @@ from inspect_ai.agent._agent import AgentState, agent
 from inspect_ai.model._chat_message import ChatMessageAssistant, ChatMessageUser
 from inspect_ai.tool._tool_call import ToolCall
 
+import pytest
+
 from inspect_agents.agents import build_supervisor
 from inspect_agents.run import run_agent
 
@@ -48,3 +50,38 @@ def test_run_with_messages_input_returns_state():
     assert len(result.messages) >= 2
     assert "DONE" in (result.output.completion or "")
 
+
+def test_run_return_limit_error_tuple_when_limit_exceeded():
+    from inspect_ai.util import LimitExceededError, time_limit
+
+    agent_obj = _supervisor()
+    # time_limit(0) will elapse by context exit, triggering a LimitExceededError
+    result = asyncio.run(
+        run_agent(
+            agent_obj,
+            "start",
+            limits=[time_limit(0)],
+            return_limit_error=True,
+        )
+    )
+
+    # Expect a (state, err) tuple with a LimitExceededError instance
+    assert isinstance(result, tuple) and len(result) == 2
+    state, err = result
+    assert isinstance(state, AgentState)
+    assert isinstance(err, LimitExceededError)
+
+
+def test_run_raise_on_limit_raises_exception():
+    from inspect_ai.util import LimitExceededError, time_limit
+
+    agent_obj = _supervisor()
+    with pytest.raises(LimitExceededError):
+        asyncio.run(
+            run_agent(
+                agent_obj,
+                "start",
+                limits=[time_limit(0)],
+                raise_on_limit=True,
+            )
+        )
