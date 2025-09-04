@@ -1,134 +1,143 @@
-# Research Example (Inspect-AI Runner)
+# Iterative Research Task (Inspect‑AI)
 
-This example uses the Inspect-AI runner from this repo – no external agent framework code required.
+This folder contains an Inspect‑AI task, `iterative_task`, that runs a small, iterative “research/coding” agent with optional execution and web tools. The task is defined in `examples/research/iterative_task.py`.
 
-## Overview: Task vs Runner
+## What’s Configured (defaults in this repo)
 
-There are two complementary entry points in this repository:
+- Sandbox: `local` — the task runs tools (e.g., `bash`, `python`) inside a per‑sample temp directory via Inspect’s built‑in local sandbox.
+- Approvals: preset `ci` — permissive, approves all tools (good for local iteration). Switch to `dev` or `prod` for stricter gates.
+- Exec tools: gated by `-T enable_exec=true` (sets `INSPECT_ENABLE_EXEC=1`) so the model can call `bash()`/`python()`.
 
-1. **Inspect Task** (`examples/inspect/prompt_task.py`): 
-   - Exposes an Inspect task via `@task` decorator
-   - Execute with: `inspect eval`
-
-2. **Python Runner** (`examples/research/run_local.py`): 
-   - Standalone Python script for multi-agent composition
-   - Execute directly with Python (not an Inspect task)
-
-> **Note:** Pointing `inspect eval` at the Python runner will fail with "No inspect tasks were found"
+Source: see the Task at the bottom of `examples/research/iterative_task.py` (imports `approval_preset`, sets `sandbox="local"`, and `approval=approval_preset("ci")`).
 
 ## Quick Start
 
-1. **Install the repo in editable mode:**
-   ```bash
-   uv sync  # or: pip install -e .
-   ```
-
-2. **Set environment variables:**
-   - Configure local provider (Ollama/LM Studio) or cloud API keys
-   - Both repo root and folder `.env` files are loaded
-   - Use `--env-file <path>` for custom env files
-
-3. **Run basic example:**
-   ```bash
-   uv run python examples/research/run_local.py "What is Inspect-AI?"
-   ```
-
-## Usage Examples
-
-### Standard Research Task
-
-**Example:** Curate 2025 Quantinuum arXiv papers
-
-Using Inspect task (CLI):
 ```bash
-INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
-uv run inspect eval examples/inspect/prompt_task.py \
-  -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025"
+# 1) Activate your venv (must have inspect-ai>=0.3.129 installed)
+source .venv/bin/activate
+
+# 2) Optional: pick a provider/model (defaults try local providers)
+#   Ollama example:
+#   export DEEPAGENTS_MODEL_PROVIDER=ollama
+#   export OLLAMA_MODEL_NAME="qwen3:4b"
+#   LM Studio example:
+#   export DEEPAGENTS_MODEL_PROVIDER=lm-studio
+#   export LM_STUDIO_BASE_URL="http://127.0.0.1:1234/v1"
+#   export LM_STUDIO_MODEL_NAME="local-model"
+
+# 3) Create a local log directory to avoid platform path issues
+mkdir -p logs
+
+# 4) Run the eval with exec tools enabled (bash/python available in sandbox)
+INSPECT_LOG_DIR=./logs \
+INSPECT_TRACE_FILE=./logs/trace.log \
+inspect eval examples/research/iterative_task.py \
+  -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025" \
+  -T time_limit=120 -T max_steps=20 -T enable_exec=true
 ```
 
-Using Python runner:
+### Profiled Run (Tx.Hx.Nx selector)
+
+Use the profile runner to set Tooling (T), Host isolation (H), and Network isolation (N) in one go:
+
 ```bash
-INSPECT_ENABLE_WEB_SEARCH=1 TAVILY_API_KEY=... \
-uv run python examples/research/run_local.py \
+# T1.H1.N1 = web-only, Docker, allow-listed (configure allowDomains on K8s if using H2)
+INSPECT_LOG_DIR=./logs INSPECT_TRACE_FILE=./logs/trace.log \
+python examples/research/run_profiled.py \
+  --profile T1.H1.N1 \
+  --approval dev \
+  --time-limit 120 --max-steps 20 \
   "Curate a list of arXiv papers that Quantinuum published in 2025"
 ```
 
-With YAML composition:
+Examples:
+- `--profile T2.H1.N2` → text-only in Docker, offline
+- `--profile T0.H2.N1 --enable-browser` → exec + browser in K8s, restricted egress (set `allowDomains` in Helm)
+
+Side note — Finalization
+- To always emit a final curated list when the loop stops, add a one‑turn “finalize” step with tools disabled after the loop exits (or instruct the model to output `Final Answer:` and set `stop_on_keywords=["Final Answer:"]`). This guarantees a human‑readable result even if the last exploration step ends on a tool call.
+
+### Examples
+
+The following two runs are useful for quick experiments with tighter time/step budgets:
+
 ```bash
-uv run python examples/research/run_local.py \
-  --config examples/research/inspect.yaml "Curate ..."
-```
-
-### CI Mode (Single-Handoff)
-
-Enforces single-handoff exclusivity for deterministic CI runs:
-```bash
-uv run python examples/research/run_local.py \
-  --approval ci "Summarize this repository"
-```
-
-### Iterative Agent
-
-A minimal runner using `inspect_agents.build_iterative_agent` for continuous small steps:
-
-**Basic usage:**
-```bash
-uv run python examples/research/run_iterative.py "Improve README structure"
-```
-
-**With execution tools:**
-```bash
-INSPECT_ENABLE_EXEC=1 \
-uv run python examples/research/run_iterative.py \
-  --time-limit 300 --max-steps 30 "List files and propose edits"
-```
-
-**Via Inspect CLI (task variant):**
-```bash
+# Shorter budget (may truncate exploration)
 uv run inspect eval examples/research/iterative_task.py \
-  -T prompt="List files and summarize" \
-  -T time_limit=300 \
-  -T max_steps=20 \
-  -T enable_exec=true
+  -T prompt="Curate a list of arXiv papers that Quantinuum
+  published in 2025" \
+  -T time_limit=60 -T max_steps=4 -T enable_exec=true
+
+# Moderate budget (more headroom for tool use and verification)
+uv run inspect eval examples/research/iterative_task.py \
+  -T prompt="Curate a list of arXiv papers that Quantinuum published in 2025" \
+  -T time_limit=120 -T max_steps=8 -T enable_exec=true
 ```
 
-## Configuration Options
+Side note — Python‑first retrieval
+- For structured arXiv queries, prefer `python()` over generic web search: run with `-T enable_exec=true` and leave `INSPECT_ENABLE_WEB_SEARCH` unset (or `0`). In your prompt, ask the agent to: “Use python() to query arXiv (feedparser/requests), filter year==2025, and require authors/affiliations including ‘Quantinuum’.”
 
-### Command-Line Flags
+Notes
+- The model may choose to run Python (e.g., to query arXiv). If a library isn’t present (e.g., `feedparser`), install it:
+  - `pip install feedparser`
+  - Or allow the agent to run `bash("pip install feedparser")` if your approvals permit it.
 
-- `--provider <name>`: Model provider (e.g., `ollama`, `lm-studio`, `openai`)
-- `--model <name>`: Model name (bare or fully qualified like `openai/gpt-4o-mini`)
-- `--enable-web-search`: Enable web search tool (requires API keys)
-- `--approval dev|ci|prod`: Apply approval presets
-- `--env-file <path>`: Load specific environment file
-- `--config <path>`: Use YAML configuration file
+Side note — Lightweight validator
+- After assembling candidates, add a quick checker step: keep only items with year=2025 and “Quantinuum” in authors/affiliations/comments; deduplicate by arXiv ID; if nothing passes, report “insufficient evidence” instead of guessing.
 
-### Model Selection Examples
+## Optional: Enable Web Search
+
+Provide a search provider and toggle the tool:
 
 ```bash
-# Local provider with model
-uv run python examples/research/run_local.py \
-  --provider ollama --model llama3.1 "What is Inspect-AI?"
-
-# Fully qualified model
-uv run python examples/research/run_local.py \
-  --model openai/gpt-4o-mini "What is Inspect-AI?"
+export INSPECT_ENABLE_WEB_SEARCH=1
+# Tavily (recommended):
+export TAVILY_API_KEY=...
+# or Google CSE:
+export GOOGLE_CSE_ID=...; export GOOGLE_CSE_API_KEY=...
 ```
 
-### Quarantine Settings
+Side note — When to enable search
+- Enable web search only if you lack API‑driven retrieval; for arXiv‑centric tasks, python() with the arXiv API is usually more precise and reproducible than generic search.
 
-Control handoff input filtering via environment variables:
+## Approvals (Policies)
 
-- `INSPECT_QUARANTINE_MODE`: `strict` (default) | `scoped` | `off`
-- `INSPECT_QUARANTINE_INHERIT`: `1` (default) | `0`
+- Current preset: `ci` (approves all tools).
+- Alternatives:
+  - `dev`: escalates sensitive tools (e.g., `bash`, `python`, file writes) then rejects by default.
+  - `prod`: terminates sensitive tools unless explicitly allowed.
 
-## Output
+To switch, edit the task and replace `approval_preset("ci")` with `approval_preset("dev")` or `approval_preset("prod")`.
 
-- **Transcript location:** `.inspect/logs/events.jsonl`
-- Generated after each run
+## Sandbox Choices
 
-## Requirements
+- Default here is `sandbox="local"` (no Docker required). It runs each tool call in a temp working directory unique to the sample.
+- You can switch to Docker if you add a config file and set `sandbox=("docker", "compose.yaml")` (or another supported config), then ensure Docker is available.
 
-- Web search requires: `TAVILY_API_KEY` or `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY`
-- Environment-gated tools respect standard flags (exec/search/browser)
-- CI mode (`--approval ci`) enforces single-handoff exclusivity
+## Logging & Traces
+
+- Set `INSPECT_LOG_DIR` to route logs locally (repo `./logs` is a good default).
+- Set `INSPECT_TRACE_FILE` to control the trace file location (e.g., `./logs/trace.log`).
+- Console UI can be adjusted with `--display` or `INSPECT_DISPLAY`.
+
+## Troubleshooting
+
+- ProcessLookupError: “No sandbox environment has been provided …”
+  - This repo’s task sets `sandbox="local"` already. If you still see this, ensure you didn’t override the task’s sandbox with a CLI flag or external config.
+- macOS “Operation not permitted” or permission errors under `~/Library/Application Support/inspect_ai/...`:
+  - Prefer running with `INSPECT_LOG_DIR=./logs` and `INSPECT_TRACE_FILE=./logs/trace.log` and from a directory your shell can write to.
+  - Some Inspect data (e.g., sample buffer DBs) uses the OS user data directory. If your environment restricts writes there, run outside the restricted sandbox or ensure your user can write to `~/Library/Application Support/inspect_ai`.
+- Missing Python packages when the model executes code (e.g., `ModuleNotFoundError: feedparser`):
+  - Install the package in your venv (`pip install feedparser`) or allow the agent to install via an approved `bash` call.
+- Provider auth errors:
+  - Remote providers require API keys (e.g., `OPENAI_API_KEY`). For local development, prefer Ollama or LM Studio.
+
+## Advanced Flags
+
+- Time/step limits: `-T time_limit=<sec>` and `-T max_steps=<n>`
+- Enable exec tools: `-T enable_exec=true` (maps to `INSPECT_ENABLE_EXEC=1`)
+- Enable/disable think tool: `INSPECT_ENABLE_THINK=1` (default on)
+- Enable web browser (heavy; requires Playwright): `INSPECT_ENABLE_WEB_BROWSER=1` (use only with a sandbox)
+
+---
+Security: Exec and browser tools can run untrusted code. Keep them sandboxed and behind approvals in shared or production environments.
