@@ -65,3 +65,4 @@ def test_create_deep_agent_minimal_flow():
     # Verify todos updated in Store
     todos = store_as(Todos).get_todos()
     assert any(t.content == "do x" for t in todos)
+
