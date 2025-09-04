@@ -460,8 +460,12 @@ def write_todos():  # -> Tool
     return _factory()
 
 
-def update_todo_status():  # -> Tool
+def update_todo_status(*args, **kwargs):  # -> Tool or Awaitable
     """Update the status of a single todo item with validation.
+
+    Behavior:
+    - Called with no args/kwargs: returns a Tool instance (factory mode).
+    - Called with parameters: returns an awaitable executing the tool (legacy direct-call compatibility).
 
     Enforces transitions: pending->in_progress, in_progress->completed.
     Allows pending->completed only when allow_direct_complete=True.
@@ -569,7 +573,13 @@ def update_todo_status():  # -> Tool
             parameters=params,
         ).as_tool()
 
-    return _factory()
+    # Factory mode (no args): return a Tool
+    if not args and not kwargs:
+        return _factory()
+
+    # Direct-call compatibility: return the awaitable from the Tool invocation
+    tool_obj = _factory()
+    return tool_obj(*args, **kwargs)
 
 
 def ls():  # -> Tool
