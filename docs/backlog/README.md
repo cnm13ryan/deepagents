@@ -11,11 +11,20 @@ Curated index of all items under `docs/backlog/`, grouped for quick navigation. 
 
 ## Categories
 
+Note on status:
+- DONE items are retained below for traceability with pointers to code/tests.
+
+### Iteration & Limits — feature set
+- [Iterative Agent — Productive-Time Accounting (subtract provider retry/backoff)](./todo_feature_iterative_productive_time_accounting.md) — DONE.
+- [Per‑Message Token Truncation (Token‑Aware Overflow Control)](./todo_feature_pruning_token_aware.md) — DONE.
+- [Iterative Agent — Unified Global Tool‑Output Cap (explicit param + early config)](./todo_feature_iterative_tool_output_cap.md) — DONE.
+- [Iterative Agent — In‑Loop Sample Limits Enforcement (message/token soft stop)](./todo_feature_iterative_limits_enforcement.md) — DONE.
+
 ### Approvals & Handoffs (ADR‑0005) — sorted by name
-- [Apply Exclusivity in CI for the Research Runner](./todo_ci_exclusivity_research_runner.md) — overlaps with the next item; see Overlaps.
-- [Approvals Presets — Add Handoff Exclusivity by Default (dev/prod)](./todo_feature_approvals_handoff_exclusivity_default.md)
-- [Research Runner — Apply Handoff Exclusivity in CI](./todo_feature_runner_ci_exclusive.md)
-- [Transcripts — Standardized “Skipped Due to Handoff” ToolEvent](./todo_feature_transcript_skipped_tool_event.md)
+- [Apply Exclusivity in CI for the Research Runner](./todo_ci_exclusivity_research_runner.md) — DONE.
+- [Approvals Presets — Add Handoff Exclusivity by Default (dev/prod)](./todo_feature_approvals_handoff_exclusivity_default.md) — DONE.
+- [Research Runner — Apply Handoff Exclusivity in CI](./todo_feature_runner_ci_exclusive.md) — DONE.
+- [Transcripts — Standardized “Skipped Due to Handoff” ToolEvent](./todo_feature_transcript_skipped_tool_event.md) — DONE.
 
 ### Config & YAML — sorted by name
 - [Model Roles Map — Implementation Checklists](./TODO-model-roles-map.md)
@@ -28,10 +37,10 @@ Curated index of all items under `docs/backlog/`, grouped for quick navigation. 
 
 ### Iterative Agent & Pruning — sorted by name
 - [Iterative Agent — `code_only` Flag](./todo_feature_iterative_code_only.md)
-- [Iterative Agent — Env Fallbacks for Time/Steps](./todo_feature_iterative_env_fallbacks.md)
-- [Iterative Agent — Add `max_messages`](./todo_feature_iterative_max_messages.md)
+- [Iterative Agent — Env Fallbacks for Time/Steps](./todo_feature_iterative_env_fallbacks.md) — DONE.
+- [Iterative Agent — Add `max_messages`](./todo_feature_iterative_max_messages.md) — DONE.
 - [Conversation Pruning — Env Toggles + Optional Debug Log](./todo_feature_pruning_env_toggles.md)
-- [Token‑Aware Pruning (Optional)](./todo_feature_pruning_token_aware.md)
+- [Per‑Message Token Truncation (Token‑Aware Overflow Control)](./todo_feature_pruning_token_aware.md) — DONE.
 - [Iterative Task (Inspect) — `enable_web_search` Flag](./todo_feature_iterative_task_web_search_flag.md)
 
 ### Eval Logs Tooling (`scripts/read_log_eval.py`) — sorted by name

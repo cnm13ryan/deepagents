@@ -30,5 +30,4 @@ Owner
 - Eng: @you (temporary)
 
 Status
-- In progress — code + test landed; docs note pending.
-
+- DONE (2025-09-04) — code + tests landed; docs note optional.

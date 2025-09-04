@@ -47,6 +47,7 @@ uv run inspect view bundle --output-dir ./logs-www
 
 Notes
 - Inspect supports two physical formats: compact binary `eval` and `json`. The CLI reads either and emits JSON for analysis.
+ - For a ready-to-run export helper, see `scripts/README.md` (script: `scripts/export_eval_json.sh`).
 
 ---
 

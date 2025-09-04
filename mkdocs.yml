@@ -34,6 +34,7 @@ nav:
       - Sub‑agent Recipes: guides/subagents.md
       - Supervisor Limits & Observability: guides/supervisor-limits.md
       - Retries & Cache: guides/retries_cache.md
+      - Sandboxing Profiles (AISI‑aligned): guides/sandbox_profiles.md
       - Archive:
           - Stateless vs Stateful Tools (Inspect Tool Support): guides/archive/stateless-vs-stateful-tools.md
           - Stateless vs Stateful Tools — Q&A: guides/archive/stateless-vs-stateful-tools-1.md

@@ -1,5 +1,10 @@
 # TODO: Approvals Presets — Add Handoff Exclusivity by Default (dev/prod)
 
+Status: DONE (2025-09-04)
+- Implemented: `approval_preset("dev"|"prod")` returns an ordered policy chain via `approval_chain(...)` that prepends `handoff_exclusive_policy()` and the parallel kill-switch when enabled.
+  - Code: `src/inspect_agents/approval.py` (`approval_preset`, `approval_chain`, `handoff_exclusive_policy`).
+- Tests: see `tests/integration/inspect_agents/test_handoff_exclusive_end_to_end.py` and `tests/integration/inspect_agents/test_handoff_exclusivity_integration.py`.
+
 ## Context & Motivation
 - Purpose: ship safer defaults so only one sub‑agent handoff executes per assistant turn in developer and production runs.
 - Problem: `approval_preset("dev"|"prod")` doesn’t include the exclusivity approver; examples add it manually. This surprises users with multiple handoffs executing in parallel.
